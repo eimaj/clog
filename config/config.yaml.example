@@ -1,0 +1,38 @@
+# clog configuration — copy to ~/.config/clog/config.yaml and edit.
+# This file is the template; your ~/.config/clog/config.yaml is gitignored.
+
+# Where log files live. Resolved to absolute on first read.
+log_root: "${HOME}/clog-logs"
+log_subdir: "claude"
+
+# Optional auto-commit (default OFF).
+auto_commit:
+  enabled: false
+  repo_root: ""
+  message: "docs(clog): auto-commit logs"
+
+# Reports output root.
+reports_root: "${HOME}/clog-logs/reports"
+
+# Staleness reminder threshold (seconds). 0 disables.
+reminder_threshold_seconds: 900
+
+# LEARNING enums — yours to define.
+families:
+  - general
+  - skills
+  - tooling
+  - interactive
+kpis:
+  - token_waste
+  - failure
+  - prompt_gap
+  - effective
+  - format_issue
+
+# Optional agent name registry. Validation skipped if empty.
+agents: []
+
+# Optional integrations.
+integrations:
+  crrt: false
