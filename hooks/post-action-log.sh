@@ -2,7 +2,14 @@
 # post-action-log.sh — auto-append JSONL entries for git commits, PRs, pushes.
 # Runs as PostToolUse hook on Bash; exit 0 always (hook contract).
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve symlinks so SCRIPT_DIR points to the real install location
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 
 # Load config silently — this is a hook
 # shellcheck source=../lib/config.sh
