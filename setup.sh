@@ -92,6 +92,60 @@ detect_existing_install() {
   fi
 }
 
+# ── Step 1b: Check dependencies ──────────────────────────────────────────────
+
+check_dependencies() {
+  info "Checking dependencies..."
+
+  # jq is required
+  if ! command -v jq >/dev/null 2>&1; then
+    warn "jq is required but not installed."
+    if command -v brew >/dev/null 2>&1; then
+      if prompt_yn "Install jq via Homebrew?" "y"; then
+        run brew install jq
+      else
+        echo "Install jq manually: https://stedolan.github.io/jq/" >&2
+        exit 1
+      fi
+    else
+      echo "jq is required. Install it: https://stedolan.github.io/jq/" >&2
+      exit 1
+    fi
+  else
+    say "jq: $(command -v jq)"
+  fi
+
+  # gh is optional — enables gh pr create auto-logging
+  if ! command -v gh >/dev/null 2>&1; then
+    say "gh (GitHub CLI) not found — gh pr create events won't be auto-logged."
+    if command -v brew >/dev/null 2>&1; then
+      if prompt_yn "Install gh via Homebrew? (enables PR auto-logging)" "n"; then
+        run brew install gh
+      else
+        say "Skipping gh. Install later: brew install gh"
+      fi
+    else
+      say "To enable PR auto-logging, install gh: https://cli.github.com/"
+    fi
+  else
+    say "gh:  $(command -v gh)"
+  fi
+
+  # yq is optional — richer YAML parsing; falls back to grep/sed without it
+  if ! command -v yq >/dev/null 2>&1; then
+    say "yq not found — config will be parsed with grep/sed fallback (all fields still work)."
+    if command -v brew >/dev/null 2>&1; then
+      if prompt_yn "Install yq via Homebrew? (recommended)" "n"; then
+        run brew install yq
+      else
+        say "Skipping yq. Install later: brew install yq"
+      fi
+    fi
+  else
+    say "yq:  $(command -v yq)"
+  fi
+}
+
 # ── Step 2: Detect AI tools ───────────────────────────────────────────────────
 
 detect_tools() {
@@ -408,6 +462,7 @@ main() {
   echo ""
 
   detect_existing_install
+  check_dependencies
   detect_tools
   pick_paths
   write_config

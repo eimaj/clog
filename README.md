@@ -98,9 +98,6 @@ kpis:
   - format_issue
 
 agents: []
-
-integrations:
-  crrt: false
 ```
 
 **Field explanations:**
@@ -117,7 +114,6 @@ integrations:
 | `families` | `[general, skills, tooling, interactive]` | Valid values for `--family` on LEARNING entries |
 | `kpis` | `[token_waste, failure, prompt_gap, effective, format_issue]` | Valid values for `--kpi` |
 | `agents` | `[]` | Optional registry of valid agent names (empty = no validation) |
-| `integrations.crrt` | `false` | Enable `crrt complete` auto-logging in `post-action-log.sh` |
 
 **Config path override:**
 ```bash

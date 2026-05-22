@@ -34,7 +34,6 @@ In practice, rapid-fire edits, MCP mutations, and subagent dispatches slip past 
    - grep/Read findings that changed the approach → `LEARNING --kpi effective`
    - Corrections to a previously-logged claim → `LEARNING`
    - **Skip:** `git commit` / `git push` / `gh pr create` — auto-logged by `post-action-log.sh`. Missing entries here are hook issues, not clog misses.
-   - **Skip if crrt integration is disabled:** `crrt complete` entries — only auto-logged when `integrations.crrt: true` in config.
 
 3. **Diff candidates against existing entries.** Drop any already present.
 

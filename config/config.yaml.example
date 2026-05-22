@@ -32,7 +32,3 @@ kpis:
 
 # Optional agent name registry. Validation skipped if empty.
 agents: []
-
-# Optional integrations.
-integrations:
-  crrt: false

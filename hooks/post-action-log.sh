@@ -57,11 +57,6 @@ elif echo "$CMD" | grep -qE 'git[[:space:]]+push'; then
   BRANCH=$(git -C "$GIT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
   REPO_NAME=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)
   SUMMARY="pushed ${BRANCH}${REPO_NAME:+ ($REPO_NAME)}"
-elif [[ "${CLOG_INTEGRATIONS_CRRT:-false}" == "true" ]] && echo "$CMD" | grep -qE 'crrt[[:space:]]+complete'; then
-  TYPE="ACTION"
-  RESPONSE=$(echo "$INPUT" | jq -r '.tool_response.output // ""' 2>/dev/null)
-  TASK_TEXT=$(echo "$RESPONSE" | grep -oE 'Completed:.*' | head -1 | sed 's/Completed:[[:space:]]*//')
-  SUMMARY="crrt complete: ${TASK_TEXT:-$(echo "$CMD" | grep -oE 'crrt complete [^ ]+' | head -1)}"
 else
   exit 0
 fi

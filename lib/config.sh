@@ -46,7 +46,6 @@ load_config() {
   export CLOG_FAMILIES="${CLOG_FAMILIES:-}"
   export CLOG_KPIS="${CLOG_KPIS:-}"
   export CLOG_AGENTS="${CLOG_AGENTS:-}"
-  export CLOG_INTEGRATIONS_CRRT="${CLOG_INTEGRATIONS_CRRT:-false}"
 }
 
 _clog_parse_yq() {
@@ -91,10 +90,6 @@ _clog_parse_yq() {
   local agents
   agents=$(yq '.agents[]? // ""' "$cfg" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
   [[ -n "$agents" ]] && export CLOG_AGENTS="$agents"
-
-  local crrt
-  crrt=$(yq '.integrations.crrt // ""' "$cfg" 2>/dev/null)
-  [[ -n "$crrt" ]] && export CLOG_INTEGRATIONS_CRRT="$crrt"
 }
 
 _clog_parse_basic() {
@@ -134,9 +129,6 @@ _clog_parse_basic() {
   local agents
   agents=$(awk '/^agents:/,/^[a-z]/' "$cfg" 2>/dev/null | grep '^\s*-' | sed 's/.*-[[:space:]]*//' | tr '\n' ' ' | sed 's/ $//')
   [[ -n "$agents" ]] && export CLOG_AGENTS="$agents"
-
-  local crrt; crrt=$(grep -E "^\s+crrt:" "$cfg" 2>/dev/null | head -1 | sed 's/.*crrt:[[:space:]]*//' | tr -d '"')
-  [[ -n "$crrt" ]] && export CLOG_INTEGRATIONS_CRRT="$crrt"
 }
 
 _clog_expand_home() {
