@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# clog — append a JSONL log entry for AI coding sessions.
+# Usage: clog <TYPE> "<summary>" [--agent NAME] [--repo NAME] [--session ID]
+#              [--model NAME] [--file PATH] [--family FAMILY] [--kpi KPI]
+#              [--date YYYY-MM-DD]
+# Types: DECISION | ACTION | CODE | PR | COMMIT | REPO | FOLLOWUP | LEARNING
+# See config/rules.md for full type definitions and usage guidance.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Load config (loud on missing — this is bin/clog, not a hook)
+# shellcheck source=../lib/config.sh
+. "${SCRIPT_DIR}/../lib/config.sh"
+load_config || exit 1
+
+# No-op if disabled
+if [[ "${CLOG_DISABLE:-}" == "1" ]]; then
+  exit 0
+fi
+
+# Load JSONL builder
+# shellcheck source=../lib/jsonl.sh
+. "${SCRIPT_DIR}/../lib/jsonl.sh"
+
+TYPE="${1:?Usage: clog <TYPE> \"<summary>\" [--agent NAME] [--repo NAME] [--session ID] [--model NAME] [--file PATH] [--family FAMILY] [--kpi KPI] [--date YYYY-MM-DD]}"
+SUMMARY="${2:?Usage: clog <TYPE> \"<summary>\"}"
+shift 2
+
+# Parse optional flags
+AGENT=""
+REPO=""
+# Session fallback chain: Claude Code → Codex → Cursor → unknown
+SESSION="${CLAUDE_SESSION_ID:-${CODEX_SESSION_ID:-${CURSOR_SESSION_ID:-unknown}}}"
+MODEL=""
+FILE_PATH=""
+FAMILY=""
+KPI=""
+DATE_OVERRIDE=""
+VALIDATION=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --agent)   AGENT="$2";   shift 2 ;;
+    --repo)    REPO="$2";    shift 2 ;;
+    --session) SESSION="$2"; shift 2 ;;
+    --model)   MODEL="$2";   shift 2 ;;
+    --file)    FILE_PATH="$2"; shift 2 ;;
+    --family)  FAMILY="$2";  shift 2 ;;
+    --kpi)     KPI="$2";     shift 2 ;;
+    --date)    DATE_OVERRIDE="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+# Validate --family if config has families defined
+if [[ -n "$FAMILY" && -n "${CLOG_FAMILIES:-}" ]]; then
+  local_valid=false
+  for f in $CLOG_FAMILIES; do
+    [[ "$f" == "$FAMILY" ]] && local_valid=true && break
+  done
+  $local_valid || VALIDATION="unknown_family"
+fi
+
+# Validate --kpi if config has kpis defined
+if [[ -n "$KPI" && -n "${CLOG_KPIS:-}" ]]; then
+  kpi_valid=false
+  for k in $CLOG_KPIS; do
+    [[ "$k" == "$KPI" ]] && kpi_valid=true && break
+  done
+  $kpi_valid || { [[ -n "$VALIDATION" ]] && VALIDATION="unknown_family,unknown_kpi" || VALIDATION="unknown_kpi"; }
+fi
+
+# Auto-detect repo from git if not provided
+if [[ -z "$REPO" ]]; then
+  REPO=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
+fi
+
+LOG_DIR="${CLOG_LOG_ROOT}/${CLOG_LOG_SUBDIR}"
+LOG_DATE="${DATE_OVERRIDE:-$(date +%Y-%m-%d)}"
+LOG_FILE="${LOG_DIR}/${LOG_DATE//-/}.jsonl"
+mkdir -p "$LOG_DIR"
+
+# Emit clog_version once per file (first write of the day)
+CLOG_VERSION=""
+if [[ ! -f "$LOG_FILE" ]]; then
+  CLOG_VERSION="1.0"
+fi
+
+ENTRY=$(build_entry "$TYPE" "$SUMMARY" "$AGENT" "$REPO" "$SESSION" "$MODEL" "$FILE_PATH" "$FAMILY" "$KPI" "$CLOG_VERSION")
+
+# Append validation field if present
+if [[ -n "$VALIDATION" ]]; then
+  ENTRY=$(echo "$ENTRY" | jq --arg v "$VALIDATION" '. + {validation: $v}')
+fi
+
+echo "$ENTRY" >> "$LOG_FILE"
+
+# Auto-commit log if enabled
+if [[ "${CLOG_AUTO_COMMIT_ENABLED:-false}" == "true" && -n "${CLOG_AUTO_COMMIT_REPO:-}" ]]; then
+  git -C "$CLOG_AUTO_COMMIT_REPO" add "$(realpath --relative-to="$CLOG_AUTO_COMMIT_REPO" "$LOG_DIR")" 2>/dev/null
+  git -C "$CLOG_AUTO_COMMIT_REPO" commit -m "${CLOG_AUTO_COMMIT_MSG:-docs(clog): auto-commit logs}" 2>/dev/null || true
+fi
+
+exit 0
