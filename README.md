@@ -23,7 +23,7 @@ Auto-hooks catch `git commit`, `git push`, and `gh pr create` events — no manu
 ## Install
 
 ```bash
-git clone https://github.com/eimaj/clog.git ~/clog
+git clone https://github.com/your-user/clog.git ~/clog
 cd ~/clog
 ./setup.sh
 ```
