@@ -20,6 +20,13 @@ clog <TYPE> "<summary>" [--agent NAME] [--repo NAME] [--session ID] \
      [--date YYYY-MM-DD]
 ```
 
+**Finding the binary:** `clog` must be on PATH, or set `$CLOG_CLI_PATH` (written to `~/.config/clog/config.yaml` by `setup.sh`). Use whichever resolves:
+
+```bash
+CLOG="${CLOG_CLI_PATH:-clog}"
+"$CLOG" ACTION "did the thing"
+```
+
 Log file location: `<log_root>/<log_subdir>/YYYYMMDD.jsonl` as configured in `~/.config/clog/config.yaml`.
 
 ## Types

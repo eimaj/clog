@@ -176,6 +176,53 @@ detect_tools() {
   done
 }
 
+# ── Step 2b: Install CLI ──────────────────────────────────────────────────────
+
+CLI_INSTALL_PATH=""
+
+install_cli() {
+  info "Install clog CLI..."
+
+  local target="${HOME}/.local/bin/clog"
+  local bin_dir="${HOME}/.local/bin"
+
+  if ! prompt_yn "Install bin/clog to ~/.local/bin/clog? (lets skills call clog directly)" "y"; then
+    say "Skipping CLI install. Skills will fall back to inline bash logging."
+    say "To install later: ln -sf ${SCRIPT_DIR}/bin/clog ${target}"
+    return 0
+  fi
+
+  run mkdir -p "$bin_dir"
+
+  if [[ -L "$target" ]]; then
+    run ln -sf "${SCRIPT_DIR}/bin/clog" "$target"
+    say "Updated symlink: $target -> ${SCRIPT_DIR}/bin/clog"
+  elif [[ -f "$target" ]]; then
+    if prompt_yn "${target} exists (not a symlink). Overwrite?" "n"; then
+      run mv "$target" "${target}.pre-clog-pkg.bak"
+      say "Backed up: ${target}.pre-clog-pkg.bak"
+      run ln -sf "${SCRIPT_DIR}/bin/clog" "$target"
+      say "Symlinked: $target -> ${SCRIPT_DIR}/bin/clog"
+    else
+      say "Skipping — existing file kept."
+      return 0
+    fi
+  else
+    run ln -sf "${SCRIPT_DIR}/bin/clog" "$target"
+    say "Symlinked: $target -> ${SCRIPT_DIR}/bin/clog"
+  fi
+
+  if [[ "$DRY_RUN" == "false" ]]; then
+    CLI_INSTALL_PATH="$target"
+  fi
+
+  # Warn if ~/.local/bin is not on PATH
+  if [[ ":${PATH}:" != *":${bin_dir}:"* ]]; then
+    warn "~/.local/bin is not on your PATH. Add to ~/.zshrc or ~/.bashrc:"
+    echo "    export PATH=\"\${HOME}/.local/bin:\$PATH\""
+  fi
+}
+
 # ── Step 3: Pick log_root and reports_root ────────────────────────────────────
 
 pick_paths() {
@@ -222,6 +269,7 @@ write_config() {
     sed \
       -e "s|\${HOME}/clog-logs|${LOG_ROOT}|g" \
       -e "s|${HOME}/clog-logs/reports|${REPORTS_ROOT}|g" \
+      -e "s|cli_path: \"\"|cli_path: \"${CLI_INSTALL_PATH}\"|g" \
       "${SCRIPT_DIR}/config/config.yaml.example" > "$config_path"
     say "Written: $config_path"
   else
@@ -464,6 +512,7 @@ main() {
   detect_existing_install
   check_dependencies
   detect_tools
+  install_cli
   pick_paths
   write_config
   wire_tools

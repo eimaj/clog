@@ -32,3 +32,8 @@ kpis:
 
 # Optional agent name registry. Validation skipped if empty.
 agents: []
+
+# Path to the clog binary. Set by setup.sh when you choose to install the CLI.
+# Skills use this as a fallback when clog is not on PATH.
+# Leave empty if you manage PATH yourself.
+cli_path: ""

@@ -46,6 +46,7 @@ load_config() {
   export CLOG_FAMILIES="${CLOG_FAMILIES:-}"
   export CLOG_KPIS="${CLOG_KPIS:-}"
   export CLOG_AGENTS="${CLOG_AGENTS:-}"
+  export CLOG_CLI_PATH="${CLOG_CLI_PATH:-}"
 }
 
 _clog_parse_yq() {
@@ -90,6 +91,10 @@ _clog_parse_yq() {
   local agents
   agents=$(yq '.agents[]? // ""' "$cfg" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
   [[ -n "$agents" ]] && export CLOG_AGENTS="$agents"
+
+  local cli_path
+  cli_path=$(yq '.cli_path // ""' "$cfg" 2>/dev/null | _clog_expand_home)
+  [[ -n "$cli_path" ]] && export CLOG_CLI_PATH="$cli_path"
 }
 
 _clog_parse_basic() {
@@ -129,6 +134,9 @@ _clog_parse_basic() {
   local agents
   agents=$(awk '/^agents:/,/^[a-z]/' "$cfg" 2>/dev/null | grep '^\s*-' | sed 's/.*-[[:space:]]*//' | tr '\n' ' ' | sed 's/ $//')
   [[ -n "$agents" ]] && export CLOG_AGENTS="$agents"
+
+  local cli_path; cli_path=$(_read_flat cli_path)
+  [[ -n "$cli_path" ]] && export CLOG_CLI_PATH="$cli_path"
 }
 
 _clog_expand_home() {
