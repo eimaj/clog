@@ -1,0 +1,5 @@
+config.yaml
+*.local.*
+test-output/
+*.bak
+.DS_Store
