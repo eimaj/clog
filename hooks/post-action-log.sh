@@ -77,7 +77,7 @@ if [[ -n "$CLOG_BIN_RESOLVED" && -x "$CLOG_BIN_RESOLVED" ]]; then
   if [[ -n "$COMMIT_ARG" && -f "$LOG_FILE" ]]; then
     # Patch last line to add commit field
     local_last=$(tail -1 "$LOG_FILE")
-    patched=$(echo "$local_last" | jq --arg c "$COMMIT_ARG" '. + {commit: $c}' 2>/dev/null)
+    patched=$(echo "$local_last" | jq -c --arg c "$COMMIT_ARG" '. + {commit: $c}' 2>/dev/null)
     if [[ -n "$patched" ]]; then
       # Replace last line
       tmp_file="${LOG_FILE}.tmp"

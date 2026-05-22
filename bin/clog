@@ -91,7 +91,7 @@ ENTRY=$(build_entry "$TYPE" "$SUMMARY" "$AGENT" "$REPO" "$SESSION" "$MODEL" "$FI
 
 # Append validation field if present
 if [[ -n "$VALIDATION" ]]; then
-  ENTRY=$(echo "$ENTRY" | jq --arg v "$VALIDATION" '. + {validation: $v}')
+  ENTRY=$(echo "$ENTRY" | jq -c --arg v "$VALIDATION" '. + {validation: $v}')
 fi
 
 echo "$ENTRY" >> "$LOG_FILE"

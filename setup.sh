@@ -52,7 +52,7 @@ prompt_yn() {
   [[ "$default" == "y" ]] && prompt="[Y/n]" || prompt="[y/N]"
   read -r -p "  ${msg} ${prompt}: " ans
   ans="${ans:-$default}"
-  [[ "${ans,,}" == "y" ]]
+  case "$ans" in [Yy]*) return 0 ;; *) return 1 ;; esac
 }
 
 prompt_val() {
