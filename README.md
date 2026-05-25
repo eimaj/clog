@@ -22,7 +22,7 @@ Auto-hooks catch `git commit`, `git push`, and `gh pr create` events. Five retro
 
 ## But... why?
 
-AI coding sessions are amnesia in fast-forward. The model autocompacts, you `/clear`, you context-switch, the IDE crashes — and the reasoning behind the last three hours evaporates. The diff stays, but the _why_ doesn't. Worse, the small judgement calls — "we picked yq over jq because of the macOS install story", "this skill misfired because the trigger was too generic", "the hook silently swallowed the error" — never make it into git history at all.
+My AI coding sessions are amnesia in fast-forward. The model autocompacts, you `/clear`, you context-switch, the IDE crashes — and the reasoning behind the last three hours evaporates. The diff stays, but the _why_ doesn't. Worse, the small judgement calls — "we picked yq over jq because of the macOS install story", "this skill misfired because the trigger was too generic", "the hook silently swallowed the error" — never make it into git history at all.
 
 `clog` is a discipline, not a tool. The tool is about a hundred lines of bash. The discipline is: when something meaningful happens, you write one line about it before the next thing happens. Three things fall out of that:
 
