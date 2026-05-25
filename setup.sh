@@ -297,7 +297,7 @@ wire_claude_code() {
   run mkdir -p "$hooks_dir"
 
   # Back up and symlink hooks
-  for hook in post-action-log.sh post-log-reminder.sh; do
+  for hook in post-action-log.sh post-log-reminder.sh post-edit-log-check.sh; do
     local src="${SCRIPT_DIR}/hooks/${hook}"
     local dst="${hooks_dir}/${hook}"
     if [[ -f "$dst" && ! -L "$dst" ]]; then
@@ -364,10 +364,15 @@ register_claude_hooks() {
 
   if [[ "$DRY_RUN" == "true" ]]; then
     say "[dry-run] Would register post-action-log.sh and post-log-reminder.sh in PostToolUse>Bash"
+    say "[dry-run] Would register post-edit-log-check.sh in PostToolUse>Edit/Write/MultiEdit/NotebookEdit"
     return 0
   fi
 
-  # Check if hooks already present
+  local hook_action_log="${HOME}/.claude/hooks/post-action-log.sh"
+  local hook_log_reminder="${HOME}/.claude/hooks/post-log-reminder.sh"
+  local hook_edit_check="${HOME}/.claude/hooks/post-edit-log-check.sh"
+
+  # Step A: register Bash hooks (post-action-log + post-log-reminder)
   local action_log_registered
   action_log_registered=$(jq -r '
     .hooks.PostToolUse // [] |
@@ -378,38 +383,60 @@ register_claude_hooks() {
   ' "$SETTINGS_JSON" 2>/dev/null || echo "0")
 
   if [[ "$action_log_registered" -gt "0" ]]; then
-    say "post-action-log.sh already registered — skipping."
+    say "post-action-log.sh already registered — skipping Bash hooks."
+  else
+    local tmp_settings="${SETTINGS_JSON}.clog-setup.tmp"
+    jq --arg al "$hook_action_log" --arg lr "$hook_log_reminder" '
+      .hooks.PostToolUse = (
+        .hooks.PostToolUse // [] |
+        map(
+          if .matcher == "Bash" then
+            .hooks = (.hooks // []) + [
+              {"type": "command", "command": $al},
+              {"type": "command", "command": $lr}
+            ]
+          else . end
+        )
+      ) |
+      if ([.hooks.PostToolUse[] | select(.matcher == "Bash")] | length) == 0 then
+        .hooks.PostToolUse += [{"matcher": "Bash", "hooks": [
+          {"type": "command", "command": $al},
+          {"type": "command", "command": $lr}
+        ]}]
+      else . end
+    ' "$SETTINGS_JSON" > "$tmp_settings" && mv "$tmp_settings" "$SETTINGS_JSON"
+    say "Registered post-action-log.sh and post-log-reminder.sh in PostToolUse > Bash"
+  fi
+
+  # Step B: register post-edit-log-check.sh on Edit/Write/MultiEdit/NotebookEdit
+  local edit_check_registered
+  edit_check_registered=$(jq -r '
+    [.hooks.PostToolUse // [] | .[] | (.hooks // [])[] | select(.command | test("post-edit-log-check"))] | length
+  ' "$SETTINGS_JSON" 2>/dev/null || echo "0")
+
+  if [[ "$edit_check_registered" -gt "0" ]]; then
+    say "post-edit-log-check.sh already registered — skipping edit hooks."
     return 0
   fi
 
-  # Build the two hook entries to add
-  local hook_action_log="${HOME}/.claude/hooks/post-action-log.sh"
-  local hook_log_reminder="${HOME}/.claude/hooks/post-log-reminder.sh"
+  local tmp_settings2="${SETTINGS_JSON}.clog-setup.tmp"
+  jq --arg ec "$hook_edit_check" '
+    reduce ("Edit", "Write", "MultiEdit", "NotebookEdit") as $m (.;
+      if ([.hooks.PostToolUse[]? | select(.matcher == $m)] | length) > 0 then
+        .hooks.PostToolUse = (.hooks.PostToolUse | map(
+          if .matcher == $m then
+            .hooks = (.hooks // []) + [{"type": "command", "command": $ec}]
+          else . end
+        ))
+      else
+        .hooks.PostToolUse = (.hooks.PostToolUse // []) + [
+          {"matcher": $m, "hooks": [{"type": "command", "command": $ec}]}
+        ]
+      end
+    )
+  ' "$SETTINGS_JSON" > "$tmp_settings2" && mv "$tmp_settings2" "$SETTINGS_JSON"
 
-  # Use jq to add hooks into PostToolUse > Bash hooks array
-  local tmp_settings="${SETTINGS_JSON}.clog-setup.tmp"
-  jq --arg al "$hook_action_log" --arg lr "$hook_log_reminder" '
-    .hooks.PostToolUse = (
-      .hooks.PostToolUse // [] |
-      map(
-        if .matcher == "Bash" then
-          .hooks = (.hooks // []) + [
-            {"type": "command", "command": $al},
-            {"type": "command", "command": $lr}
-          ]
-        else . end
-      )
-    ) |
-    # If no Bash PostToolUse matcher existed, add one
-    if ([.hooks.PostToolUse[] | select(.matcher == "Bash")] | length) == 0 then
-      .hooks.PostToolUse += [{"matcher": "Bash", "hooks": [
-        {"type": "command", "command": $al},
-        {"type": "command", "command": $lr}
-      ]}]
-    else . end
-  ' "$SETTINGS_JSON" > "$tmp_settings" && mv "$tmp_settings" "$SETTINGS_JSON"
-
-  say "Registered post-action-log.sh and post-log-reminder.sh in PostToolUse > Bash"
+  say "Registered post-edit-log-check.sh in PostToolUse > Edit/Write/MultiEdit/NotebookEdit"
 }
 
 wire_codex() {
