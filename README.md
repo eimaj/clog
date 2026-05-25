@@ -12,11 +12,14 @@ Structured JSONL session logging for AI coding tools. Drop it into Claude Code, 
 {"time":"14:32:01","type":"DECISION","summary":"use yq with grep/sed fallback — avoids mandatory dep","repo":"my-repo","session":"abc123"}
 {"time":"14:33:15","type":"CODE","summary":"add session fallback chain in bin/clog","file":"bin/clog","repo":"my-repo"}
 {"time":"14:45:00","type":"LEARNING","summary":"rapid-fire edit chain — checkpoint deferred at each pause","family":"interactive","kpi":"failure"}
+{"time":"14:50:22","type":"LEARNING","summary":"skill misfire","family":"unknown","kpi":"failure","validation":"unknown_family"}
 ```
+
+The `validation` field is appended when `--family` or `--kpi` values don't match those declared in your config — entries are never rejected, only flagged so retros can surface drift.
 
 Nine entry types (`ACTION`, `DECISION`, `CODE`, `PR`, `COMMIT`, `REPO`, `FOLLOWUP`, `LEARNING`, `LESSON`) cover every meaningful event in a session. The log is append-only, plain text, and readable with any JSON tool.
 
-Auto-hooks catch `git commit`, `git push`, and `gh pr create` events. Five retro skills turn the raw log into reports and improvement proposals (see [The five retro skills](#the-five-retro-skills) below).
+Auto-hooks catch `git commit`, `git push`, and `gh pr create` events. Retro skills turn the raw log into reports and improvement proposals.
 
 ---
 
@@ -24,10 +27,10 @@ Auto-hooks catch `git commit`, `git push`, and `gh pr create` events. Five retro
 
 My AI coding sessions are amnesia in fast-forward. The model autocompacts, you `/clear`, you context-switch, the IDE crashes — and the reasoning behind the last three hours evaporates. The diff stays, but the _why_ doesn't. Worse, the small judgement calls — "we picked yq over jq because of the macOS install story", "this skill misfired because the trigger was too generic", "the hook silently swallowed the error" — never make it into git history at all.
 
-`clog` is a discipline, not a tool. The tool is about a hundred lines of bash. The discipline is: when something meaningful happens, you write one line about it before the next thing happens. Three things fall out of that:
+`clog` is a discipline, not a tool. The tool is a thin bash CLI plus a handful of hooks and skills. The discipline is: when something meaningful happens — a decision is resolved, a file is edited, an agent is dispatched — you write one line about it before moving on to the next action. Three things fall out of that:
 
 - **Sessions become resumable.** Tomorrow-you (or a fresh agent) reads today's log and knows what was tried, what stuck, and what to avoid. No "let me re-derive the context" tax.
-- **Retros become cheap.** `clog-lessons` reads a week of `LEARNING` entries, clusters them by `family` + `kpi`, and proposes concrete skill edits as diffs. The model that improves your prompts is reading data you already produced as a side effect of working.
+- **Retros become cheap.** `clog-lessons` reads a week of `LEARNING` entries, clusters them by `family` + `kpi`, and proposes concrete edits to your `CLAUDE.md` and `~/.claude/skills/` files as diffs (never auto-applied). The system that improves your prompts is reading data you already produced as a side effect of working.
 - **Agents stop lying to themselves.** A subagent that returns "✅ logged the action" hasn't logged anything in _your_ session. The `clog-gaps` skill catches that gap explicitly. The Ledger persona prevents it inline.
 
 The schema is intentionally simple: timestamp, type, summary, a handful of optional tags. Nothing to migrate. Nothing to host. One JSONL file per day, append-only, readable by `jq`, `grep`, `tail -f`, or your eyes. If you stop using clog tomorrow, you still own every entry you ever wrote.
@@ -39,7 +42,7 @@ Cost: one bash call per logged event (≈0 LLM tokens) and the cognitive overhea
 ## Install
 
 ```bash
-git clone https://github.com/your-user/clog.git ~/clog
+git clone https://github.com/eimaj/clog.git ~/clog
 cd ~/clog
 ./setup.sh
 ```
@@ -195,7 +198,9 @@ clog-gaps → clog-it → clog-lessons → clog-week
 
 ## Proactive logging
 
-### Ledger persona
+Two complementary layers, both optional:
+
+### Ledger persona (recommended)
 
 Add the `persona/PERSONA.md` fragment to your `CLAUDE.md` to make any session proactively log-aware:
 
@@ -203,11 +208,11 @@ Add the `persona/PERSONA.md` fragment to your `CLAUDE.md` to make any session pr
 cat persona/PERSONA.md >> ~/.claude/CLAUDE.md
 ```
 
-The setup installer will offer to do this. Ledger watches every tool call and flags unlogged state-changes inline — no retroactive sweep needed.
+The setup installer offers to do this for you. Ledger watches every tool call and flags unlogged state-changes inline — no retroactive sweep needed.
 
-### clog-keeper agent
+### clog-keeper agent (optional, manual)
 
-After a burst of work, dispatch `clog-keeper` as a subagent — load `agents/clog-keeper.md` as its system prompt (or use your tool's equivalent subagent invocation). It scans the last N tool calls, diffs against the JSONL, and proposes exact `clog` commands for any gaps — with paired LEARNINGs naming why each was missed.
+After a burst of work, dispatch `clog-keeper` as a subagent. Load `agents/clog-keeper.md` as the system prompt (or use your tool's equivalent subagent invocation — there is no automatic registration today). It scans the last N tool calls, diffs against the JSONL, and proposes exact `clog` commands for any gaps, paired with LEARNINGs naming why each was missed.
 
 ---
 
@@ -215,12 +220,12 @@ After a burst of work, dispatch `clog-keeper` as a subagent — load `agents/clo
 
 See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for tool-specific details.
 
-| Tool        | Hooks              | Skills | Notes                            |
-| ----------- | ------------------ | ------ | -------------------------------- |
-| Claude Code | Full (PostToolUse) | Yes    | Hooks auto-register via setup.sh |
-| Codex       | No                 | Yes    | No hooks API exposed yet         |
-| Cursor      | No                 | Yes    | No hooks API exposed yet         |
-| OpenCode    | No                 | Yes    | No hooks API exposed yet         |
+| Tool        | Hooks                                                              | Skills | Notes                            |
+| ----------- | ------------------------------------------------------------------ | ------ | -------------------------------- |
+| Claude Code | Full — `PostToolUse` auto-logs commits/pushes/PRs + staleness warn | Yes    | Hooks auto-register via setup.sh |
+| Codex       | No                                                                 | Yes    | No hooks API exposed yet         |
+| Cursor      | No                                                                 | Yes    | No hooks API exposed yet         |
+| OpenCode    | No                                                                 | Yes    | No hooks API exposed yet         |
 
 ---
 
