@@ -3,7 +3,7 @@
 # Usage: clog <TYPE> "<summary>" [--agent NAME] [--repo NAME] [--session ID]
 #              [--model NAME] [--file PATH] [--family FAMILY] [--kpi KPI]
 #              [--date YYYY-MM-DD]
-# Types: DECISION | ACTION | CODE | PR | COMMIT | REPO | FOLLOWUP | LEARNING
+# Types: DECISION | ACTION | CODE | PR | COMMIT | REPO | FOLLOWUP | LEARNING | LESSON
 # See config/rules.md for full type definitions and usage guidance.
 set -euo pipefail
 

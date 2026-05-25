@@ -40,7 +40,8 @@ Log file location: `<log_root>/<log_subdir>/YYYYMMDD.jsonl` as configured in `~/
 | `COMMIT` | Git commit landed (auto-logged by `post-action-log.sh`) |
 | `REPO` | Repo-level event: git init, clone, archive |
 | `FOLLOWUP` | Something to revisit: anomaly noticed, deferred decision, open question |
-| `LEARNING` | Finding that changes future behavior: prompt gap, pattern named, correction |
+| `LEARNING` | Finding that changes future behavior: prompt gap, pattern named, correction (agent meta-feedback) |
+| `LESSON` | Concept the user learned through deliberate study: idiom understood, pattern recognized. Use during structured learning. |
 
 ## `--family` values (LEARNING only)
 
@@ -75,6 +76,7 @@ clog DECISION "use yq with grep/sed fallback — avoids mandatory dep"
 clog CODE "add session fallback chain in bin/clog" --file bin/clog
 clog LEARNING "rapid-fire edit chain — checkpoint deferred until end" \
      --family interactive --kpi failure
+clog LESSON "Go interfaces are structural — implementation is implicit, no 'implements' keyword"
 clog FOLLOWUP "investigate whether Cursor exposes hooks API"
 ```
 
