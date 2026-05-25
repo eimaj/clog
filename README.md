@@ -14,7 +14,7 @@ Structured JSONL session logging for AI coding tools. Drop it into Claude Code, 
 {"time":"14:45:00","type":"LEARNING","summary":"rapid-fire edit chain — checkpoint deferred at each pause","family":"interactive","kpi":"failure"}
 ```
 
-Eight entry types (`ACTION`, `DECISION`, `CODE`, `PR`, `COMMIT`, `REPO`, `FOLLOWUP`, `LEARNING`) cover every meaningful event in a session. The log is append-only, plain text, and readable with any JSON tool.
+Nine entry types (`ACTION`, `DECISION`, `CODE`, `PR`, `COMMIT`, `REPO`, `FOLLOWUP`, `LEARNING`, `LESSON`) cover every meaningful event in a session. The log is append-only, plain text, and readable with any JSON tool.
 
 Auto-hooks catch `git commit`, `git push`, and `gh pr create` events. Five retro skills turn the raw log into reports and improvement proposals (see [The five retro skills](#the-five-retro-skills) below).
 

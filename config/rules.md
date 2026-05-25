@@ -15,9 +15,12 @@ Single source of truth for **when** to log, **what** type to use, and **what** a
 | `COMMIT` | A git commit landed (auto-logged by `post-action-log.sh`) |
 | `REPO` | Repo-level events: git init, new repo cloned, repo archived |
 | `FOLLOWUP` | Something to revisit: discovered anomaly, deferred decision, open question, known debt |
-| `LEARNING` | A finding that changes future behavior: prompt gap discovered, pattern identified, correction to prior claim |
+| `LEARNING` | A finding that changes future behavior: prompt gap discovered, pattern identified, correction to prior claim (reserved for **agent** meta-feedback) |
+| `LESSON` | A concept the **user** learned through deliberate study or practice: idiom understood, pattern recognized, doc that clicked. Use during structured learning (courses, tutorials, deliberate reps). |
 
 **Rule**: when uncertain between ACTION and DECISION, ask: "did this produce an artifact or change external state?" → ACTION. "Did this resolve a tradeoff?" → DECISION.
+
+**Rule**: LEARNING vs LESSON — LEARNING is about how *the agent* should behave differently next time (prompt gaps, skill edits, retros). LESSON is about what *the user* now knows that they didn't before. Never collapse the two.
 
 ---
 
@@ -30,6 +33,7 @@ Log **immediately** after:
 - **Post-tradeoff**: any planning choice between two approaches → `DECISION`
 - **Post-correction**: any claim you made earlier that turned out to be wrong → `LEARNING` (log the correction before the fix, not after)
 - **Post-discovery**: a grep or Read finding that changes the implementation approach → `LEARNING --kpi effective`
+- **Post-study**: a concept understood during deliberate learning (a chapter completed, an idiom internalized, a doc that finally clicked) → `LESSON`
 - **Pre-reply**: before every user-facing reply after a state-changing tool call — name the ACTION or LEARNING in one sentence and log it
 
 **Do not batch.** Each event gets its own log line, in real time.
@@ -44,6 +48,7 @@ Log **immediately** after:
 - Use imperative voice for CODE/ACTION: "add", "fix", "remove", "dispatch", "commit".
 - For DECISION: include the option chosen and why: "use yq with grep/sed fallback — avoids mandatory yq dep".
 - For LEARNING: name the *pattern*, not the symptom: "rapid-fire edit chain — checkpoint deferred until end" beats "forgot to log".
+- For LESSON: name the *concept* in the user's own words, ideally tied to an analogue they already know: "Go interfaces are structural, not nominal — like TS `interface` but without `implements`" beats "learned interfaces".
 
 ### `--kpi` selection (LEARNING entries)
 
