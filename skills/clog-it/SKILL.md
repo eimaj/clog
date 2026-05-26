@@ -24,6 +24,19 @@ It also drives the meta-improvement loop: each miss yields a `LEARNING` that nam
 
 This skill **delegates the scan to a subagent** so the parent context stays clean. The subagent reads the transcript and today's log directly, diffs them, and returns a tight punch list of `clog` commands. The parent sees only the final list, saving ~3–5K tokens per sweep on long sessions.
 
+## Prerequisites — long sessions
+
+> **If the session is longer than ~30 minutes, run `/compact` before invoking this skill.**
+
+The scout subagent reads the full transcript. A long session transcript can push the subagent over its own context limit, producing:
+```
+Context limit reached · /compact or /clear to continue
+```
+
+Fix: run `/compact` in the parent session first, then re-invoke `/clog-it`. Compaction shrinks the visible transcript without losing log entries.
+
+If `/compact` is not practical mid-task, use the `--since` workaround: narrow the scout prompt to only scan after a cutoff time (e.g. "scan only tool calls after 12:04"). Pass this as an explicit instruction in Step 2's prompt — the scout will skip the bulk of the transcript and return only the tail's misses.
+
 ## Steps
 
 1. **Resolve paths.** Compute:
