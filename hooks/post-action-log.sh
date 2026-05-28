@@ -88,7 +88,7 @@ if [[ -n "$CLOG_BIN_RESOLVED" && -x "$CLOG_BIN_RESOLVED" ]]; then
     if [[ -n "$patched" ]]; then
       # Replace last line
       tmp_file="${LOG_FILE}.tmp"
-      head -n -1 "$LOG_FILE" > "$tmp_file" 2>/dev/null || true
+      sed '$d' "$LOG_FILE" > "$tmp_file" 2>/dev/null || true
       echo "$patched" >> "$tmp_file"
       mv "$tmp_file" "$LOG_FILE"
     fi
