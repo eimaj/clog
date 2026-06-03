@@ -180,12 +180,12 @@ export CLOG_DISABLE=1   # silence all logging (CI, automated contexts)
 
 Install into Claude Code and invoke by name:
 
-| Skill          | Trigger                                     | Output                                                                                                 |
-| -------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `clog-sweep`   | "clog it" / "clog gaps" / "check my log"   | Two modes: **backfill** (finds misses, proposes + auto-applies + paired LEARNINGs) and **audit-only** (gaps report, no backfill) |
-| `clog-day`     | "clog day [date]"                           | Daily markdown report grouped by type                                                                  |
-| `clog-week`    | "clog week [date]"                          | Weekly aggregation: velocity, top decisions, learnings by cluster                                      |
-| `clog-lessons` | "clog lessons"                              | Reads LEARNING entries, clusters by family+kpi, proposes skill edits as **diffs** (never auto-applies) |
+| Skill          | Output                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| `clog-sweep`   | Two modes: **backfill** (finds misses, auto-applies + paired LEARNINGs) and **audit-only** (gaps report, no backfill) |
+| `clog-day`     | Daily markdown report grouped by type                                                                  |
+| `clog-week`    | Weekly aggregation: velocity, top decisions, learnings by cluster                                      |
+| `clog-lessons` | Reads LEARNING entries, clusters by family+kpi, proposes skill edits as **diffs** (never auto-applies) |
 
 A typical Friday flow:
 
