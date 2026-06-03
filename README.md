@@ -139,8 +139,6 @@ kpis:
   - effective
   - format_issue
 
-agents: []
-
 cli_path: ""
 ```
 
@@ -157,7 +155,6 @@ cli_path: ""
 | `reminder_threshold_seconds` | `900`                                                         | Seconds of inactivity before staleness warning (0 = off)       |
 | `families`                   | `[general, skills, tooling, interactive]`                     | Valid values for `--family` on LEARNING entries                |
 | `kpis`                       | `[token_waste, failure, prompt_gap, effective, format_issue]` | Valid values for `--kpi`                                       |
-| `agents`                     | `[]`                                                          | Optional registry of valid agent names (empty = no validation) |
 | `cli_path`                   | `""`                                                          | Path to the `clog` binary, set by `setup.sh`; skills use this as a fallback when `clog` is not on PATH |
 
 **Config path override:**
