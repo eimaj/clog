@@ -63,7 +63,7 @@ The installer detects which AI coding tools are present, lets you select which t
 
 ---
 
-## Migrating from a previous install
+### Migrating from a previous install
 
 If you have an existing `~/.claude/hooks/clog.sh`:
 
