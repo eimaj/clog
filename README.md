@@ -31,7 +31,7 @@ My AI coding sessions are amnesia in fast-forward. The model autocompacts, you `
 
 - **Sessions become resumable.** Tomorrow-you (or a fresh agent) reads today's log and knows what was tried, what stuck, and what to avoid. No "let me re-derive the context" tax.
 - **Retros become cheap.** `clog-lessons` reads a week of `LEARNING` entries, clusters them by `family` + `kpi`, and proposes concrete edits to your `CLAUDE.md` and `~/.claude/skills/` files as diffs (never auto-applied). The system that improves your prompts is reading data you already produced as a side effect of working.
-- **Agents stop lying to themselves.** A subagent that returns "✅ logged the action" hasn't logged anything in _your_ session. The `clog-gaps` skill catches that gap explicitly. The Ledger persona prevents it inline.
+- **Agents stop lying to themselves.** A subagent that returns "✅ logged the action" hasn't logged anything in _your_ session. The `clog-sweep` skill catches that gap explicitly. The Ledger persona prevents it inline.
 
 The schema is intentionally simple: timestamp, type, summary, a handful of optional tags. Nothing to migrate. Nothing to host. One JSONL file per day, append-only, readable by `jq`, `grep`, `tail -f`, or your eyes. If you stop using clog tomorrow, you still own every entry you ever wrote.
 
@@ -180,18 +180,17 @@ export CLOG_DISABLE=1   # silence all logging (CI, automated contexts)
 
 Install into Claude Code and invoke by name:
 
-| Skill          | Trigger               | Output                                                                                                 |
-| -------------- | --------------------- | ------------------------------------------------------------------------------------------------------ |
-| `clog-it`      | "clog it", "backfill" | Retroactive sweep — finds unlogged state-changes, proposes backfill + paired LEARNINGs                 |
-| `clog-day`     | "clog day [date]"     | Daily markdown report grouped by type                                                                  |
-| `clog-week`    | "clog week [date]"    | Weekly aggregation: velocity, top decisions, learnings by cluster                                      |
-| `clog-lessons` | "clog lessons"        | Reads LEARNING entries, clusters by family+kpi, proposes skill edits as **diffs** (never auto-applies) |
-| `clog-gaps`    | "clog gaps [date]"    | Scans transcript + JSONL for unlogged actions, missing `--kpi`, vague summaries                        |
+| Skill          | Trigger                                     | Output                                                                                                 |
+| -------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `clog-sweep`   | "clog it" / "clog gaps" / "check my log"   | Two modes: **backfill** (finds misses, proposes + auto-applies + paired LEARNINGs) and **audit-only** (gaps report, no backfill) |
+| `clog-day`     | "clog day [date]"                           | Daily markdown report grouped by type                                                                  |
+| `clog-week`    | "clog week [date]"                          | Weekly aggregation: velocity, top decisions, learnings by cluster                                      |
+| `clog-lessons` | "clog lessons"                              | Reads LEARNING entries, clusters by family+kpi, proposes skill edits as **diffs** (never auto-applies) |
 
 A typical Friday flow:
 
 ```
-clog-gaps → clog-it → clog-lessons → clog-week
+clog-sweep (audit) → clog-sweep (backfill) → clog-lessons → clog-week
 ```
 
 ---
