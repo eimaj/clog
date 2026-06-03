@@ -13,6 +13,7 @@ model: haiku
 **Use when:** the user says any of:
 - "clog it", "/clog-it", "backfill clogs", "I missed some clogs" → **[backfill mode](#mode-b--backfill)**
 - "clog gaps", "check my log", "find missing entries", "audit my log", or at EOD wrap start → **[audit-only mode](#mode-a--audit-only)**
+- "clog it --approval-only", "check before backfilling", "show what you'd log first" → **[approval mode](#mode-b--backfill)** (scout runs, shows punch list, waits for confirmation before executing)
 - You notice mid-session that state-changing actions were never logged → **backfill mode**
 
 **Do not use when:** logging a single named event the user just described — use [`clog`](../clog/SKILL.md) directly.
@@ -90,6 +91,11 @@ Use when: "clog gaps", "check my log", "find missing entries", "audit my log", o
 Use when: "clog it", "backfill clogs", "I missed some clogs", or you notice mid-session gaps.
 
 ### Steps
+
+> **Approval mode:** if the trigger was "clog it --approval-only" or "check before backfilling",
+> run Steps 1–2 as normal, then **stop and show the punch list to the user before executing**.
+> Do not run the bash block until the user replies with "go", "yes", "apply", or similar.
+> Once confirmed, continue with Step 3 as normal.
 
 1. **Resolve paths.** Compute:
    - **Session transcript** (Claude Code): `$HOME/.claude/projects/$(pwd | sed 's|/|-|g')/${CLAUDE_SESSION_ID}.jsonl`. Other tools encode the path differently — see your tool's docs.
