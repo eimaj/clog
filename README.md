@@ -4,7 +4,7 @@ Structured JSONL session logging for AI coding tools. Drop it into Claude Code, 
 
 ---
 
-## What it does
+## 📋 What it does
 
 `clog` appends a single JSON line to a daily `.jsonl` file every time you or an agent logs something:
 
@@ -23,7 +23,7 @@ Auto-hooks catch `git commit`, `git push`, and `gh pr create` events. Retro skil
 
 ---
 
-## But... why?
+## 🤔 But... why?
 
 My AI coding sessions are amnesia in fast-forward. The model autocompacts, you `/clear`, you context-switch, the IDE crashes — and the reasoning behind the last three hours evaporates. The diff stays, but the _why_ doesn't. Worse, the small judgement calls — "we picked yq over jq because of the macOS install story", "this skill misfired because the trigger was too generic", "the hook silently swallowed the error" — never make it into git history at all.
 
@@ -39,7 +39,7 @@ Cost: one bash call per logged event (≈0 LLM tokens) and the cognitive overhea
 
 ---
 
-## Install
+## 🚀 Install
 
 ```bash
 git clone https://github.com/eimaj/clog.git ~/clog
@@ -63,7 +63,7 @@ The installer detects which AI coding tools are present, lets you select which t
 
 ---
 
-### Migrating from a previous install
+### 🔄 Migrating from a previous install
 
 If you have an existing `~/.claude/hooks/clog.sh`:
 
@@ -84,7 +84,7 @@ Your existing log files are never deleted or moved unless you explicitly confirm
 
 ---
 
-## Quick start
+## ⚡ Quick start
 
 ```bash
 # Log an action
@@ -111,7 +111,7 @@ For the full type table, `--family`, and `--kpi` reference, see [skills/clog/SKI
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
 If you ran `setup.sh`, this file already exists at `~/.config/clog/config.yaml`. To write it manually or review the schema, copy `config/config.yaml.example`:
 
@@ -176,7 +176,7 @@ export CLOG_DISABLE=1   # silence all logging (CI, automated contexts)
 
 ---
 
-## The five retro skills
+## 🔁 The four retro skills
 
 Install into Claude Code and invoke by name:
 
@@ -195,11 +195,11 @@ clog-sweep (audit) → clog-sweep (backfill) → clog-lessons → clog-week
 
 ---
 
-## Proactive logging
+## 🔍 Proactive logging
 
 Two complementary layers, both optional:
 
-### Ledger persona (recommended)
+### 🧾 Ledger persona (recommended)
 
 Add the `persona/PERSONA.md` fragment to your `CLAUDE.md` to make any session proactively log-aware:
 
@@ -211,26 +211,26 @@ The setup installer offers to do this for you. Ledger watches every tool call an
 
 ---
 
-## Per-tool integration
+## 🔌 Per-tool integration
 
 See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for tool-specific details.
 
 | Tool        | Hooks                                                              | Skills | Notes                            |
 | ----------- | ------------------------------------------------------------------ | ------ | -------------------------------- |
-| Claude Code | Full — `PostToolUse` auto-logs commits/pushes/PRs + staleness warn | Yes    | Hooks auto-register via setup.sh |
+| Claude Code | Full — 3 `PostToolUse` hooks: auto-logs commits/pushes/PRs, edit-log checks, staleness warn | Yes    | Hooks auto-register via setup.sh |
 | Codex       | No                                                                 | Yes    | No hooks API exposed yet         |
 | Cursor      | No                                                                 | Yes    | No hooks API exposed yet         |
 | OpenCode    | No                                                                 | Yes    | No hooks API exposed yet         |
 
 ---
 
-## Schema reference
+## 📐 Schema reference
 
 See [docs/SCHEMA.md](docs/SCHEMA.md) for the full JSONL field reference and example entries.
 
 ---
 
-## FAQ
+## ❓ FAQ
 
 **Why is auto-commit off by default?**
 Auto-committing every log entry creates noisy git history. If you want auto-commit, point `auto_commit.repo_root` at a dedicated notes repo (not your project repo) and enable it. The `docs(clog): auto-commit logs` message keeps it identifiable and filterable.
