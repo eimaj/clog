@@ -4,7 +4,7 @@ Structured JSONL session logging for AI coding tools. Drop it into Claude Code, 
 
 ---
 
-## 📋 What it does
+## 🕵️ What it does
 
 `clog` appends a single JSON line to a daily `.jsonl` file every time you or an agent logs something:
 
@@ -63,7 +63,7 @@ The installer detects which AI coding tools are present, lets you select which t
 
 ---
 
-### 🔄 Migrating from a previous install
+### 🤝 Migrating from a previous install
 
 If you have an existing `~/.claude/hooks/clog.sh`:
 
@@ -176,7 +176,7 @@ export CLOG_DISABLE=1   # silence all logging (CI, automated contexts)
 
 ---
 
-## 🔁 The four retro skills
+## 🛠️ The four retro skills
 
 Install into Claude Code and invoke by name:
 
@@ -195,11 +195,11 @@ clog-sweep (audit) → clog-sweep (backfill) → clog-lessons → clog-week
 
 ---
 
-## 🔍 Proactive logging
+## 🪵 Proactive logging
 
 Two complementary layers, both optional:
 
-### 🧾 Ledger persona (recommended)
+### 💁 Ledger persona (recommended)
 
 Add the `persona/PERSONA.md` fragment to your `CLAUDE.md` to make any session proactively log-aware:
 
