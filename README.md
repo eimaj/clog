@@ -88,7 +88,7 @@ Your existing log files are never deleted or moved unless you explicitly confirm
 
 ```bash
 # Log an action
-clog ACTION "dispatch clog-keeper after planning burst"
+clog ACTION "dispatch orchestrator for phase 2 planning"
 
 # Log a decision
 clog DECISION "use yq with grep/sed fallback — avoids mandatory dep"
@@ -208,10 +208,6 @@ cat persona/PERSONA.md >> ~/.claude/CLAUDE.md
 ```
 
 The setup installer offers to do this for you. Ledger watches every tool call and flags unlogged state-changes inline — no retroactive sweep needed.
-
-### clog-keeper agent (optional, manual)
-
-After a burst of work, dispatch `clog-keeper` as a subagent. Load `agents/clog-keeper.md` as the system prompt (or use your tool's equivalent subagent invocation — there is no automatic registration today). It scans the last N tool calls, diffs against the JSONL, and proposes exact `clog` commands for any gaps, paired with LEARNINGs naming why each was missed.
 
 ---
 
