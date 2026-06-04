@@ -173,7 +173,7 @@ export CLOG_DISABLE=1   # silence all logging (CI, automated contexts)
 
 ---
 
-## 🛠️ The four retro skills
+## 🛠️ The retro skills
 
 Install into Claude Code and invoke by name:
 
