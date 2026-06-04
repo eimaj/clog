@@ -183,6 +183,8 @@ Install into Claude Code and invoke by name:
 | `clog-day`     | Daily markdown report grouped by type                                                                  |
 | `clog-week`    | Weekly aggregation: velocity, top decisions, learnings by cluster                                      |
 | `clog-lessons` | Reads LEARNING entries, clusters by family+kpi, proposes skill edits as **diffs** (never auto-applies) |
+| `clog-replay`  | Reconstruct a prompt from past JSONL log entries — guided search, cluster context, fill-in-the-blanks prompt reconstruction |
+| `clog-search`  | Search historical JSONL logs by date, keyword, repo, or type — jq-driven, produces a formatted markdown report |
 
 A typical Friday flow:
 
