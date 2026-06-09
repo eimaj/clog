@@ -216,7 +216,7 @@ See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for tool-specific details.
 
 | Tool        | Hooks                                                              | Skills | Notes                            |
 | ----------- | ------------------------------------------------------------------ | ------ | -------------------------------- |
-| Claude Code | Full — 3 `PostToolUse` hooks: auto-logs commits/pushes/PRs, edit-log checks, staleness warn | Yes    | Hooks auto-register via setup.sh |
+| Claude Code | Full — 4 `PostToolUse` hooks: auto-logs commits/pushes/PRs, edit-log checks, staleness warn on Bash + Agent dispatch | Yes    | Hooks auto-register via setup.sh |
 | Codex       | No                                                                 | Yes    | No hooks API exposed yet         |
 | Cursor      | No                                                                 | Yes    | No hooks API exposed yet         |
 | OpenCode    | No                                                                 | Yes    | No hooks API exposed yet         |

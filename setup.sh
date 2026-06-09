@@ -365,6 +365,7 @@ register_claude_hooks() {
   if [[ "$DRY_RUN" == "true" ]]; then
     say "[dry-run] Would register post-action-log.sh and post-log-reminder.sh in PostToolUse>Bash"
     say "[dry-run] Would register post-edit-log-check.sh in PostToolUse>Edit/Write/MultiEdit/NotebookEdit"
+    say "[dry-run] Would register post-log-reminder.sh in PostToolUse>Agent"
     return 0
   fi
 
@@ -437,6 +438,34 @@ register_claude_hooks() {
   ' "$SETTINGS_JSON" > "$tmp_settings2" && mv "$tmp_settings2" "$SETTINGS_JSON"
 
   say "Registered post-edit-log-check.sh in PostToolUse > Edit/Write/MultiEdit/NotebookEdit"
+
+  # Step C: register post-log-reminder.sh on Agent
+  local agent_reminder_registered
+  agent_reminder_registered=$(jq -r '
+    [.hooks.PostToolUse // [] | .[] | select(.matcher == "Agent") | (.hooks // [])[] | select(.command | test("post-log-reminder"))] | length
+  ' "$SETTINGS_JSON" 2>/dev/null || echo "0")
+
+  if [[ "$agent_reminder_registered" -gt "0" ]]; then
+    say "post-log-reminder.sh already registered on Agent — skipping."
+    return 0
+  fi
+
+  local tmp_settings3="${SETTINGS_JSON}.clog-setup.tmp"
+  jq --arg lr "$hook_log_reminder" '
+    if ([.hooks.PostToolUse[]? | select(.matcher == "Agent")] | length) > 0 then
+      .hooks.PostToolUse = (.hooks.PostToolUse | map(
+        if .matcher == "Agent" then
+          .hooks = (.hooks // []) + [{"type": "command", "command": $lr}]
+        else . end
+      ))
+    else
+      .hooks.PostToolUse = (.hooks.PostToolUse // []) + [
+        {"matcher": "Agent", "hooks": [{"type": "command", "command": $lr}]}
+      ]
+    end
+  ' "$SETTINGS_JSON" > "$tmp_settings3" && mv "$tmp_settings3" "$SETTINGS_JSON"
+
+  say "Registered post-log-reminder.sh in PostToolUse > Agent"
 }
 
 wire_codex() {
