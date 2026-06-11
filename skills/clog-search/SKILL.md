@@ -32,8 +32,8 @@ model: haiku
 - A formatted markdown report at `${AI_NOTES_DIR:-$HOME/Code/_notes}/reports/clog-search/YYYY-MM-DD-<keyword-slug>.local.md`
 - A clog ACTION entry recording the search
 
-> Last Reviewed: 2026-06-04
-> Refresh Rule: re-review if log schema gains new fields or the log root path changes
+> Last Reviewed: 2026-06-11
+> Refresh Rule: re-review if log schema gains new fields, or if config keys `log_root`/`log_subdir` in `~/.config/clog/config.yaml` are renamed.
 
 ## Steps
 
