@@ -29,7 +29,7 @@ model: haiku
 - Entry type filter (optional — defaults to all types)
 
 **Outputs:**
-- A formatted markdown report at `~/Code/_notes/reports/clog-search/YYYY-MM-DD-<keyword-slug>.local.md`
+- A formatted markdown report at `${AI_NOTES_DIR:-$HOME/Code/_notes}/reports/clog-search/YYYY-MM-DD-<keyword-slug>.local.md`
 - A clog ACTION entry recording the search
 
 > Last Reviewed: 2026-06-04
@@ -39,9 +39,17 @@ model: haiku
 
 ### Step 1 — Clarifying questions
 
+Resolve the log directory from config first (run once; reuse `$LOG_DIR` in all subsequent steps):
+```bash
+_cfg="${CLOG_CONFIG:-$HOME/.config/clog/config.yaml}"
+_root=$(grep '^log_root:' "$_cfg" 2>/dev/null | sed 's/log_root:[[:space:]]*//' | tr -d '"' | sed "s|\${HOME}|$HOME|;s|^~|$HOME|")
+_sub=$(grep '^log_subdir:' "$_cfg" 2>/dev/null | sed 's/log_subdir:[[:space:]]*//' | tr -d '"')
+LOG_DIR="${_root:-$HOME/Code/logs}/${_sub:-claude}"
+```
+
 Clog immediately upon skill invocation, before asking the user anything:
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-search: skill invoked — prompting user for date range, repo, keyword, and type filter"
+clog ACTION "clog-search: skill invoked — prompting user for date range, repo, keyword, and type filter"
 ```
 
 Ask all four questions before running anything. Do not assume defaults.
@@ -55,12 +63,12 @@ d. Type filter:  "Only certain entry types? (e.g. CODE, DECISION, LEARNING — o
 
 Translate the date range to a list of `YYYYMMDD.jsonl` filenames:
 ```bash
-ls ~/Code/logs/claude/ | grep -E '^[0-9]{8}\.jsonl$' | sort
+ls $LOG_DIR/ | grep -E '^[0-9]{8}\.jsonl$' | sort
 ```
 
 Clog immediately after collecting answers, filling in actual values — no placeholders. Do this BEFORE proceeding to Step 2:
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-search: scope confirmed — range=<range> repo=<repo|all> keyword='<keyword|none>' types=<types|all>"
+clog ACTION "clog-search: scope confirmed — range=<range> repo=<repo|all> keyword='<keyword|none>' types=<types|all>"
 # Example: "clog-search: scope confirmed — range=May20-27 repo=tn-mono keyword='everflow' types=CODE,DECISION"
 ```
 
@@ -68,7 +76,7 @@ Clog immediately after collecting answers, filling in actual values — no place
 
 Clog the decision to build the jq command before constructing it — fill in actual values:
 ```bash
-~/.claude/hooks/clog.sh DECISION "clog-search: building jq command — keyword='<keyword>' types=<types|all> repo=<repo|unscoped> files=<N files>"
+clog DECISION "clog-search: building jq command — keyword='<keyword>' types=<types|all> repo=<repo|unscoped> files=<N files>"
 # Example: "clog-search: building jq command — keyword='everflow' types=CODE,DECISION repo=tn-mono files=8 files"
 ```
 
@@ -79,30 +87,30 @@ jq -c 'select(
   (.summary | test("everflow";"i")) and
   (.type == "CODE" or .type == "DECISION")
 )' \
-  ~/Code/logs/claude/20260520.jsonl \
-  ~/Code/logs/claude/20260521.jsonl \
-  ~/Code/logs/claude/20260522.jsonl
+  $LOG_DIR/20260520.jsonl \
+  $LOG_DIR/20260521.jsonl \
+  $LOG_DIR/20260522.jsonl
 ```
 
 Example with repo filter only (no keyword):
 
 ```bash
 jq -c 'select(.repo == "tn-mono")' \
-  ~/Code/logs/claude/20260528.jsonl \
-  ~/Code/logs/claude/20260529.jsonl
+  $LOG_DIR/20260528.jsonl \
+  $LOG_DIR/20260529.jsonl
 ```
 
 Example with keyword only, all types, multi-week range:
 
 ```bash
 jq -c 'select(.summary | test("playwright";"i"))' \
-  ~/Code/logs/claude/2026052*.jsonl \
-  ~/Code/logs/claude/2026060*.jsonl
+  $LOG_DIR/2026052*.jsonl \
+  $LOG_DIR/2026060*.jsonl
 ```
 
 Clog before showing the command to the user:
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-search: jq command ready — showing to user for confirmation before running"
+clog ACTION "clog-search: jq command ready — showing to user for confirmation before running"
 ```
 
 Ask: "Does this look right? (y to run, or tell me how to adjust the filter)"
@@ -118,7 +126,7 @@ Execute the confirmed shell command. Count results:
 **If 0 results:**
 - Clog the miss BEFORE suggesting the next attempt:
   ```bash
-  ~/.claude/hooks/clog.sh ACTION "clog-search: 0 results for keyword=<keyword> in <range> — broadening filter to <next attempt>"
+  clog ACTION "clog-search: 0 results for keyword=<keyword> in <range> — broadening filter to <next attempt>"
   ```
 - Suggest removing the type filter first
 - Then suggest broadening the keyword (e.g. partial match, different casing)
@@ -131,13 +139,13 @@ Execute the confirmed shell command. Count results:
 - Print: "N results — consider narrowing. Suggested filter: `<revised command>`"
 - Clog the volume warning with the specific count and narrowing suggestion:
   ```bash
-  ~/.claude/hooks/clog.sh ACTION "clog-search: N results for '<keyword>' — too broad, suggesting add type filter [CODE,DECISION] or narrow date to <suggestion>"
+  clog ACTION "clog-search: N results for '<keyword>' — too broad, suggesting add type filter [CODE,DECISION] or narrow date to <suggestion>"
   # Example: "clog-search: 143 results for 'playwright' — too broad, suggesting add type filter [CODE,DECISION] or narrow date to May20-24"
   ```
 
 **If 1–100 results:** proceed to Step 4. Clog immediately, naming types seen:
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-search: N entries found for '<keyword>' in <range> — types: X CODE / Y DECISION / Z LEARNING — proceeding to format"
+clog ACTION "clog-search: N entries found for '<keyword>' in <range> — types: X CODE / Y DECISION / Z LEARNING — proceeding to format"
 # Example: "clog-search: 14 entries found for 'everflow' in May20-27 — types: 6 CODE / 3 DECISION / 2 LEARNING — proceeding to format"
 ```
 
@@ -145,14 +153,14 @@ Execute the confirmed shell command. Count results:
 
 **If fewer than 30 entries:** clog before formatting, then format inline:
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-search: formatting N entries inline — no subagent needed"
+clog ACTION "clog-search: formatting N entries inline — no subagent needed"
 ```
 
 **If 30 or more entries:** clog before dispatching, then pass raw jq output to a subagent:
 
 Clog the dispatch before calling the subagent — name the sections:
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-search: N entries — dispatching subagent to format report sections (What Was Done / How / Lessons / Followups)"
+clog ACTION "clog-search: N entries — dispatching subagent to format report sections (What Was Done / How / Lessons / Followups)"
 # Example: "clog-search: 47 entries — dispatching subagent to format report sections (What Was Done / How / Lessons / Followups)"
 ```
 
@@ -211,12 +219,12 @@ Report format (used for both inline and subagent output):
 
 2. Ensure the report directory exists and write the file. Clog BEFORE writing:
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-search: writing report to ~/Code/_notes/reports/clog-search/<slug>.local.md — N entries, keyword='<keyword>'"
-# Example: "clog-search: writing report to ~/Code/_notes/reports/clog-search/2026-06-04-everflow.local.md — 14 entries, keyword='everflow'"
+clog ACTION "clog-search: writing report to ${AI_NOTES_DIR:-$HOME/Code/_notes}/reports/clog-search/<slug>.local.md — N entries, keyword='<keyword>'"
+# Example: "clog-search: writing report to ${AI_NOTES_DIR:-$HOME/Code/_notes}/reports/clog-search/2026-06-04-everflow.local.md — 14 entries, keyword='everflow'"
 ```
 
 ```bash
-mkdir -p ~/Code/_notes/reports/clog-search
+mkdir -p ${AI_NOTES_DIR:-$HOME/Code/_notes}/reports/clog-search
 ```
 
 3. Print the path and open it:
@@ -226,10 +234,10 @@ code "$REPORT_PATH"
 
 4. Clog completion — be specific about what was found, not just that a search ran:
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-search: report written — <keyword> in <range>, N entries, <X CODE / Y DECISION / Z LEARNING>, agents: <list or none>"
+clog ACTION "clog-search: report written — <keyword> in <range>, N entries, <X CODE / Y DECISION / Z LEARNING>, agents: <list or none>"
 # Example: "clog-search: report written — everflow in May20-27, 14 entries, 6 CODE / 3 DECISION / 2 LEARNING, agents: orchestrate dev-sa"
 
-~/.claude/hooks/clog.sh FOLLOWUP "clog-search: <any unresolved question surfaced — e.g. 'AD-4831 followup still open as of May23'>"
+clog FOLLOWUP "clog-search: <any unresolved question surfaced — e.g. 'AD-4831 followup still open as of May23'>"
 # Only emit FOLLOWUP if the search surfaces an open thread worth tracking
 ```
 

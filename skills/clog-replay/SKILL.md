@@ -28,8 +28,8 @@ model: sonnet
 - A fenced `## Replay Prompt` block in Persona + Context + Task structure, ready to paste into Claude Code
 - Optionally: the name of the target skill to invoke it against
 
-> **Last Reviewed:** 2026-06-04
-> **Refresh Rule:** Re-review if log schema gains new required fields, or if the daily log path changes from `~/Code/logs/claude/YYYYMMDD.jsonl`.
+> **Last Reviewed:** 2026-06-11
+> **Refresh Rule:** Re-review if log schema gains new required fields, or if the config keys `log_root`/`log_subdir` in `~/.config/clog/config.yaml` are renamed.
 
 ---
 
@@ -40,7 +40,7 @@ model: sonnet
 Before asking, log that the skill has been invoked:
 
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-replay: skill invoked — prompting user for date range, repo, and keyword hints"
+clog ACTION "clog-replay: skill invoked — prompting user for date range, repo, and keyword hints"
 ```
 
 Ask the user the following questions (all in one message — do not split into separate turns):
@@ -54,16 +54,24 @@ Wait for all three answers before proceeding.
 After collecting all three answers, log the collected hints (substitute actual values):
 
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-replay: hints collected — range=<range> repo=<repo|unspecified> keyword=<keywords>"
+clog ACTION "clog-replay: hints collected — range=<range> repo=<repo|unspecified> keyword=<keywords>"
 ```
 
 ---
 
 ### Step 2 — Build and run the jq search
 
+Resolve the log directory from config first (run once; reuse `$LOG_DIR` in all subsequent steps):
+```bash
+_cfg="${CLOG_CONFIG:-$HOME/.config/clog/config.yaml}"
+_root=$(grep '^log_root:' "$_cfg" 2>/dev/null | sed 's/log_root:[[:space:]]*//' | tr -d '"' | sed "s|\${HOME}|$HOME|;s|^~|$HOME|")
+_sub=$(grep '^log_subdir:' "$_cfg" 2>/dev/null | sed 's/log_subdir:[[:space:]]*//' | tr -d '"')
+LOG_DIR="${_root:-$HOME/Code/logs}/${_sub:-claude}"
+```
+
 From the user's answers:
 
-1. **Resolve the file glob.** Daily logs live at `~/Code/logs/claude/YYYYMMDD.jsonl`. Map the date range to a shell glob:
+1. **Resolve the file glob.** Daily logs live at `$LOG_DIR/YYYYMMDD.jsonl`. Map the date range to a shell glob:
    - "yesterday" → `$(date -v-1d +%Y%m%d).jsonl`
    - "last week" → `202506*.jsonl` (or a tighter range if you can infer it)
    - "around May 20th" → `20250518.jsonl 20250519.jsonl 20250520.jsonl 20250521.jsonl 20250522.jsonl`
@@ -72,47 +80,47 @@ From the user's answers:
 2. **Build the jq filter.** Before building, log the filter decision:
 
    ```bash
-   ~/.claude/hooks/clog.sh DECISION "clog-replay: building jq filter — keyword='<keyword>' repo=<repo|unscoped> date-files=<file-glob>"
+   clog DECISION "clog-replay: building jq filter — keyword='<keyword>' repo=<repo|unscoped> date-files=<file-glob>"
    ```
 
    Always filter on `.summary` prose. Optionally add `.repo` and `.agent` if the user provided them. Use case-insensitive regex:
 
    ```bash
    jq -c 'select(.summary | test("KEYWORD"; "i"))' \
-     ~/Code/logs/claude/YYYYMMDD*.jsonl \
+     $LOG_DIR/YYYYMMDD*.jsonl \
      | head -30
    ```
 
    Multi-keyword example (AND):
    ```bash
    jq -c 'select((.summary | test("cmp"; "i")) and (.summary | test("playwright"; "i")))' \
-     ~/Code/logs/claude/202505*.jsonl \
+     $LOG_DIR/202505*.jsonl \
      | head -30
    ```
 
    With repo filter:
    ```bash
    jq -c 'select((.repo == "tn-mono") and (.summary | test("migration"; "i")))' \
-     ~/Code/logs/claude/202506*.jsonl \
+     $LOG_DIR/202506*.jsonl \
      | head -30
    ```
 
 3. **Show the command to the user before running.** Say: "Here's the search command — let me know if you want to adjust anything before I run it." Log before running:
 
    ```bash
-   ~/.claude/hooks/clog.sh ACTION "clog-replay: running search — command shown to user, awaiting confirmation"
+   clog ACTION "clog-replay: running search — command shown to user, awaiting confirmation"
    ```
 
    Then run it. After results return, log the outcome (substitute actual count):
 
    ```bash
-   ~/.claude/hooks/clog.sh ACTION "clog-replay: search returned N entries — proceeding to candidate list"
+   clog ACTION "clog-replay: search returned N entries — proceeding to candidate list"
    ```
 
 4. If the search returns 0 results, log before broadening:
 
    ```bash
-   ~/.claude/hooks/clog.sh ACTION "clog-replay: 0 results for '<keyword>' in <range> — broadening: <what change was made>"
+   clog ACTION "clog-replay: 0 results for '<keyword>' in <range> — broadening: <what change was made>"
    ```
 
    Then broaden by: removing the repo filter, widening the date range by ±3 days, or splitting compound keywords. Tell the user what you're doing.
@@ -124,7 +132,7 @@ From the user's answers:
 Before presenting, log the candidate count and provenance:
 
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-replay: presenting N candidates to user — [TYPE] entries from <date> in <repo>"
+clog ACTION "clog-replay: presenting N candidates to user — [TYPE] entries from <date> in <repo>"
 ```
 
 Show the filtered entries as a numbered list. Format each line as:
@@ -145,7 +153,7 @@ Then ask: "Which of these looks like what you want to replay? Pick a number, or 
 After the user picks, log the selection before proceeding:
 
 ```bash
-~/.claude/hooks/clog.sh DECISION "clog-replay: user selected entry N — [TYPE HH:MM repo] '<summary excerpt>'"
+clog DECISION "clog-replay: user selected entry N — [TYPE HH:MM repo] '<summary excerpt>'"
 ```
 
 ---
@@ -158,13 +166,13 @@ Once the user picks an entry:
 2. Before fetching context, log the operation:
 
    ```bash
-   ~/.claude/hooks/clog.sh ACTION "clog-replay: fetching ±5 context entries around <HH:MM:SS> in <YYYYMMDD>.jsonl"
+   clog ACTION "clog-replay: fetching ±5 context entries around <HH:MM:SS> in <YYYYMMDD>.jsonl"
    ```
 
 3. Fetch ±5 entries by time proximity from the same file:
 
    ```bash
-   jq -c '.' ~/Code/logs/claude/YYYYMMDD.jsonl \
+   jq -c '.' $LOG_DIR/YYYYMMDD.jsonl \
      | awk -v target="HH:MM:SS" '
          { lines[NR] = $0 }
          $0 ~ target { center = NR }
@@ -181,7 +189,7 @@ Once the user picks an entry:
 4. After the cluster is built, log its shape:
 
    ```bash
-   ~/.claude/hooks/clog.sh ACTION "clog-replay: cluster built — N entries, <HH:MM>–<HH:MM>, types: <list>"
+   clog ACTION "clog-replay: cluster built — N entries, <HH:MM>–<HH:MM>, types: <list>"
    ```
 
 5. Display the cluster as a numbered list in the same `[TYPE] [HH:MM] [repo] summary` format, with the chosen entry highlighted (e.g. `→ 3. [CODE] ...`).
@@ -193,7 +201,7 @@ Once the user picks an entry:
    After user confirms, log the decision to proceed:
 
    ```bash
-   ~/.claude/hooks/clog.sh DECISION "clog-replay: cluster confirmed by user — proceeding to prompt reconstruction"
+   clog DECISION "clog-replay: cluster confirmed by user — proceeding to prompt reconstruction"
    ```
 
 ---
@@ -203,7 +211,7 @@ Once the user picks an entry:
 Before extracting fields, log the reconstruction start:
 
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-replay: reconstructing prompt from cluster — extracting skill/agent, repo, what-was-done, artifacts"
+clog ACTION "clog-replay: reconstructing prompt from cluster — extracting skill/agent, repo, what-was-done, artifacts"
 ```
 
 From the confirmed cluster, extract the following fields:
@@ -239,7 +247,7 @@ Draft a prompt in the following structure:
 After extracting, log what was found and what is missing (substitute actual values):
 
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-replay: extracted — agent=<value|unknown> repo=<value|unknown> artifacts=<list|none> gaps=<N missing fields>"
+clog ACTION "clog-replay: extracted — agent=<value|unknown> repo=<value|unknown> artifacts=<list|none> gaps=<N missing fields>"
 ```
 
 Mark any unknowns explicitly with `[FILL IN: ...]` rather than inventing values.
@@ -253,7 +261,7 @@ For each `[FILL IN: ...]` marker in the reconstructed prompt, ask the user ONE q
 Before asking each gap question, log that the gap has been surfaced:
 
 ```bash
-~/.claude/hooks/clog.sh DECISION "clog-replay: gap surfaced — missing '<field>' — asking user"
+clog DECISION "clog-replay: gap surfaced — missing '<field>' — asking user"
 ```
 
 Examples:
@@ -264,7 +272,7 @@ Examples:
 After each user answer, log the resolved value immediately before updating the draft:
 
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-replay: gap resolved — '<field>' = '<user answer>'"
+clog ACTION "clog-replay: gap resolved — '<field>' = '<user answer>'"
 ```
 
 Then update the draft prompt and check for remaining gaps. Repeat until all `[FILL IN: ...]` markers are resolved or the user says to proceed anyway.
@@ -276,7 +284,7 @@ Then update the draft prompt and check for remaining gaps. Repeat until all `[FI
 Before outputting the final prompt, log that reconstruction is complete:
 
 ```bash
-~/.claude/hooks/clog.sh ACTION "clog-replay: prompt reconstruction complete — N gaps filled, skill=<name|unknown>, delivering replay prompt"
+clog ACTION "clog-replay: prompt reconstruction complete — N gaps filled, skill=<name|unknown>, delivering replay prompt"
 ```
 
 Output the final prompt as a fenced code block under the heading `## Replay Prompt`.
