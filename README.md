@@ -223,6 +223,37 @@ See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for tool-specific details.
 
 ---
 
+## 🪣 Cowork (sandboxed sessions)
+
+Cowork runs in an isolated Linux VM where your Mac's `~/Code/clog`, `~/Code/logs`, and `~/.config/clog` appear as mounted folders under `/sessions/<session>/mnt/`. The paths don't match what `clog` expects, so bootstrap symlinks before the first log call.
+
+**One-time per task** — connect these three folders to your Cowork project, then run:
+
+```bash
+bash /sessions/*/mnt/clog/bin/cowork-bootstrap.sh
+```
+
+The script resolves the mount root from its own location, verifies the `logs` and config mounts are present, and creates:
+
+| Symlink | Points to |
+|---|---|
+| `~/.local/bin/clog` | `<mnt>/clog/bin/clog` |
+| `~/Code/clog` | `<mnt>/clog` |
+| `~/Code/logs` | `<mnt>/logs` |
+| `~/.config/clog` | `<mnt>/.config--clog` or `<mnt>/clog-config` |
+
+After bootstrap, invoke `clog` exactly as on your Mac — the binary is on `PATH` and reads the same `~/.config/clog/config.yaml`. The script is idempotent.
+
+**Required connected folders:**
+
+| Folder | Purpose |
+|---|---|
+| `~/Code/clog` | The clog repo (binary + libs) |
+| `~/Code/logs` | Log root where JSONL files are written |
+| `~/.config/clog` | Config file (`config.yaml`) |
+
+---
+
 ## 📐 Schema reference
 
 See [docs/SCHEMA.md](docs/SCHEMA.md) for the full JSONL field reference and example entries.
