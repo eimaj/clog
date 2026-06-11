@@ -10,7 +10,7 @@ model: haiku
 
 **Use when:** the user says "clog this", "log this", "log a decision/action/PR", or asks you to record an event manually.
 **Also used as:** the canonical reference for `clog` types, flags, and usage guidance — other skills point here instead of duplicating the interface docs.
-**Do not use when:** the user is asking about the log contents (use `cat ~/Code/_notes/logs/claude/YYYYMMDD.jsonl` directly), or doing a retroactive sweep for missed entries (use [`clog-sweep`](../clog-sweep/SKILL.md)).
+**Do not use when:** the user is asking about the log contents (use `cat ~/Code/logs/claude/YYYYMMDD.jsonl` directly), or doing a retroactive sweep for missed entries (use [`clog-sweep`](../clog-sweep/SKILL.md)).
 
 ## Type / flag reference
 
@@ -51,7 +51,7 @@ clog ACTION "Merged release branch" --repo textnow-web-mono --date 2026-04-10
 
 ## What gets logged
 
-Each entry is a JSONL line written to `~/Code/_notes/logs/claude/YYYYMMDD.jsonl` and auto-committed to the `_notes` repo.
+Each entry is a JSONL line written to `~/Code/logs/claude/YYYYMMDD.jsonl` and auto-committed to the `_notes` repo.
 
 ## Signal Keywords
 <!-- Comma-separated terms the skills collector uses to attribute learnings to this skill -->

@@ -55,7 +55,7 @@ d. Type filter:  "Only certain entry types? (e.g. CODE, DECISION, LEARNING — o
 
 Translate the date range to a list of `YYYYMMDD.jsonl` filenames:
 ```bash
-ls ~/Code/_notes/logs/claude/ | grep -E '^[0-9]{8}\.jsonl$' | sort
+ls ~/Code/logs/claude/ | grep -E '^[0-9]{8}\.jsonl$' | sort
 ```
 
 Clog immediately after collecting answers, filling in actual values — no placeholders. Do this BEFORE proceeding to Step 2:
@@ -79,25 +79,25 @@ jq -c 'select(
   (.summary | test("everflow";"i")) and
   (.type == "CODE" or .type == "DECISION")
 )' \
-  ~/Code/_notes/logs/claude/20260520.jsonl \
-  ~/Code/_notes/logs/claude/20260521.jsonl \
-  ~/Code/_notes/logs/claude/20260522.jsonl
+  ~/Code/logs/claude/20260520.jsonl \
+  ~/Code/logs/claude/20260521.jsonl \
+  ~/Code/logs/claude/20260522.jsonl
 ```
 
 Example with repo filter only (no keyword):
 
 ```bash
 jq -c 'select(.repo == "tn-mono")' \
-  ~/Code/_notes/logs/claude/20260528.jsonl \
-  ~/Code/_notes/logs/claude/20260529.jsonl
+  ~/Code/logs/claude/20260528.jsonl \
+  ~/Code/logs/claude/20260529.jsonl
 ```
 
 Example with keyword only, all types, multi-week range:
 
 ```bash
 jq -c 'select(.summary | test("playwright";"i"))' \
-  ~/Code/_notes/logs/claude/2026052*.jsonl \
-  ~/Code/_notes/logs/claude/2026060*.jsonl
+  ~/Code/logs/claude/2026052*.jsonl \
+  ~/Code/logs/claude/2026060*.jsonl
 ```
 
 Clog before showing the command to the user:

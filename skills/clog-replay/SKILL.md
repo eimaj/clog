@@ -29,7 +29,7 @@ model: sonnet
 - Optionally: the name of the target skill to invoke it against
 
 > **Last Reviewed:** 2026-06-04
-> **Refresh Rule:** Re-review if log schema gains new required fields, or if the daily log path changes from `~/Code/_notes/logs/claude/YYYYMMDD.jsonl`.
+> **Refresh Rule:** Re-review if log schema gains new required fields, or if the daily log path changes from `~/Code/logs/claude/YYYYMMDD.jsonl`.
 
 ---
 
@@ -63,7 +63,7 @@ After collecting all three answers, log the collected hints (substitute actual v
 
 From the user's answers:
 
-1. **Resolve the file glob.** Daily logs live at `~/Code/_notes/logs/claude/YYYYMMDD.jsonl`. Map the date range to a shell glob:
+1. **Resolve the file glob.** Daily logs live at `~/Code/logs/claude/YYYYMMDD.jsonl`. Map the date range to a shell glob:
    - "yesterday" → `$(date -v-1d +%Y%m%d).jsonl`
    - "last week" → `202506*.jsonl` (or a tighter range if you can infer it)
    - "around May 20th" → `20250518.jsonl 20250519.jsonl 20250520.jsonl 20250521.jsonl 20250522.jsonl`
@@ -79,21 +79,21 @@ From the user's answers:
 
    ```bash
    jq -c 'select(.summary | test("KEYWORD"; "i"))' \
-     ~/Code/_notes/logs/claude/YYYYMMDD*.jsonl \
+     ~/Code/logs/claude/YYYYMMDD*.jsonl \
      | head -30
    ```
 
    Multi-keyword example (AND):
    ```bash
    jq -c 'select((.summary | test("cmp"; "i")) and (.summary | test("playwright"; "i")))' \
-     ~/Code/_notes/logs/claude/202505*.jsonl \
+     ~/Code/logs/claude/202505*.jsonl \
      | head -30
    ```
 
    With repo filter:
    ```bash
    jq -c 'select((.repo == "tn-mono") and (.summary | test("migration"; "i")))' \
-     ~/Code/_notes/logs/claude/202506*.jsonl \
+     ~/Code/logs/claude/202506*.jsonl \
      | head -30
    ```
 
@@ -164,7 +164,7 @@ Once the user picks an entry:
 3. Fetch ±5 entries by time proximity from the same file:
 
    ```bash
-   jq -c '.' ~/Code/_notes/logs/claude/YYYYMMDD.jsonl \
+   jq -c '.' ~/Code/logs/claude/YYYYMMDD.jsonl \
      | awk -v target="HH:MM:SS" '
          { lines[NR] = $0 }
          $0 ~ target { center = NR }
