@@ -38,7 +38,7 @@ shift 2
 AGENT=""
 REPO=""
 # Session fallback chain: Claude Code → Codex → Cursor → unknown
-SESSION="${CLAUDE_SESSION_ID:-${CODEX_SESSION_ID:-${CURSOR_SESSION_ID:-unknown}}}"
+SESSION="${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-${CODEX_SESSION_ID:-${CURSOR_SESSION_ID:-unknown}}}}"
 MODEL=""
 FILE_PATH=""
 FAMILY=""
