@@ -9,7 +9,7 @@ Each log entry is a single JSON object on one line in the daily `.jsonl` file at
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `time` | string | yes | `HH:MM:SS` — wall-clock time of the entry |
-| `type` | string | yes | One of: `ACTION`, `DECISION`, `CODE`, `PR`, `COMMIT`, `REPO`, `FOLLOWUP`, `LEARNING` |
+| `type` | string | yes | One of: `ACTION`, `DECISION`, `CODE`, `PR`, `COMMIT`, `REPO`, `FOLLOWUP`, `LEARNING`, `LESSON` |
 | `summary` | string | yes | Human-readable description of the event |
 | `repo` | string | no | Git repo basename — auto-detected from `git rev-parse --show-toplevel` or explicit `--repo` |
 | `session` | string | no | Session ID from `$CLAUDE_SESSION_ID`, `$CODEX_SESSION_ID`, or `$CURSOR_SESSION_ID` |

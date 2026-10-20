@@ -89,6 +89,9 @@ Your existing log files are never deleted or moved unless you explicitly confirm
 ## ⚡ Quick start
 
 ```bash
+# Show the full flag reference
+clog --help
+
 # Log an action
 clog ACTION "dispatch orchestrator for phase 2 planning"
 
@@ -166,12 +169,14 @@ export CLOG_CONFIG=~/.config/clog/config.yaml   # default XDG location
 export CLOG_CONFIG=/shared/team/clog.yaml        # shared team config
 ```
 
-**Env var overrides** (applied after config, useful for CI):
+**Env var overrides** (applied after config, useful for CI). A non-empty env var beats the config file, which beats the built-in default:
 
 ```bash
 export CLOG_LOG_ROOT=/tmp/ci-logs
 export CLOG_DISABLE=1   # silence all logging (CI, automated contexts)
 ```
+
+Variables that override config: `CLOG_LOG_ROOT`, `CLOG_LOG_SUBDIR`, `CLOG_REPORTS_ROOT`, `CLOG_REMINDER_THRESHOLD`, `CLOG_AUTO_COMMIT_ENABLED`, `CLOG_AUTO_COMMIT_REPO`, `CLOG_AUTO_COMMIT_MSG`, `CLOG_FAMILIES`, `CLOG_KPIS`, `CLOG_AGENTS`, `CLOG_CLI_PATH`.
 
 ---
 
