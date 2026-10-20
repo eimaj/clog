@@ -27,6 +27,16 @@ load_config() {
     return 0
   fi
 
+  # Snapshot non-empty CLOG_* env values; the parsers overwrite them from the
+  # config file, so they are re-applied afterwards (env > config > default).
+  local -a env_snap=()
+  local env_key
+  for env_key in CLOG_LOG_ROOT CLOG_LOG_SUBDIR CLOG_REPORTS_ROOT \
+    CLOG_REMINDER_THRESHOLD CLOG_AUTO_COMMIT_ENABLED CLOG_AUTO_COMMIT_REPO \
+    CLOG_AUTO_COMMIT_MSG CLOG_FAMILIES CLOG_KPIS CLOG_AGENTS CLOG_CLI_PATH; do
+    [[ -n "${!env_key:-}" ]] && env_snap+=("${env_key}=${!env_key}")
+  done
+
   # Parse config.yaml — use yq if available, else basic grep/sed for flat key: value lines
   if command -v yq >/dev/null 2>&1; then
     _clog_parse_yq "$config_path"
@@ -34,8 +44,18 @@ load_config() {
     _clog_parse_basic "$config_path"
   fi
 
-  # Env overrides (applied last)
-  [[ -n "${CLOG_LOG_ROOT:-}" ]] || true  # already set by parser; env wins below
+  # Env overrides (applied last), then built-in defaults for anything still unset
+  local env_kv
+  for env_kv in ${env_snap[@]+"${env_snap[@]}"}; do
+    export "$env_kv"
+  done
+  # Env path values can carry a literal ~ or ${HOME} (e.g. from a settings.json
+  # env block) that no shell expanded; the parsers expand config values, so do
+  # the same here or the path becomes <cwd>/~/...
+  local path_key
+  for path_key in CLOG_LOG_ROOT CLOG_REPORTS_ROOT CLOG_AUTO_COMMIT_REPO CLOG_CLI_PATH; do
+    [[ -n "${!path_key:-}" ]] && export "${path_key}=$(printf '%s' "${!path_key}" | _clog_expand_home)"
+  done
   export CLOG_LOG_ROOT="${CLOG_LOG_ROOT:-${HOME}/clog-logs}"
   export CLOG_REPORTS_ROOT="${CLOG_REPORTS_ROOT:-${HOME}/clog-logs/reports}"
   export CLOG_LOG_SUBDIR="${CLOG_LOG_SUBDIR:-claude}"
