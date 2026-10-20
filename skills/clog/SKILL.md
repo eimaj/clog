@@ -29,6 +29,7 @@ clog <TYPE> "<summary>" [--agent NAME] [--repo NAME] [--session ID] \
 - `TYPE` and `<summary>` are required positional args.
 - `--repo` is auto-detected from git if omitted; pass explicitly when not in a repo dir.
 - `--date` is for backfill only — omit for current date.
+- `clog --help` prints the full flag reference.
 
 **Finding the binary:** `clog` must be on PATH. If not, set `$CLOG_CLI_PATH` to the full path, or check `cli_path` in `~/.config/clog/config.yaml`.
 

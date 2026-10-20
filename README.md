@@ -89,6 +89,9 @@ Your existing log files are never deleted or moved unless you explicitly confirm
 ## ⚡ Quick start
 
 ```bash
+# Show the full flag reference
+clog --help
+
 # Log an action
 clog ACTION "dispatch orchestrator for phase 2 planning"
 

@@ -16,6 +16,29 @@ while [ -L "$SOURCE" ]; do
 done
 SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 
+usage() {
+  cat <<'EOF'
+Usage: clog <TYPE> "<summary>" [flags]
+Types: DECISION | ACTION | CODE | PR | COMMIT | REPO | FOLLOWUP | LEARNING | LESSON
+Flags (must follow the two positionals):
+  --agent NAME         agent or persona that produced the entry
+  --repo NAME          repo name (auto-detected from git when omitted)
+  --session ID         session id
+  --model NAME         model name
+  --file PATH          file the entry concerns
+  --family FAMILY      skill/task family
+  --kpi KPI            KPI tag (LEARNING entries)
+  --date YYYY-MM-DD    backfill: write to that day's file
+Help: clog --help | clog -h   (first argument only)
+Type definitions: config/rules.md
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
 # Load config (loud on missing — this is bin/clog, not a hook)
 # shellcheck source=../lib/config.sh
 . "${SCRIPT_DIR}/../lib/config.sh"
@@ -30,8 +53,16 @@ fi
 # shellcheck source=../lib/jsonl.sh
 . "${SCRIPT_DIR}/../lib/jsonl.sh"
 
-TYPE="${1:?Usage: clog <TYPE> \"<summary>\" [--agent NAME] [--repo NAME] [--session ID] [--model NAME] [--file PATH] [--family FAMILY] [--kpi KPI] [--date YYYY-MM-DD]}"
-SUMMARY="${2:?Usage: clog <TYPE> \"<summary>\"}"
+if [[ -z "${1:-}" ]]; then
+  { echo "clog: missing TYPE"; usage; } >&2
+  exit 1
+fi
+if [[ -z "${2:-}" ]]; then
+  { echo "clog: missing summary"; usage; } >&2
+  exit 1
+fi
+TYPE="$1"
+SUMMARY="$2"
 shift 2
 
 # Parse optional flags
