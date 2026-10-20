@@ -139,20 +139,33 @@ _clog_parse_basic() {
   local auto_enabled; auto_enabled=$(grep -E "^\s+enabled:" "$cfg" 2>/dev/null | head -1 | sed 's/.*enabled:[[:space:]]*//' | tr -d '"')
   [[ -n "$auto_enabled" ]] && export CLOG_AUTO_COMMIT_ENABLED="$auto_enabled"
 
+  local auto_repo; auto_repo=$(grep -E "^\s+repo_root:" "$cfg" 2>/dev/null | head -1 | sed 's/.*repo_root:[[:space:]]*//' | tr -d '"' | _clog_expand_home)
+  [[ -n "$auto_repo" ]] && export CLOG_AUTO_COMMIT_REPO="$auto_repo"
+
   local auto_msg; auto_msg=$(grep -E "^\s+message:" "$cfg" 2>/dev/null | head -1 | sed 's/.*message:[[:space:]]*//' | tr -d '"')
   [[ -n "$auto_msg" ]] && export CLOG_AUTO_COMMIT_MSG="$auto_msg"
 
-  # List fields — collect items prefixed with "  - "
-  local families
-  families=$(awk '/^families:/,/^[a-z]/' "$cfg" 2>/dev/null | grep '^\s*-' | sed 's/.*-[[:space:]]*//' | tr '\n' ' ' | sed 's/ $//')
+  # List fields — collect every "  - item" line under the key until the next
+  # top-level (non-indented, non-blank, non-comment) line. Space-joined, like yq.
+  _read_list() {
+    awk -v key="$1" '
+      $0 ~ "^" key ":" { in_list = 1; next }
+      in_list && /^[^ \t#]/ { in_list = 0 }
+      in_list && /^[ \t]*-/ {
+        sub(/^[ \t]*-[ \t]*/, ""); gsub(/"/, "")
+        out = (out == "" ? $0 : out " " $0)
+      }
+      END { print out }
+    ' "$cfg" 2>/dev/null
+  }
+
+  local families; families=$(_read_list families)
   [[ -n "$families" ]] && export CLOG_FAMILIES="$families"
 
-  local kpis
-  kpis=$(awk '/^kpis:/,/^[a-z]/' "$cfg" 2>/dev/null | grep '^\s*-' | sed 's/.*-[[:space:]]*//' | tr '\n' ' ' | sed 's/ $//')
+  local kpis; kpis=$(_read_list kpis)
   [[ -n "$kpis" ]] && export CLOG_KPIS="$kpis"
 
-  local agents
-  agents=$(awk '/^agents:/,/^[a-z]/' "$cfg" 2>/dev/null | grep '^\s*-' | sed 's/.*-[[:space:]]*//' | tr '\n' ' ' | sed 's/ $//')
+  local agents; agents=$(_read_list agents)
   [[ -n "$agents" ]] && export CLOG_AGENTS="$agents"
 
   local cli_path; cli_path=$(_read_flat cli_path)
