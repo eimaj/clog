@@ -121,6 +121,11 @@ if [[ -z "$REPO" ]]; then
   REPO=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
 fi
 
+if [[ -n "$DATE_OVERRIDE" && ! "$DATE_OVERRIDE" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ ]]; then
+  echo "clog: invalid --date '$DATE_OVERRIDE' (expected YYYY-MM-DD)" >&2
+  exit 1
+fi
+
 LOG_DIR="${CLOG_LOG_ROOT}/${CLOG_LOG_SUBDIR}"
 LOG_DATE="${DATE_OVERRIDE:-$(date +%Y-%m-%d)}"
 LOG_FILE="${LOG_DIR}/${LOG_DATE//-/}.jsonl"
