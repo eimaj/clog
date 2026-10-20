@@ -176,11 +176,11 @@ export CLOG_LOG_ROOT=/tmp/ci-logs
 export CLOG_DISABLE=1   # silence all logging (CI, automated contexts)
 ```
 
+Variables that override config: `CLOG_LOG_ROOT`, `CLOG_LOG_SUBDIR`, `CLOG_REPORTS_ROOT`, `CLOG_REMINDER_THRESHOLD`, `CLOG_AUTO_COMMIT_ENABLED`, `CLOG_AUTO_COMMIT_REPO`, `CLOG_AUTO_COMMIT_MSG`, `CLOG_FAMILIES`, `CLOG_KPIS`, `CLOG_AGENTS`, `CLOG_CLI_PATH`.
+
 ---
 
 ## 🛠️ The retro skills
-Variables that override config: `CLOG_LOG_ROOT`, `CLOG_LOG_SUBDIR`, `CLOG_REPORTS_ROOT`, `CLOG_REMINDER_THRESHOLD`, `CLOG_AUTO_COMMIT_ENABLED`, `CLOG_AUTO_COMMIT_REPO`, `CLOG_AUTO_COMMIT_MSG`, `CLOG_FAMILIES`, `CLOG_KPIS`, `CLOG_AGENTS`, `CLOG_CLI_PATH`.
-
 
 Install into Claude Code and invoke by name:
 
