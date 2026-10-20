@@ -1,0 +1,56 @@
+# Log Entry Specification
+
+## Purpose
+
+The on-disk contract: where entries go and what each JSON line contains. Reverse-engineered from `bin/clog` and `lib/jsonl.sh` at `b5d2927` (main). Readers (`clog-day`, `clog-week`, `clog-lessons`, `clog-search`, `clog-replay`) depend on this shape.
+
+## Requirements
+
+### Requirement: File location and naming
+Entries SHALL be appended to `<log_root>/<log_subdir>/YYYYMMDD.jsonl`, where the date is the local calendar date at write time or the `--date` value with dashes removed. The directory SHALL be created on demand. Files SHALL only ever be appended to by the CLI.
+
+#### Scenario: First entry of a day
+- **WHEN** no file exists for today and an entry is written
+- **THEN** the directory and the file are created and the file contains exactly one line
+
+### Requirement: One JSON object per line
+Each entry SHALL be a single-line JSON object terminated by a newline, produced with `jq -c`. Values SHALL be JSON-escaped so any summary remains one line.
+
+#### Scenario: Multi-line summary
+- **WHEN** the summary contains a newline
+- **THEN** the file gains exactly one line containing `\n` inside the summary string
+
+### Requirement: Required fields
+Every entry SHALL contain `time` (string `HH:MM:SS`, local wall-clock at write), `type` (one of the nine types) and `summary` (string), in that order, as the first three keys.
+
+#### Scenario: Minimal entry
+- **WHEN** the user runs `clog FOLLOWUP "investigate hooks API"` outside a git repo with no session variable set
+- **THEN** the line is `{"time":"HH:MM:SS","type":"FOLLOWUP","summary":"investigate hooks API"}` with no other keys
+
+### Requirement: Optional fields and key order
+After the required fields the entry SHALL contain, in this order and only when non-empty: `agent`, `repo`, `session`, `model`, `file`, `family`, `kpi`, `clog_version`, then `validation` when set by the CLI. The hook `post-action-log.sh` MAY append `commit` after all of these. Empty values SHALL be omitted, never written as `""` or `null`.
+
+#### Scenario: Full entry
+- **WHEN** every flag is supplied on the first entry of a new file with an unknown family
+- **THEN** the keys appear in the order `time, type, summary, agent, repo, session, model, file, family, kpi, clog_version, validation`
+
+### Requirement: Schema version marker
+`clog_version` SHALL be `"1.0"` on the first entry the CLI writes to a file that did not exist, and SHALL be absent on every later entry in that file. Entries written by a hook's inline fallback path SHALL NOT carry it.
+
+#### Scenario: Second entry
+- **WHEN** a second entry is written to an existing file
+- **THEN** it has no `clog_version` key
+
+### Requirement: Validation marker
+`validation` SHALL be one of `unknown_family`, `unknown_kpi` or `unknown_family,unknown_kpi`, present only when the CLI rejected a `--family` or `--kpi` value against a non-empty configured list.
+
+#### Scenario: Unknown family only
+- **WHEN** `--family nope --kpi failure` is given with the example lists configured
+- **THEN** `validation` is `unknown_family`
+
+### Requirement: Commit marker
+`commit` SHALL be a short git SHA added only by `hooks/post-action-log.sh` to a `COMMIT` entry when it can resolve the repository from the command it observed. The CLI has no flag to set it.
+
+#### Scenario: Hook-logged commit
+- **WHEN** the Bash hook observes `cd ~/Code/clog && git commit -m "feat(x): y"`
+- **THEN** the last line of today's file is a `COMMIT` entry with `summary` `feat(x): y` and `commit` set to the new HEAD's short SHA
