@@ -232,7 +232,7 @@ See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for tool-specific details.
 
 ## 📐 Schema reference
 
-See [docs/SCHEMA.md](docs/SCHEMA.md) for the full JSONL field reference and example entries.
+See [docs/SCHEMA.md](docs/SCHEMA.md) for the full JSONL field reference and example entries, or open [docs/api/index.html](docs/api/index.html) for the browsable CLI reference (types, flags, exit codes, config, env, hooks, and a command builder).
 
 ---
 
