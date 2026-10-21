@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>clog CLI reference</title>
-<meta name="description" content="Reference for the clog command-line tool: types, flags, exit codes, environment, config and the JSONL entry schema. Rendered in a Swagger UI layout; clog has no HTTP API.">
+<meta name="description" content="Reference for the clog command-line tool: types, flags, exit codes, environment, config and the JSONL entry schema. Rendered in a Swagger UI layout. Also documents the local HTTP API started by clog serve.">
 <style>
   :root {
     --bg: #fafafa; --fg: #3b4151; --muted: #6b7280; --line: #e5e7eb; --panel: #ffffff;
@@ -103,10 +103,11 @@
   <section class="info">
     <h1>clog <span class="ver">schema 1.0</span></h1>
     <p>Append one JSON line per event to a daily JSONL log. This page documents the command-line surface the way Swagger UI documents an HTTP API: one operation per entry type, shared parameters, responses as exit codes, and the entry, config and environment as schemas.</p>
-    <div class="notice"><strong>Not an HTTP API.</strong> There are no endpoints, no server and no OpenAPI document. The "operations" below are shell invocations and the "responses" are exit codes. Every behaviour on this page was read in <code>bin/clog</code> and <code>lib/</code> or run against a scratch log root at the commit in the top bar.</div>
+    <div class="notice"><strong>The CLI is not an HTTP API.</strong> The "operations" and "responses" below are shell invocations and exit codes; there is no OpenAPI document. <code>clog serve</code> starts a separate local HTTP API that wraps the CLI, documented in <a href="#http-api">HTTP API</a>. Every CLI behaviour on this page was read in <code>bin/clog</code> and <code>lib/</code> or run against a scratch log root at the commit in the top bar.</div>
     <h3>Synopsis</h3>
 <pre><code>clog &lt;TYPE&gt; "&lt;summary&gt;" [--agent NAME] [--repo NAME] [--session ID] [--model NAME]
      [--file PATH] [--family FAMILY] [--kpi KPI] [--date YYYY-MM-DD] [--echo]
+clog serve [--port N]        # start the local HTTP API (default 127.0.0.1:4848)
 clog --help | clog -h        # first argument only</code></pre>
     <p>Flags must follow the two positionals. Nothing is printed on success unless <code>--echo</code> is given. The entry is appended to <code>&lt;log_root&gt;/&lt;log_subdir&gt;/YYYYMMDD.jsonl</code>, creating the directory and file on demand.</p>
   </section>
@@ -202,6 +203,22 @@ clog --help | clog -h        # first argument only</code></pre>
     </div>
   </details>
 
+  <details class="op" style="--c: var(--t-decision)">
+    <summary><span class="m">serve</span><span class="path">clog serve [--port N]</span><span class="desc">Start the local HTTP API</span><span class="chev" aria-hidden="true">▶</span></summary>
+    <div class="body">
+      <p>Runs a Hono server on <code>127.0.0.1</code> (default port <code>4848</code>; <code>--port 0</code> picks a free port) until SIGINT or SIGTERM, then exits 0. It prints exactly one line to stdout: <code>clog API listening on http://127.0.0.1:&lt;port&gt;</code>. Every write spawns <code>bin/clog --echo</code>, so the CLI stays the single source of truth. Build first with <code>npm install &amp;&amp; npm run build</code>.</p>
+      <h3>Example</h3>
+<pre><code>clog serve --port 4848</code></pre>
+      <table>
+        <tr><th>Code</th><th>When</th><th>stderr</th></tr>
+        <tr><td><span class="code-badge c0">0</span></td><td>Stopped by SIGINT or SIGTERM</td><td>—</td></tr>
+        <tr><td><span class="code-badge c1">1</span></td><td><code>--port</code> not an integer from 0 to 65535</td><td><code>clog: invalid --port '&lt;v&gt;'</code></td></tr>
+        <tr><td><span class="code-badge c1">1</span></td><td><code>node</code> not on PATH</td><td><code>clog: node is required for 'clog serve'</code></td></tr>
+        <tr><td><span class="code-badge c1">1</span></td><td><code>dist/</code> not built</td><td><code>clog: run 'npm run build' first</code></td></tr>
+      </table>
+    </div>
+  </details>
+
   <h2 class="tag">Parameters <small>shared by every operation</small></h2>
   <table>
     <tr><th>Name</th><th>In</th><th>Type</th><th>Description</th></tr>
@@ -235,6 +252,30 @@ clog --help | clog -h        # first argument only</code></pre>
     <tr><td><span class="code-badge c127">127</span></td><td><code>jq</code> not on PATH</td><td><code>jq: command not found</code></td><td>nothing</td></tr>
   </table>
   <p class="in">With <code>auto_commit.enabled: true</code> on macOS, the entry is written and then <code>realpath --relative-to</code> (GNU-only) fails, so the <code>git add</code> gets an empty pathspec under <code>set -e</code>. The entry is on disk; the exit code of that path is unverified.</p>
+
+  <h2 class="tag" id="http-api">HTTP API <small>clog serve · 127.0.0.1 only · no auth · try it at <a href="/demo">/demo</a></small></h2>
+  <p>Routes are relative to the router mount; standalone, the mount is <code>/</code>. Request and response bodies are JSON. Every error is <code>{ "error": { "code", "message" } }</code>; where <code>bin/clog</code> rejected the entry, <code>message</code> is its first stderr line verbatim. No error body carries a stack trace.</p>
+  <table>
+    <tr><th>Route</th><th>Success</th><th>Errors</th></tr>
+    <tr><td class="n">GET /health</td><td>200 <code>{ ok, version, clogBin }</code></td><td>—</td></tr>
+    <tr><td class="n">GET /config</td><td>200 <code>{ configPath, logRoot, logSubdir, families, kpis }</code></td><td>503 <code>no_config</code>, 503 <code>disabled</code></td></tr>
+    <tr><td class="n">POST /entries</td><td>201 <code>{ entry, file }</code></td><td>400 <code>invalid_json</code> <code>invalid_type</code> <code>missing_summary</code> <code>invalid_field</code> <code>invalid_date</code>; 413 <code>payload_too_large</code>; 503 <code>no_config</code> <code>disabled</code>; 500 <code>clog_failed</code> <code>clog_timeout</code></td></tr>
+    <tr><td class="n">GET /entries</td><td>200 <code>{ date, file, entries, skipped }</code></td><td>400 <code>invalid_date</code> <code>invalid_type</code> <code>invalid_tail</code>; 503 <code>no_config</code> <code>disabled</code></td></tr>
+    <tr><td class="n">GET /demo</td><td>200 <code>text/html</code> demo page</td><td>—</td></tr>
+    <tr><td class="n">GET /docs</td><td>200 <code>text/html</code> this page</td><td>—</td></tr>
+    <tr><td class="n">anything else</td><td>—</td><td>404 <code>not_found</code></td></tr>
+  </table>
+  <h3>POST /entries</h3>
+  <p>Body: <code>{ "type", "summary", "agent"?, "repo"?, "session"?, "model"?, "file"?, "family"?, "kpi"?, "date"? }</code>, all strings. <code>type</code> and <code>summary</code> are checked before spawning with the CLI's own messages; everything else (<code>date</code>, <code>family</code>, <code>kpi</code>) is passed through and the CLI's verdict is mapped. An unknown <code>family</code> or <code>kpi</code> is still a 201 with <code>entry.validation</code> set. With <code>CLOG_DISABLE=1</code> in the server's environment the answer is 503 <code>disabled</code> and nothing is written.</p>
+<pre><code>POST /entries
+{"type":"ACTION","summary":"deploy to staging","repo":"my-repo"}
+
+201
+{"entry":{"time":"09:15:22","type":"ACTION","summary":"deploy to staging","repo":"my-repo"},"file":"/Users/me/clog-logs/claude/20261021.jsonl"}</code></pre>
+  <h3>GET /entries</h3>
+  <p>Query: <code>date=YYYY-MM-DD</code> (default today, local time), <code>type</code>, <code>repo</code>, <code>session</code>, <code>agent</code> (exact match, ANDed), <code>tail=N</code> (1 to 10000, applied after filtering). A missing day is <code>entries: []</code>; a line that is not valid JSON is skipped and counted in <code>skipped</code>.</p>
+  <h3>Origins and limits</h3>
+  <p>CORS allows only origins matching <code>^http://(localhost|127\.0\.0\.1)(:\d+)?$</code> (GET, POST, OPTIONS; <code>Content-Type</code>); any other origin, including <code>null</code> from a <code>file://</code> page, gets no allow header. Request bodies over 64 KiB are refused with 413. The router is exported as <code>createClogRouter</code> so another Hono app can mount it under a prefix.</p>
 
   <h2 class="tag">Schemas</h2>
 

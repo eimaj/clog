@@ -233,6 +233,37 @@ See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for tool-specific details.
 
 ---
 
+## 🌐 HTTP API
+
+`clog serve` starts a local HTTP service so a browser or another tool can write and read entries. Every write spawns `bin/clog --echo`, so validation, config precedence and the JSON line stay in the CLI. It needs Node on PATH (the tests use Node 24's built-in TypeScript support).
+
+```bash
+npm install
+npm run build
+clog serve              # http://127.0.0.1:4848
+clog serve --port 0     # free port; the real one is printed
+```
+
+The server prints one line, `clog API listening on http://127.0.0.1:<port>`, and runs until SIGINT/SIGTERM. Open `http://127.0.0.1:<port>/demo` for a page that writes and lists entries, or `/docs` for the reference.
+
+| Route            | Success                                              | Notes                                                                                   |
+| ---------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `GET /health`    | `{ ok, version, clogBin }`                           |                                                                                         |
+| `GET /config`    | `{ configPath, logRoot, logSubdir, families, kpis }` | 503 `no_config` until a config exists                                                   |
+| `POST /entries`  | 201 `{ entry, file }`                                | body `{ type, summary, agent?, repo?, session?, model?, file?, family?, kpi?, date? }`  |
+| `GET /entries`   | `{ date, file, entries, skipped }`                   | query `date`, `type`, `repo`, `session`, `agent`, `tail` (1 to 10000); default day today |
+| `GET /demo`, `GET /docs` | HTML                                         |                                                                                         |
+
+**Errors** are always `{ "error": { "code", "message" } }`; when the CLI rejected the entry, `message` is its stderr line verbatim. Statuses: 400 bad input (`invalid_json`, `invalid_type`, `missing_summary`, `invalid_field`, `invalid_date`, `invalid_tail`), 413 body over 64 KiB, 404 unknown route, 503 `no_config` or `disabled` (`CLOG_DISABLE=1`), 500 `clog_failed` / `clog_timeout`.
+
+**Bind and CORS:** listens on `127.0.0.1` only, no auth. CORS allows only `http://localhost[:port]` and `http://127.0.0.1[:port]` origins; a `file://` page (`Origin: null`) is refused, which is why the demo is served by the server itself.
+
+**Mounting:** `createClogRouter({ clogBin? })` from `src/server/app.ts` returns a Hono router with relative routes, so another Hono app can mount it, e.g. `app.route('/clog', createClogRouter())`.
+
+**Development:** `npm run check` runs lint, typecheck and the tests; tests use a scratch config and never touch your real log root.
+
+---
+
 ## 📐 Schema reference
 
 See [docs/SCHEMA.md](docs/SCHEMA.md) for the full JSONL field reference and example entries, or open [docs/api/index.html](docs/api/index.html) for the browsable CLI reference (types, flags, exit codes, config, env, hooks, and a command builder).
