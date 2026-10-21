@@ -249,14 +249,14 @@ The server prints one line, `clog API listening on http://127.0.0.1:<port>`, and
 | Route            | Success                                              | Notes                                                                                   |
 | ---------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `GET /health`    | `{ ok, version, clogBin }`                           |                                                                                         |
-| `GET /config`    | `{ configPath, logRoot, logSubdir, families, kpis }` | 503 `no_config` until a config exists                                                   |
+| `GET /config`    | `{ configPath, logRoot, logSubdir, families, kpis }` | 503 `no_config` until a config exists; 503 `disabled` under `CLOG_DISABLE=1`            |
 | `POST /entries`  | 201 `{ entry, file }`                                | body `{ type, summary, agent?, repo?, session?, model?, file?, family?, kpi?, date? }`  |
-| `GET /entries`   | `{ date, file, entries, skipped }`                   | query `date`, `type`, `repo`, `session`, `agent`, `tail` (1 to 10000); default day today |
+| `GET /entries`   | `{ date, file, entries, skipped }`                   | query `date`, `type`, `repo`, `session`, `agent`, `tail` (1 to 10000); default day today; 503 `no_config` / `disabled` as for `/config` |
 | `GET /demo`, `GET /docs` | HTML                                         |                                                                                         |
 
-**Errors** are always `{ "error": { "code", "message" } }`; when the CLI rejected the entry, `message` is its stderr line verbatim. Statuses: 400 bad input (`invalid_json`, `invalid_type`, `missing_summary`, `invalid_field`, `invalid_date`, `invalid_tail`), 413 body over 64 KiB, 404 unknown route, 503 `no_config` or `disabled` (`CLOG_DISABLE=1`), 500 `clog_failed` / `clog_timeout`.
+**Errors** are always `{ "error": { "code", "message" } }`; when the CLI rejected the entry, `message` is its stderr line verbatim. Statuses: 400 bad input (`invalid_json`, `invalid_type`, `missing_summary`, `invalid_field`, `invalid_date`, `invalid_tail`), 403 `forbidden_host`, 413 body over 64 KiB, 415 `unsupported_media_type`, 404 unknown route, 503 `no_config` or `disabled` (`CLOG_DISABLE=1`), 500 `clog_failed` / `clog_timeout`.
 
-**Bind and CORS:** listens on `127.0.0.1` only, no auth. CORS allows only `http://localhost[:port]` and `http://127.0.0.1[:port]` origins; a `file://` page (`Origin: null`) is refused, which is why the demo is served by the server itself.
+**Bind and CORS:** listens on `127.0.0.1` only, no auth. CORS allows only `http://localhost[:port]` and `http://127.0.0.1[:port]` origins; a `file://` page (`Origin: null`) is refused, which is why the demo is served by the server itself. `POST /entries` needs `Content-Type: application/json`, and `createApp` answers 403 `forbidden_host` unless `Host` is `127.0.0.1` or `localhost` (optional port).
 
 **Mounting:** `createClogRouter({ clogBin? })` from `src/server/app.ts` returns a Hono router with relative routes, so another Hono app can mount it, e.g. `app.route('/clog', createClogRouter())`.
 
