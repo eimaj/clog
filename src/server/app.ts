@@ -46,6 +46,7 @@ const MAX_BODY_BYTES = 64 * 1024;
 const DEMO_PAGE = 'demo.html';
 const REFERENCE_PAGE = 'index.html';
 const LOCAL_ORIGIN_PATTERN =/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const LOCAL_HOST_PATTERN = /^(localhost|127\.0\.0\.1)(:\d+)?$/i;
 
 const DEFAULT_CLOG_BIN = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -121,6 +122,16 @@ interface WriteRequest {
 }
 
 async function parseWriteRequest(c: Context): Promise<WriteRequest> {
+  // A cross-origin `text/plain` POST is a CORS "simple request": the browser
+  // sends it without a preflight, so the content type is the only gate.
+  const mediaType = (c.req.header('content-type') ?? '').split(';')[0]?.trim().toLowerCase();
+  if (mediaType !== 'application/json') {
+    throw new HttpError(
+      415,
+      'unsupported_media_type',
+      'Content-Type must be application/json',
+    );
+  }
   let raw: unknown;
   try {
     raw = await c.req.json();
@@ -306,6 +317,16 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
 
 export function createApp(options: ClogRouterOptions = {}): Hono {
   const app = new Hono();
+
+  // DNS-rebinding guard: a rebound page is same-origin to the attacker's name,
+  // so CORS never applies; the Host header is what gives it away.
+  app.use('*', async (c, next) => {
+    const host = c.req.header('host') ?? new URL(c.req.url).host;
+    if (!LOCAL_HOST_PATTERN.test(host)) {
+      throw new HttpError(403, 'forbidden_host', `host '${host}' is not allowed`);
+    }
+    await next();
+  });
 
   app.use(
     '*',

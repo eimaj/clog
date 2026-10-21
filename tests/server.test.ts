@@ -118,7 +118,7 @@ function request(
 async function expectError(res: Response, status: number, code: string): Promise<ErrorBody> {
   assert.equal(res.status, status);
   const text = await res.text();
-  assert.doesNotMatch(text, /\n\s+at /, 'error body must not carry a stack trace');
+  assert.doesNotMatch(text, /\bat \S+ \(|\\n\s+at /, 'error body must not carry a stack trace');
   const body = JSON.parse(text) as ErrorBody;
   assert.equal(body.error.code, code);
   assert.equal(typeof body.error.message, 'string');
@@ -329,6 +329,53 @@ describe('POST /entries', () => {
 
   it('rejects a body that is not JSON with 400 invalid_json', async () => {
     await expectError(await post('{not json'), 400, 'invalid_json');
+  });
+
+  it('rejects a cross-origin text/plain POST with 415 and writes nothing', async () => {
+    const res = await request(
+      'POST',
+      '/entries',
+      JSON.stringify({ type: 'ACTION', summary: 'forged', date: '2026-01-03' }),
+      { 'Content-Type': 'text/plain', Origin: 'https://evil.example' },
+    );
+    await expectError(res, 415, 'unsupported_media_type');
+    assert.equal(fs.existsSync(readRoot), false);
+  });
+
+  it('rejects a POST with no content type with 415 and writes nothing', async () => {
+    const res = await app.request('/entries', {
+      method: 'POST',
+      body: JSON.stringify({ type: 'ACTION', summary: 'forged', date: '2026-01-03' }),
+    });
+    await expectError(res, 415, 'unsupported_media_type');
+    assert.equal(fs.existsSync(readRoot), false);
+  });
+
+  it('accepts application/json with parameters', async () => {
+    const res = await request(
+      'POST',
+      '/entries',
+      { type: 'ACTION', summary: 'ok', date: '2026-01-03' },
+      { 'Content-Type': 'application/json; charset=utf-8' },
+    );
+    assert.equal(res.status, 201);
+  });
+
+  it('accepts a body of exactly 64 KiB and rejects one byte more', async () => {
+    const sized = (bytes: number): string => {
+      const base = JSON.stringify({ type: 'ACTION', summary: '', date: '2026-01-03' });
+      return JSON.stringify({
+        type: 'ACTION',
+        summary: 'x'.repeat(bytes - Buffer.byteLength(base)),
+        date: '2026-01-03',
+      });
+    };
+    const exact = sized(65536);
+    assert.equal(Buffer.byteLength(exact), 65536);
+    assert.equal((await post(exact)).status, 201);
+    const over = sized(65537);
+    assert.equal(Buffer.byteLength(over), 65537);
+    await expectError(await post(over), 413, 'payload_too_large');
   });
 
   it('rejects a body over 64 KiB with 413 payload_too_large', async () => {
@@ -554,6 +601,41 @@ describe('CORS', () => {
       assert.equal(res.headers.get('access-control-allow-origin'), null);
     });
   }
+});
+
+describe('Host allowlist', () => {
+  for (const host of ['127.0.0.1', '127.0.0.1:4848', 'localhost', 'localhost:4848', 'LOCALHOST:9']) {
+    it(`serves Host ${host}`, async () => {
+      const res = await request('GET', '/health', undefined, { Host: host });
+      assert.equal(res.status, 200);
+    });
+  }
+
+  for (const host of ['attacker.example:4848', 'localhost.evil.com', '127.0.0.1.evil.com:4848', '[::1]:4848']) {
+    it(`rejects Host ${host} with 403 forbidden_host`, async () => {
+      const res = await request('GET', '/health', undefined, { Host: host });
+      await expectError(res, 403, 'forbidden_host');
+    });
+  }
+
+  it('rejects a foreign Host before CORS and before writing', async () => {
+    const res = await request(
+      'POST',
+      '/entries',
+      { type: 'ACTION', summary: 'rebind', date: '2026-01-03' },
+      { Host: 'attacker.example:4848', Origin: 'http://localhost:5173' },
+    );
+    await expectError(res, 403, 'forbidden_host');
+    assert.equal(res.headers.get('access-control-allow-origin'), null);
+    assert.equal(fs.existsSync(readRoot), false);
+  });
+
+  it('leaves the bare router host-agnostic', async () => {
+    const res = await send(createClogRouter(), 'GET', '/health', undefined, {
+      Host: 'attacker.example:4848',
+    });
+    assert.equal(res.status, 200);
+  });
 });
 
 describe('errors and mounting', () => {
