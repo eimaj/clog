@@ -43,9 +43,9 @@ interface Running {
   exited: Promise<number | null>;
 }
 
-function startServer(args: string[]): Promise<Running> {
+function startServer(args: string[], childEnv: NodeJS.ProcessEnv = env): Promise<Running> {
   return new Promise((resolve, reject) => {
-    const child = spawn(CLOG_BIN, ['serve', ...args], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(CLOG_BIN, ['serve', ...args], { env: childEnv, stdio: ['ignore', 'pipe', 'pipe'] });
     const exited = new Promise<number | null>((done) => child.once('exit', (code) => done(code)));
     let stdout = '';
     const timer = setTimeout(() => {
@@ -64,8 +64,8 @@ function startServer(args: string[]): Promise<Running> {
   });
 }
 
-async function stop(server: Running): Promise<number | null> {
-  server.child.kill('SIGINT');
+async function stop(server: Running, signal: NodeJS.Signals = 'SIGINT'): Promise<number | null> {
+  server.child.kill(signal);
   return server.exited;
 }
 
@@ -77,6 +77,27 @@ describe('clog serve', () => {
     assert.equal(res.status, 200);
     assert.deepEqual(await res.json(), { ok: true, version: '1.0', clogBin: CLOG_BIN });
     assert.equal(await stop(server), 0);
+  });
+
+  it('exits 0 on SIGTERM', async () => {
+    const server = await startServer(['--port', '0']);
+    assert.equal(await stop(server, 'SIGTERM'), 0);
+  });
+
+  it('starts without a config, answers /health and reports no_config', async () => {
+    const noConfig = { ...env, CLOG_CONFIG: path.join(tmp, 'missing.yaml') };
+    const server = await startServer(['--port', '0'], noConfig);
+    try {
+      const base = `http://127.0.0.1:${server.port}`;
+      const health = await fetch(`${base}/health`);
+      assert.equal(health.status, 200);
+      const config = await fetch(`${base}/config`);
+      assert.equal(config.status, 503);
+      const body = (await config.json()) as { error: { code: string } };
+      assert.equal(body.error.code, 'no_config');
+    } finally {
+      assert.equal(await stop(server), 0);
+    }
   });
 
   it('writes and reads an entry through the running server', async () => {
