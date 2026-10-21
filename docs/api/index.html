@@ -106,9 +106,9 @@
     <div class="notice"><strong>Not an HTTP API.</strong> There are no endpoints, no server and no OpenAPI document. The "operations" below are shell invocations and the "responses" are exit codes. Every behaviour on this page was read in <code>bin/clog</code> and <code>lib/</code> or run against a scratch log root at the commit in the top bar.</div>
     <h3>Synopsis</h3>
 <pre><code>clog &lt;TYPE&gt; "&lt;summary&gt;" [--agent NAME] [--repo NAME] [--session ID] [--model NAME]
-     [--file PATH] [--family FAMILY] [--kpi KPI] [--date YYYY-MM-DD]
+     [--file PATH] [--family FAMILY] [--kpi KPI] [--date YYYY-MM-DD] [--echo]
 clog --help | clog -h        # first argument only</code></pre>
-    <p>Flags must follow the two positionals. Nothing is printed on success. The entry is appended to <code>&lt;log_root&gt;/&lt;log_subdir&gt;/YYYYMMDD.jsonl</code>, creating the directory and file on demand.</p>
+    <p>Flags must follow the two positionals. Nothing is printed on success unless <code>--echo</code> is given. The entry is appended to <code>&lt;log_root&gt;/&lt;log_subdir&gt;/YYYYMMDD.jsonl</code>, creating the directory and file on demand.</p>
   </section>
 
   <h2 class="tag">Operations <small>one per TYPE · case-sensitive · any other value exits 1</small></h2>
@@ -215,6 +215,7 @@ clog --help | clog -h        # first argument only</code></pre>
     <tr><td class="n">--family FAMILY</td><td class="in">flag</td><td>string</td><td>See LEARNING. Accepted on any type.</td></tr>
     <tr><td class="n">--kpi KPI</td><td class="in">flag</td><td>string</td><td>See LEARNING. Accepted on any type.</td></tr>
     <tr><td class="n">--date YYYY-MM-DD</td><td class="in">flag</td><td>string</td><td>Backfill: write to that day's file. Must match <code>^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$</code>; anything else exits 1 with <code>clog: invalid --date</code>. Day-of-month is not checked against the month. The <code>time</code> field is still the current wall-clock time.</td></tr>
+    <tr><td class="n">--echo</td><td class="in">flag</td><td>—</td><td>After a successful write, prints the exact JSON line that was appended to stdout. Prints nothing when <code>CLOG_DISABLE=1</code> (nothing was written). The HTTP API uses this to return the entry.</td></tr>
     <tr><td class="n">--help, -h</td><td class="in">first argument only</td><td>—</td><td>Prints usage to stdout and exits 0, before the config is read and before <code>CLOG_DISABLE</code> is checked.</td></tr>
   </table>
   <p class="in">Unknown flags are silently ignored. A flag given as the last argument with no value fails with a bash <code>unbound variable</code> error, exit 1.</p>
@@ -222,7 +223,7 @@ clog --help | clog -h        # first argument only</code></pre>
   <h2 class="tag">Responses <small>exit codes · stdout is always empty on success</small></h2>
   <table>
     <tr><th>Code</th><th>When</th><th>stderr</th><th>Written</th></tr>
-    <tr><td><span class="code-badge c0">0</span></td><td>Entry appended</td><td>—</td><td>one line</td></tr>
+    <tr><td><span class="code-badge c0">0</span></td><td>Entry appended</td><td>— (stdout: the entry line, only with <code>--echo</code>)</td><td>one line</td></tr>
     <tr><td><span class="code-badge c0">0</span></td><td><code>CLOG_DISABLE=1</code> and a config file exists</td><td>—</td><td>nothing</td></tr>
     <tr><td><span class="code-badge c0">0</span></td><td><code>--help</code> / <code>-h</code></td><td>— (usage on stdout)</td><td>nothing</td></tr>
     <tr><td><span class="code-badge c1">1</span></td><td>TYPE or summary missing/empty</td><td><code>clog: missing TYPE</code> or <code>clog: missing summary</code>, then usage</td><td>nothing</td></tr>
