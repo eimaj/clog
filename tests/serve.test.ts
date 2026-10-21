@@ -100,6 +100,33 @@ describe('clog serve', () => {
     }
   });
 
+  it('serves the demo page and the reference page as HTML', async () => {
+    const server = await startServer(['--port', '0']);
+    try {
+      const base = `http://127.0.0.1:${server.port}`;
+      const demo = await fetch(`${base}/demo`);
+      assert.equal(demo.status, 200);
+      assert.match(demo.headers.get('content-type') ?? '', /text\/html/);
+      const demoHtml = await demo.text();
+      assert.equal(demoHtml, fs.readFileSync(path.join(REPO_ROOT, 'docs', 'api', 'demo.html'), 'utf-8'));
+      assert.match(demoHtml, /<title>clog API demo<\/title>/);
+      // self-contained: no external script, stylesheet or asset
+      assert.doesNotMatch(demoHtml, /<script[^>]*\ssrc=/i);
+      assert.doesNotMatch(demoHtml, /<link\b/i);
+      assert.doesNotMatch(demoHtml, /(src|href)=["']https?:/i);
+
+      const docs = await fetch(`${base}/docs`);
+      assert.equal(docs.status, 200);
+      assert.match(docs.headers.get('content-type') ?? '', /text\/html/);
+      assert.equal(
+        await docs.text(),
+        fs.readFileSync(path.join(REPO_ROOT, 'docs', 'api', 'index.html'), 'utf-8'),
+      );
+    } finally {
+      assert.equal(await stop(server), 0);
+    }
+  });
+
   it('exits 1 with a message for a non-integer --port', () => {
     const result = spawnSync(CLOG_BIN, ['serve', '--port', 'abc'], { env, encoding: 'utf-8' });
     assert.equal(result.status, 1);

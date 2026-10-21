@@ -156,6 +156,37 @@ describe('GET /health', () => {
   });
 });
 
+describe('static pages', () => {
+  it('serves docs/api/demo.html at /demo and docs/api/index.html at /docs', async () => {
+    for (const [route, file] of [
+      ['/demo', 'demo.html'],
+      ['/docs', 'index.html'],
+    ] as const) {
+      const res = await request('GET', route);
+      assert.equal(res.status, 200);
+      assert.match(res.headers.get('content-type') ?? '', /text\/html/);
+      assert.equal(await res.text(), fs.readFileSync(path.join(REPO_ROOT, 'docs', 'api', file), 'utf-8'));
+    }
+  });
+
+  it('demo page carries the port field, write form, filtered list and error panel', () => {
+    const html = fs.readFileSync(path.join(REPO_ROOT, 'docs', 'api', 'demo.html'), 'utf-8');
+    for (const id of ['port', 'type', 'summary', 'repo', 'family', 'kpi', 'f-type', 'f-tail', 'entries', 'error-body']) {
+      assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
+    }
+    assert.match(html, /POST/);
+    assert.match(html, /\/entries/);
+  });
+
+  it('demo page script is syntactically valid', () => {
+    const html = fs.readFileSync(path.join(REPO_ROOT, 'docs', 'api', 'demo.html'), 'utf-8');
+    const script = /<script>([\s\S]*?)<\/script>/.exec(html)?.[1];
+    assert.ok(script, 'inline script present');
+    // Compiles without running it; throws SyntaxError on a typo.
+    assert.doesNotThrow(() => new Function(script));
+  });
+});
+
 describe('GET /config', () => {
   it('returns the values resolved from the scratch config', async () => {
     const res = await request('GET', '/config');

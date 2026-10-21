@@ -6,7 +6,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
-import { loadClogConfig, readRootOf, DISABLED_MESSAGE } from './config.ts';
+import { loadClogConfig, readRootOf, repoRootOf, DISABLED_MESSAGE } from './config.ts';
 import { HttpError, errorFromStderr, toErrorResponse } from './errors.ts';
 import type { ErrorBody } from './errors.ts';
 
@@ -43,7 +43,9 @@ const MAX_TAIL = 10_000;
 const SPAWN_TIMEOUT_MS = 10_000;
 const SPAWN_MAX_BUFFER = 1024 * 1024;
 const MAX_BODY_BYTES = 64 * 1024;
-const LOCAL_ORIGIN_PATTERN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const DEMO_PAGE = 'demo.html';
+const REFERENCE_PAGE = 'index.html';
+const LOCAL_ORIGIN_PATTERN =/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 const DEFAULT_CLOG_BIN = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -213,7 +215,19 @@ async function readLines(file: string): Promise<string[]> {
   }
 }
 
-export const notFoundHandler = (c: Context): Response => {
+async function readDocsPage(clogBin: string, file: string): Promise<string> {
+  const page = path.join(await repoRootOf(clogBin), 'docs', 'api', file);
+  try {
+    return await fs.readFile(page, 'utf-8');
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && err.code === 'ENOENT') {
+      throw new HttpError(404, 'not_found', `docs/api/${file} not found`);
+    }
+    throw err;
+  }
+}
+
+export const notFoundHandler =(c: Context): Response => {
   const body: ErrorBody = {
     error: { code: 'not_found', message: `no route for ${c.req.method} ${c.req.path}` },
   };
@@ -237,6 +251,11 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
   router.notFound(notFoundHandler);
 
   router.get('/health', (c) => c.json({ ok: true, version: API_VERSION, clogBin }, 200));
+
+  // Served from the repo so the pages get a real http://127.0.0.1 origin; a
+  // file:// page sends `Origin: null`, which the CORS rule rejects by design.
+  router.get('/demo', async (c) => c.html(await readDocsPage(clogBin, DEMO_PAGE)));
+  router.get('/docs', async (c) => c.html(await readDocsPage(clogBin, REFERENCE_PAGE)));
 
   router.get('/config', async (c) => c.json(await loadClogConfig(clogBin), 200));
 

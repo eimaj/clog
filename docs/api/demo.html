@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>clog API demo</title>
+<meta name="description" content="Write and read clog entries through the local HTTP API (clog serve).">
+<style>
+  :root {
+    --bg: #fafafa; --fg: #3b4151; --muted: #6b7280; --line: #e5e7eb; --panel: #ffffff;
+    --topbar: #1b1b1b; --topbar-fg: #ffffff; --code-bg: #263238; --code-fg: #e6edf3;
+    --required: #f93e3e; --ok: #49cc90; --warn: #fca130; --err: #f93e3e;
+    --t-action: #49cc90; --t-decision: #61affe; --t-code: #fca130; --t-pr: #9012fe;
+    --t-commit: #50e3c2; --t-repo: #6b7280; --t-followup: #e0b400; --t-learning: #f93e3e; --t-lesson: #0d9488;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1117; --fg: #d7dce5; --muted: #9aa3b2; --line: #2a2f3a; --panel: #161a23;
+      --topbar: #0a0c10; --code-bg: #0b0e14; --code-fg: #e6edf3;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1117; --fg: #d7dce5; --muted: #9aa3b2; --line: #2a2f3a; --panel: #161a23;
+    --topbar: #0a0c10; --code-bg: #0b0e14; --code-fg: #e6edf3;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+  a { color: inherit; }
+  code, pre { font-family: var(--mono); font-size: 12.5px; }
+  pre { margin: 0; padding: 12px 14px; background: var(--code-bg); color: var(--code-fg); border-radius: 4px; overflow-x: auto; white-space: pre; }
+  code { background: rgba(127,127,127,.12); padding: 1px 4px; border-radius: 3px; }
+
+  .topbar { background: var(--topbar); color: var(--topbar-fg); padding: 10px 16px; }
+  .topbar .inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .topbar .logo { font-weight: 700; font-size: 18px; letter-spacing: .3px; }
+  .topbar .logo span { color: var(--ok); }
+  .topbar .src { margin-left: auto; font-family: var(--mono); font-size: 12px; opacity: .85; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 16px; }
+  h1 { margin: 8px 0 4px; font-size: 26px; }
+  h2 { font-size: 18px; margin: 24px 0 8px; }
+  p { margin: 6px 0; max-width: 80ch; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; }
+  .grid { display: grid; grid-template-columns: max-content 1fr; gap: 8px 12px; align-items: center; max-width: 640px; }
+  label { color: var(--muted); font-family: var(--mono); font-size: 12.5px; }
+  input, select, button { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--fg); }
+  input, select { width: 100%; }
+  input.short { width: 110px; }
+  button { cursor: pointer; background: var(--ok); color: #fff; border-color: var(--ok); font-weight: 600; }
+  button.alt { background: transparent; color: var(--fg); border-color: var(--line); font-weight: 400; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .row label { display: inline-flex; gap: 6px; align-items: center; }
+
+  .error { border-left: 4px solid var(--err); background: rgba(249,62,62,.1); padding: 8px 12px; border-radius: 3px; margin: 12px 0; }
+  .error pre { margin-top: 6px; }
+  .notice { border-left: 4px solid var(--ok); background: rgba(73,204,144,.12); padding: 8px 12px; border-radius: 3px; margin: 12px 0; }
+  [hidden] { display: none !important; }
+
+  ul.entries { list-style: none; margin: 10px 0 0; padding: 0; }
+  ul.entries li { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .badge { background: var(--c, var(--t-repo)); color: #fff; font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 3px; min-width: 76px; text-align: center; }
+  .time { font-family: var(--mono); color: var(--muted); font-size: 12px; }
+  .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .empty { color: var(--muted); margin-top: 10px; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="inner">
+  <div class="logo">clog<span>.</span>api</div>
+  <div>Demo</div>
+  <a class="src" href="/docs">CLI reference</a>
+</div></header>
+
+<main class="wrap">
+  <h1>clog API demo</h1>
+  <p>Writes go through <code>POST /entries</code> (which runs <code>bin/clog --echo</code>); the list reads <code>GET /entries</code> for today. Open this page from the running server so the origin is <code>http://127.0.0.1</code> or <code>http://localhost</code>; a <code>file://</code> page sends <code>Origin: null</code>, which is refused by design.</p>
+
+  <h2>Server</h2>
+  <div class="panel">
+    <div class="row" style="margin-top:0">
+      <label for="port">port</label>
+      <input id="port" class="short" inputmode="numeric" autocomplete="off">
+      <button id="ping" type="button" class="alt">Check /health</button>
+      <span id="ping-result" class="meta" aria-live="polite"></span>
+    </div>
+  </div>
+
+  <h2>Write an entry</h2>
+  <form id="write" class="panel" autocomplete="off">
+    <div class="grid">
+      <label for="type">type</label>
+      <select id="type">
+        <option>ACTION</option><option>DECISION</option><option>CODE</option><option>PR</option>
+        <option>COMMIT</option><option>REPO</option><option>FOLLOWUP</option><option>LEARNING</option><option>LESSON</option>
+      </select>
+      <label for="summary">summary</label><input id="summary" required placeholder="deploy to staging">
+      <label for="repo">repo</label><input id="repo" placeholder="(git autodetect)">
+      <label for="family">family</label><input id="family" placeholder="tooling">
+      <label for="kpi">kpi</label><input id="kpi" placeholder="effective">
+    </div>
+    <div class="row"><button type="submit">POST /entries</button></div>
+    <div id="written" class="notice" hidden>
+      <div>Written to <code id="written-file"></code></div>
+      <pre id="written-entry"></pre>
+    </div>
+  </form>
+
+  <div id="error" class="error" role="alert" hidden>
+    <strong id="error-title"></strong>
+    <pre id="error-body"></pre>
+  </div>
+
+  <h2>Today's entries</h2>
+  <div class="panel">
+    <div class="row" style="margin-top:0">
+      <label for="f-type">type</label>
+      <select id="f-type"><option value="">(all)</option></select>
+      <label for="f-tail">tail</label>
+      <input id="f-tail" class="short" inputmode="numeric" value="20">
+      <button id="refresh" type="button" class="alt">Refresh</button>
+      <span id="count" class="meta" aria-live="polite"></span>
+    </div>
+    <ul id="entries" class="entries"></ul>
+    <p id="empty" class="empty" hidden>No entries match.</p>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var TYPES = ['ACTION', 'DECISION', 'CODE', 'PR', 'COMMIT', 'REPO', 'FOLLOWUP', 'LEARNING', 'LESSON'];
+  var $ = function (id) { return document.getElementById(id); };
+
+  $('port').value = location.port || '4848';
+  TYPES.forEach(function (t) {
+    var o = document.createElement('option');
+    o.textContent = t;
+    $('f-type').appendChild(o);
+  });
+
+  function base() {
+    return 'http://127.0.0.1:' + encodeURIComponent($('port').value.trim());
+  }
+
+  function showError(title, body) {
+    $('error-title').textContent = title;
+    $('error-body').textContent = typeof body === 'string' ? body : JSON.stringify(body, null, 2);
+    $('error').hidden = false;
+  }
+
+  function clearError() { $('error').hidden = true; }
+
+  // Resolves with { res, body } for any HTTP answer; shows the error body for non-2xx.
+  function call(method, path, payload) {
+    var init = { method: method };
+    if (payload !== undefined) {
+      init.headers = { 'Content-Type': 'application/json' };
+      init.body = JSON.stringify(payload);
+    }
+    return fetch(base() + path, init).then(function (res) {
+      return res.text().then(function (text) {
+        var body;
+        try { body = JSON.parse(text); } catch (e) { body = text; }
+        if (!res.ok) showError(method + ' ' + path + ' -> ' + res.status, body);
+        return { res: res, body: body };
+      });
+    }, function (err) {
+      showError(method + ' ' + path + ' failed', String(err && err.message ? err.message : err) +
+        '\nIs clog serve running on port ' + $('port').value + '?');
+      return null;
+    });
+  }
+
+  function render(entries) {
+    var list = $('entries');
+    list.textContent = '';
+    entries.forEach(function (e) {
+      var li = document.createElement('li');
+      var badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = String(e.type);
+      badge.style.setProperty('--c', 'var(--t-' + String(e.type).toLowerCase() + ')');
+      var time = document.createElement('span');
+      time.className = 'time';
+      time.textContent = String(e.time || '');
+      var summary = document.createElement('span');
+      summary.textContent = String(e.summary);
+      var meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = ['repo', 'family', 'kpi', 'validation'].filter(function (k) { return e[k]; })
+        .map(function (k) { return k + '=' + e[k]; }).join(' ');
+      li.append(badge, time, summary, meta);
+      list.appendChild(li);
+    });
+    $('empty').hidden = entries.length > 0;
+  }
+
+  function refresh() {
+    var q = [];
+    if ($('f-type').value) q.push('type=' + encodeURIComponent($('f-type').value));
+    if ($('f-tail').value.trim()) q.push('tail=' + encodeURIComponent($('f-tail').value.trim()));
+    return call('GET', '/entries' + (q.length ? '?' + q.join('&') : '')).then(function (r) {
+      if (r && r.res.ok) {
+        clearError();
+        render(r.body.entries);
+        $('count').textContent = r.body.entries.length + ' shown, ' + r.body.skipped + ' skipped';
+      }
+    });
+  }
+
+  $('write').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var payload = { type: $('type').value, summary: $('summary').value };
+    ['repo', 'family', 'kpi'].forEach(function (k) {
+      if ($(k).value.trim()) payload[k] = $(k).value.trim();
+    });
+    $('written').hidden = true;
+    call('POST', '/entries', payload).then(function (r) {
+      if (r && r.res.ok) {
+        clearError();
+        $('written-file').textContent = r.body.file;
+        $('written-entry').textContent = JSON.stringify(r.body.entry, null, 2);
+        $('written').hidden = false;
+        $('summary').value = '';
+        refresh();
+      }
+    });
+  });
+
+  $('refresh').addEventListener('click', refresh);
+  $('f-type').addEventListener('change', refresh);
+  $('f-tail').addEventListener('change', refresh);
+  $('ping').addEventListener('click', function () {
+    call('GET', '/health').then(function (r) {
+      $('ping-result').textContent = r && r.res.ok ? 'ok: ' + r.body.clogBin : '';
+      if (r && r.res.ok) clearError();
+    });
+  });
+
+  refresh();
+})();
+</script>
+</body>
+</html>
