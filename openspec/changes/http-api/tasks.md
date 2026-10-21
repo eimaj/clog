@@ -10,6 +10,8 @@
 - [x] 2.2 `src/server/config.ts`: resolve config by running `lib/config.sh` `load_config`.
 - [x] 2.3 `src/server/app.ts`: `createClogRouter` (health, config, entries write and read) and `createApp` (CORS, 64 KiB body limit).
 - [x] 2.4 `tests/server.test.ts`: in-process tests for every route, error mapping, CORS and mounting.
+- [x] 2.5 `src/server/app.ts`: `POST /entries` requires `Content-Type: application/json` (415 `unsupported_media_type` before parsing or spawning), so a non-preflighted cross-origin form or text POST cannot write.
+- [x] 2.6 `src/server/app.ts`: `createApp` rejects any `Host` other than `127.0.0.1` or `localhost` (optional port) with 403 `forbidden_host`, before CORS and the body limit; the router stays host-agnostic.
 
 ## 3. Serve command
 
