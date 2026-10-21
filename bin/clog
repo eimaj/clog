@@ -30,6 +30,7 @@ Flags (must follow the two positionals):
   --kpi KPI            KPI tag (LEARNING entries)
   --date YYYY-MM-DD    backfill: write to that day's file
   --echo               print the written JSON line to stdout
+  clog serve [--port N]   start the local HTTP API (default 127.0.0.1:4848)
 Help: clog --help | clog -h   (first argument only)
 Type definitions: config/rules.md
 EOF
@@ -38,6 +39,21 @@ EOF
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   usage
   exit 0
+fi
+
+# Subcommand: start the local HTTP API (handled before config load; the server
+# resolves config itself and starts without one)
+if [[ "${1:-}" == "serve" ]]; then
+  shift
+  if ! command -v node >/dev/null 2>&1; then
+    echo "clog: node is required for 'clog serve'" >&2
+    exit 1
+  fi
+  if [[ ! -f "${SCRIPT_DIR}/../dist/server/serve.js" ]]; then
+    echo "clog: run 'npm run build' first" >&2
+    exit 1
+  fi
+  exec node "${SCRIPT_DIR}/../dist/server/serve.js" "$@"
 fi
 
 # Load config (loud on missing — this is bin/clog, not a hook)
