@@ -2,7 +2,7 @@
 # clog — append a JSONL log entry for AI coding sessions.
 # Usage: clog <TYPE> "<summary>" [--agent NAME] [--repo NAME] [--session ID]
 #              [--model NAME] [--file PATH] [--family FAMILY] [--kpi KPI]
-#              [--date YYYY-MM-DD]
+#              [--date YYYY-MM-DD] [--echo]
 # Types: DECISION | ACTION | CODE | PR | COMMIT | REPO | FOLLOWUP | LEARNING | LESSON
 # See config/rules.md for full type definitions and usage guidance.
 set -euo pipefail
@@ -29,6 +29,7 @@ Flags (must follow the two positionals):
   --family FAMILY      skill/task family
   --kpi KPI            KPI tag (LEARNING entries)
   --date YYYY-MM-DD    backfill: write to that day's file
+  --echo               print the written JSON line to stdout
 Help: clog --help | clog -h   (first argument only)
 Type definitions: config/rules.md
 EOF
@@ -82,6 +83,7 @@ FILE_PATH=""
 FAMILY=""
 KPI=""
 DATE_OVERRIDE=""
+ECHO=false
 VALIDATION=""
 
 while [[ $# -gt 0 ]]; do
@@ -94,6 +96,7 @@ while [[ $# -gt 0 ]]; do
     --family)  FAMILY="$2";  shift 2 ;;
     --kpi)     KPI="$2";     shift 2 ;;
     --date)    DATE_OVERRIDE="$2"; shift 2 ;;
+    --echo)    ECHO=true; shift ;;
     *) shift ;;
   esac
 done
@@ -145,6 +148,11 @@ if [[ -n "$VALIDATION" ]]; then
 fi
 
 echo "$ENTRY" >> "$LOG_FILE"
+
+# --echo: hand the written line back to callers (scripts, the HTTP API)
+if [[ "$ECHO" == "true" ]]; then
+  echo "$ENTRY"
+fi
 
 # Auto-commit log if enabled
 if [[ "${CLOG_AUTO_COMMIT_ENABLED:-false}" == "true" && -n "${CLOG_AUTO_COMMIT_REPO:-}" ]]; then

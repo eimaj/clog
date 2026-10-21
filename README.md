@@ -92,6 +92,9 @@ Your existing log files are never deleted or moved unless you explicitly confirm
 # Show the full flag reference
 clog --help
 
+# Print the entry as written (for scripts and the HTTP API)
+clog ACTION "deploy to staging" --echo
+
 # Log an action
 clog ACTION "dispatch orchestrator for phase 2 planning"
 
