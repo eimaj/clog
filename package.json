@@ -1,0 +1,26 @@
+{
+  "name": "clog",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Structured JSONL session logging; local HTTP API",
+  "scripts": {
+    "build": "tsc -p .",
+    "typecheck": "tsc --noEmit -p .",
+    "lint": "eslint .",
+    "test": "node --test tests/",
+    "check": "npm run lint && npm run typecheck && npm test",
+    "serve": "node dist/server/serve.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "hono": "^4.13.13"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.5",
+    "eslint": "^10.13.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0"
+  }
+}
