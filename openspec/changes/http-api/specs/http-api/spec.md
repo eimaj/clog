@@ -77,7 +77,7 @@ A write that the CLI accepts SHALL answer 201 `{ entry, file }`, where `entry` i
 - **THEN** the status is 201 and `entry.validation` is `unknown_family`
 
 ### Requirement: Write failure mapping
-CLI stderr starting `clog: invalid --date` SHALL map to 400 `invalid_date`. Any other non-zero exit, a missing binary or unparseable stdout SHALL map to 500 `clog_failed`. The first stderr line SHALL be the `message`.
+CLI stderr starting `clog: unknown type`, `clog: invalid --date` or `clog: missing summary` SHALL map to 400 (`invalid_type`, `invalid_date`, `missing_summary`); `clog: no config at` SHALL map to 503 `no_config`. Exit 0 with empty stdout SHALL map to 503 `disabled`. Any other non-zero exit, a missing binary or unparseable stdout SHALL map to 500 `clog_failed`. The first stderr line SHALL be the `message`.
 
 #### Scenario: Bad date
 - **WHEN** a client posts `date` `../../evil`
@@ -91,11 +91,29 @@ A `bin/clog` child that runs longer than 10 seconds SHALL be killed and answered
 - **THEN** the status is 500 and `error.code` is `clog_timeout`
 
 ### Requirement: Disabled logging
-When `CLOG_DISABLE` is exactly `1` in the server's environment, `POST /entries` SHALL answer 503 `disabled` without spawning, because the CLI would write nothing.
+When `CLOG_DISABLE` is exactly `1` in the server's environment, `POST /entries` SHALL answer 503 `disabled` without spawning, because the CLI would write nothing. `GET /config` and `GET /entries` SHALL also answer 503 `disabled`, because no log root resolves.
 
 #### Scenario: Disabled
 - **WHEN** the server runs with `CLOG_DISABLE=1` and a client posts an entry
 - **THEN** the status is 503 and nothing is written
+
+#### Scenario: Disabled reads
+- **WHEN** the server runs with `CLOG_DISABLE=1` and a client requests `GET /entries`
+- **THEN** the status is 503 and `error.code` is `disabled`
+
+### Requirement: Write content type
+`POST /entries` SHALL require `Content-Type: application/json` (parameters allowed) and SHALL otherwise answer 415 `unsupported_media_type` before parsing the body or spawning.
+
+#### Scenario: Cross-origin text/plain
+- **WHEN** a client posts with `Content-Type: text/plain` and `Origin: https://evil.example`
+- **THEN** the status is 415 and nothing is written
+
+### Requirement: Host allowlist
+`createApp` SHALL answer 403 `forbidden_host` for a `Host` header that is not `127.0.0.1` or `localhost`, each with an optional port, before CORS is evaluated. `createClogRouter` SHALL NOT check the host.
+
+#### Scenario: Foreign host
+- **WHEN** a request carries `Host: attacker.example:4848`
+- **THEN** the status is 403 and `error.code` is `forbidden_host`
 
 ### Requirement: Read route
 `GET /entries` SHALL answer 200 `{ date, file, entries, skipped }` for `<log_root>/<log_subdir>/<YYYYMMDD>.jsonl`, defaulting `date` to today in local time. The file SHALL be read fresh on every request.
