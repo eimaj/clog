@@ -17,8 +17,8 @@ import type { ErrorBody } from './errors.ts';
  */
 
 export interface ClogRouterOptions {
+  /** The `bin/clog` to spawn for writes and to resolve config and docs from. */
   clogBin?: string;
-  now?: () => Date;
 }
 
 export type Entry = Record<string, unknown>;
@@ -69,7 +69,8 @@ function describeType(value: unknown): string {
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
-function localDate(now: Date): string {
+function localDate(): string {
+  const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${now.getFullYear()}-${month}-${day}`;
@@ -187,8 +188,8 @@ interface ReadQuery {
   tail: number | undefined;
 }
 
-function parseReadQuery(c: Context, now: Date): ReadQuery {
-  const date = c.req.query('date') ?? localDate(now);
+function parseReadQuery(c: Context): ReadQuery {
+  const date = c.req.query('date') ?? localDate();
   if (!DATE_PATTERN.test(date)) throw invalidDate(date);
 
   const type = c.req.query('type');
@@ -217,12 +218,35 @@ function parseReadQuery(c: Context, now: Date): ReadQuery {
   return { date, filters, tail };
 }
 
-async function readLines(file: string): Promise<string[]> {
+function isEnoent(err: unknown): boolean {
+  return err instanceof Error && 'code' in err && err.code === 'ENOENT';
+}
+
+/** A day's log lines, with the corrupt ones dropped and counted. */
+async function readEntries(file: string): Promise<{ records: Entry[]; skipped: number }> {
+  let text: string;
   try {
-    return (await fs.readFile(file, 'utf-8')).split('\n');
+    text = await fs.readFile(file, 'utf-8');
   } catch (err) {
-    if (err instanceof Error && 'code' in err && err.code === 'ENOENT') return [];
+    if (isEnoent(err)) return { records: [], skipped: 0 };
     throw err;
+  }
+  const records: Entry[] = [];
+  let skipped = 0;
+  for (const line of text.split('\n')) {
+    if (line.trim() === '') continue;
+    const parsed = parseJsonLine(line);
+    if (isRecord(parsed)) records.push(parsed);
+    else skipped += 1;
+  }
+  return { records, skipped };
+}
+
+function parseJsonLine(line: string): unknown {
+  try {
+    return JSON.parse(line);
+  } catch {
+    return undefined;
   }
 }
 
@@ -231,7 +255,7 @@ async function readDocsPage(clogBin: string, file: string): Promise<string> {
   try {
     return await fs.readFile(page, 'utf-8');
   } catch (err) {
-    if (err instanceof Error && 'code' in err && err.code === 'ENOENT') {
+    if (isEnoent(err)) {
       throw new HttpError(404, 'not_found', `docs/api/${file} not found`);
     }
     throw err;
@@ -255,7 +279,6 @@ export const errorHandler = (err: Error, c: Context): Response => {
 
 export function createClogRouter(options: ClogRouterOptions = {}): Hono {
   const clogBin = path.resolve(options.clogBin ?? DEFAULT_CLOG_BIN);
-  const now = options.now ?? ((): Date => new Date());
   const router = new Hono();
 
   router.onError(errorHandler);
@@ -281,33 +304,18 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
     if (run.stdout.trim() === '') throw new HttpError(503, 'disabled', DISABLED_MESSAGE);
     const entry = parseEntryLine(run.stdout);
     const config = await loadClogConfig(clogBin);
-    const date = request.date ?? localDate(now());
+    const date = request.date ?? localDate();
     const file = path.join(readRootOf(config), logFileName(date));
     return c.json({ entry, file }, 201);
   });
 
   router.get('/entries', async (c) => {
-    const query = parseReadQuery(c, now());
+    const query = parseReadQuery(c);
     const config = await loadClogConfig(clogBin);
     const file = path.join(readRootOf(config), logFileName(query.date));
 
-    let skipped = 0;
-    let entries: Entry[] = [];
-    for (const line of await readLines(file)) {
-      if (line.trim() === '') continue;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(line);
-      } catch {
-        skipped += 1;
-        continue;
-      }
-      if (!isRecord(parsed)) {
-        skipped += 1;
-        continue;
-      }
-      if (query.filters.every(([field, value]) => parsed[field] === value)) entries.push(parsed);
-    }
+    const { records, skipped } = await readEntries(file);
+    let entries = records.filter((e) => query.filters.every(([field, value]) => e[field] === value));
     if (query.tail !== undefined) entries = entries.slice(-query.tail);
     return c.json({ date: query.date, file, entries, skipped }, 200);
   });

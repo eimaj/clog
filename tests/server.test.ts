@@ -145,6 +145,13 @@ function seed(date: string, lines: string[]): string {
   return file;
 }
 
+function localDay(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
 const line = (fields: Record<string, string>): string =>
   JSON.stringify({ time: '10:00:00', summary: 's', ...fields });
 
@@ -297,9 +304,15 @@ describe('POST /entries', () => {
     const res = await post({ type: 'ACTION', summary: 'today', repo: 'r' });
     assert.equal(res.status, 201);
     const { file } = (await res.json()) as Written;
-    const now = new Date();
-    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-    assert.equal(file, path.join(readRoot, `${stamp}.jsonl`));
+    assert.equal(file, path.join(readRoot, `${localDay().replaceAll('-', '')}.jsonl`));
+    assert.ok(fs.existsSync(file));
+  });
+
+  it('treats an empty date like an omitted one and writes to today', async () => {
+    const res = await post({ type: 'ACTION', summary: 'today', repo: 'r', date: '' });
+    assert.equal(res.status, 201);
+    const { file } = (await res.json()) as Written;
+    assert.equal(file, path.join(readRoot, `${localDay().replaceAll('-', '')}.jsonl`));
     assert.ok(fs.existsSync(file));
   });
 
@@ -474,12 +487,10 @@ describe('POST /entries', () => {
 });
 
 describe('GET /entries', () => {
-  const today = '2026-02-10';
-  const clock = (): Date => new Date(2026, 1, 10, 12, 0, 0);
-  const dated = createApp({ now: clock });
+  const today = localDay();
 
   function list(query = ''): Promise<Response> {
-    return send(dated, 'GET', `/entries${query}`);
+    return request('GET', `/entries${query}`);
   }
 
   beforeEach(() => {
@@ -495,7 +506,7 @@ describe('GET /entries', () => {
   it('defaults to today and reports the file', async () => {
     const body = (await (await list()).json()) as Listed;
     assert.equal(body.date, today);
-    assert.equal(body.file, path.join(readRoot, '20260210.jsonl'));
+    assert.equal(body.file, path.join(readRoot, `${today.replaceAll('-', '')}.jsonl`));
     assert.equal(body.entries.length, 4);
     assert.equal(body.skipped, 0);
   });
@@ -559,7 +570,7 @@ describe('GET /entries', () => {
 
   it('reads the file fresh on every request', async () => {
     await list();
-    fs.appendFileSync(path.join(readRoot, '20260210.jsonl'), line({ type: 'LESSON', summary: 'late' }) + '\n');
+    fs.appendFileSync(path.join(readRoot, `${today.replaceAll('-', '')}.jsonl`),line({ type: 'LESSON', summary: 'late' }) + '\n');
     const body = (await (await list('?type=LESSON')).json()) as Listed;
     assert.equal(body.entries.length, 1);
   });
@@ -592,6 +603,11 @@ describe('GET /entries', () => {
   it('answers 503 no_config when there is no config', async () => {
     process.env['CLOG_CONFIG'] = path.join(tmp, 'missing.yaml');
     await expectError(await list(), 503, 'no_config');
+  });
+
+  it('answers 503 disabled under CLOG_DISABLE=1', async () => {
+    process.env['CLOG_DISABLE'] = '1';
+    await expectError(await list(), 503, 'disabled');
   });
 });
 
