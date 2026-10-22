@@ -30,7 +30,7 @@ Flags (must follow the two positionals):
   --kpi KPI            KPI tag (LEARNING entries)
   --date YYYY-MM-DD    backfill: write to that day's file
   --echo               print the written JSON line to stdout
-  clog serve [--port N]   start the local HTTP API (default 127.0.0.1:4848)
+  clog serve [--port N]   start the local HTTP API (default 127.0.0.1:4848; prints a bearer token)
 Help: clog --help | clog -h   (first argument only)
 Type definitions: config/rules.md
 EOF
@@ -70,6 +70,8 @@ fi
 # shellcheck source=../lib/jsonl.sh
 . "${SCRIPT_DIR}/../lib/jsonl.sh"
 
+# The HTTP API (src/server/errors.ts STDERR_RULES) maps the first stderr line of
+# the error messages below by prefix; keep them in step with tests/server.test.ts.
 if [[ -z "${1:-}" ]]; then
   { echo "clog: missing TYPE"; usage; } >&2
   exit 1

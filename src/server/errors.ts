@@ -51,6 +51,7 @@ interface StderrRule {
   code: ErrorCode;
 }
 
+// Must mirror the first stderr line of `bin/clog`; `tests/server.test.ts` pins each prefix.
 const STDERR_RULES: readonly StderrRule[] = [
   { prefix: 'clog: unknown type', status: 400, code: 'invalid_type' },
   { prefix: 'clog: invalid --date', status: 400, code: 'invalid_date' },

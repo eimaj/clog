@@ -243,6 +243,15 @@ describe('clog serve', () => {
     assert.equal(result.stderr, "clog: invalid --port '70000'\n");
   });
 
+  it('prints a one-line usage for serve --help and exits 0', () => {
+    const result = spawnSync(CLOG_BIN, ['serve', '--help'], { env, encoding: 'utf-8' });
+    assert.equal(result.status, 0);
+    assert.equal(
+      result.stdout,
+      'Usage: clog serve [--port N]   (default 127.0.0.1:4848; prints the API token on start)\n',
+    );
+  });
+
   it('lists serve in --help', () => {
     const result = spawnSync(CLOG_BIN, ['--help'], { env, encoding: 'utf-8' });
     assert.equal(result.status, 0);

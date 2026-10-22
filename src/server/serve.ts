@@ -32,7 +32,14 @@ function parsePort(args: string[]): number {
   return port;
 }
 
+export const SERVE_USAGE =
+  'Usage: clog serve [--port N]   (default 127.0.0.1:4848; prints the API token on start)\n';
+
 export async function runServe(argv: string[]): Promise<void> {
+  if (argv[0] === '--help' || argv[0] === '-h') {
+    process.stdout.write(SERVE_USAGE);
+    return;
+  }
   let port: number;
   try {
     port = parsePort(argv);
