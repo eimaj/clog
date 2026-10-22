@@ -35,7 +35,7 @@ After the required fields the entry SHALL contain, in this order and only when n
 - **THEN** the keys appear in the order `time, type, summary, agent, repo, session, model, file, family, kpi, clog_version, tags, validation`
 
 ### Requirement: Tags field
-`tags` SHALL be a JSON array of strings built from the resolved default-tags value split on `,` with empty items dropped and no trimming. It SHALL be absent when no default tags are configured. A value consisting only of commas SHALL yield `[]`.
+`tags` SHALL be a JSON array of strings built from the machine default tags followed by the entry's `--tags` value, split on `,`, each item trimmed, empty items dropped, duplicates removed keeping the first occurrence. It SHALL be absent when neither source is set. A value consisting only of commas or whitespace SHALL yield `[]`.
 
 #### Scenario: Default tags configured
 - **WHEN** `CLOG_DEFAULT_TAGS=jbook` and the user runs `clog ACTION "x"`

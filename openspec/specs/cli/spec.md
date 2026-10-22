@@ -69,7 +69,7 @@ The summary SHALL be stored verbatim as a JSON string. Double quotes, backslashe
 - **THEN** an entry with `summary` `" "` is appended and the exit code is 0
 
 ### Requirement: Optional flags
-The CLI SHALL accept `--agent NAME`, `--repo NAME`, `--session ID`, `--model NAME`, `--file PATH`, `--family FAMILY`, `--kpi KPI` and `--date YYYY-MM-DD`. Each value SHALL be stored verbatim in the field of the same name (except `--date`, which selects the file). When a flag is repeated, the last occurrence SHALL win.
+The CLI SHALL accept `--agent NAME`, `--repo NAME`, `--session ID`, `--model NAME`, `--file PATH`, `--family FAMILY`, `--kpi KPI`, `--date YYYY-MM-DD` and `--tags a,b`. Each value SHALL be stored verbatim in the field of the same name (except `--date`, which selects the file, and `--tags`, which is merged into the `tags` array). When a flag is repeated, the last occurrence SHALL win.
 
 #### Scenario: All flags
 - **WHEN** the user runs `clog ACTION "all" --agent a --repo r --session s --model m --file /f --family tooling --kpi effective`
@@ -78,6 +78,17 @@ The CLI SHALL accept `--agent NAME`, `--repo NAME`, `--session ID`, `--model NAM
 #### Scenario: Repeated flag
 - **WHEN** the user runs `clog ACTION "x" --repo first --repo second`
 - **THEN** the entry's `repo` is `second`
+
+### Requirement: Tags flag
+`--tags a,b` SHALL take a comma-separated list and append it to the machine default tags for this entry only. The resulting `tags` array SHALL have each item trimmed, empty items dropped and duplicates removed keeping the first occurrence, defaults first.
+
+#### Scenario: Defaults plus explicit tags
+- **WHEN** `CLOG_DEFAULT_TAGS=jbook` and the user runs `clog ACTION "x" --tags "release, jbook ,web"`
+- **THEN** the entry's `tags` is `["jbook","release","web"]`
+
+#### Scenario: Explicit tags without defaults
+- **WHEN** no default tags are configured and the user runs `clog ACTION "x" --tags a,b`
+- **THEN** the entry's `tags` is `["a","b"]`
 
 ### Requirement: Unrecognised arguments
 Any argument after the two positionals that is not a recognised flag SHALL be dropped silently, one token at a time, so an unknown flag's value is parsed as the next argument. Extra positionals SHALL be dropped the same way. A recognised flag given as the final argument with no value SHALL exit 1 with a bash `unbound variable` error.
