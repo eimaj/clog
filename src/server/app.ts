@@ -281,6 +281,16 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
   const clogBin = path.resolve(options.clogBin ?? DEFAULT_CLOG_BIN);
   const router = new Hono();
 
+  // `bin/clog` appends with a plain `echo >>`, which is not atomic past the pipe
+  // buffer, so overlapping writes can interleave. One spawn at a time per router.
+  let writes: Promise<unknown> = Promise.resolve();
+  const serialised = <T>(task: () => Promise<T>): Promise<T> => {
+    const result = writes.then(task);
+    // The chain only waits for settlement; `result` still rejects to its caller.
+    writes = result.catch(() => undefined);
+    return result;
+  };
+
   router.onError(errorHandler);
   router.notFound(notFoundHandler);
 
@@ -299,7 +309,8 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
     if (process.env['CLOG_DISABLE'] === '1') {
       throw new HttpError(503, 'disabled', DISABLED_MESSAGE);
     }
-    const run = await runClog(clogBin, [request.type, request.summary, ...request.flags, '--echo']);
+    const args = [request.type, request.summary, ...request.flags, '--echo'];
+    const run = await serialised(() => runClog(clogBin, args));
     if (run.exitCode !== 0) throw errorFromStderr(run.exitCode, run.stderr);
     if (run.stdout.trim() === '') throw new HttpError(503, 'disabled', DISABLED_MESSAGE);
     const entry = parseEntryLine(run.stdout);

@@ -418,6 +418,22 @@ describe('POST /entries', () => {
     await expectError(res, 413, 'payload_too_large');
   });
 
+  it('serialises parallel large writes so the day file stays line-parseable', async () => {
+    const summary = 'x'.repeat(20 * 1024);
+    const responses = await Promise.all(
+      Array.from({ length: 20 }, (_, i) =>
+        post({ type: 'ACTION', summary: `${i}:${summary}`, repo: 'r', date: '2026-01-03' }),
+      ),
+    );
+    assert.deepEqual(
+      responses.map((r) => r.status),
+      Array.from({ length: 20 }, () => 201),
+    );
+    const listed = (await (await request('GET', '/entries?date=2026-01-03')).json()) as Listed;
+    assert.equal(listed.skipped, 0);
+    assert.equal(listed.entries.length, 20);
+  });
+
   it('answers 503 disabled without spawning when CLOG_DISABLE=1', async () => {
     process.env['CLOG_DISABLE'] = '1';
     await expectError(await post({ type: 'ACTION', summary: 'x', date: '2026-01-03' }), 503, 'disabled');
@@ -431,17 +447,34 @@ describe('POST /entries', () => {
   });
 
   describe('child failures', () => {
-    const fakes: string[] = [];
-    after(() => {
-      for (const f of fakes) fs.rmSync(f, { force: true });
-    });
-
+    // A throwaway repo layout (bin/clog plus a lib symlink) so the config
+    // loader, which resolves lib/config.sh from the binary's location, works.
     function fakeClog(name: string, script: string): Hono {
-      const bin = path.join(tmp, name);
+      const root = path.join(tmp, name);
+      fs.mkdirSync(path.join(root, 'bin'), { recursive: true });
+      fs.symlinkSync(path.join(REPO_ROOT, 'lib'), path.join(root, 'lib'));
+      const bin = path.join(root, 'bin', 'clog');
       fs.writeFileSync(bin, `#!/usr/bin/env bash\n${script}\n`, { mode: 0o755 });
-      fakes.push(bin);
       return createApp({ clogBin: bin });
     }
+
+    it('spawns one bin/clog at a time', async () => {
+      const lock = path.join(tmp, 'lock');
+      const fake = fakeClog(
+        'fake-lock',
+        `if ! mkdir "${lock}" 2>/dev/null; then echo "overlap" >&2; exit 2; fi
+sleep 0.05
+echo '{"time":"T","type":"ACTION","summary":"s"}'
+rmdir "${lock}"`,
+      );
+      const responses = await Promise.all(
+        Array.from({ length: 8 }, () => send(fake, 'POST', '/entries', { type: 'ACTION', summary: 'x' })),
+      );
+      assert.deepEqual(
+        responses.map((r) => r.status),
+        Array.from({ length: 8 }, () => 201),
+      );
+    });
 
     it('maps exit 127 to 500 clog_failed', async () => {
       const res = await send(fakeClog('fake-127', 'echo "boom" >&2; exit 127'), 'POST', '/entries', {
