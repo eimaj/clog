@@ -17,6 +17,8 @@
 - [x] 2.8 `src/server/app.ts`: one `bin/clog` write child at a time per router (promise chain); reads are not queued.
 - [x] 2.9 `src/server/app.ts`: `token` option; `GET /config`, `GET /entries` and `POST /entries` require `Authorization: Bearer` (401 `unauthorized`); `Authorization` added to CORS `allowHeaders`.
 - [x] 2.10 `src/server/app.ts`: NUL in a field is 400 `invalid_field`; a child that echoed one JSON line then exited non-zero is 201 with `warning`.
+- [x] 2.11 `src/server/app.ts`: optional `tags: string[]` in the write body, passed as `--tags`; non-array, empty, comma or NUL items are 400 `invalid_field`.
+- [x] 2.12 `src/server/app.ts`: `GET /entries?tag=` keeps entries whose `tags` contains the value; empty `tag` is 400 `invalid_tag`.
 
 ## 3. Serve command
 

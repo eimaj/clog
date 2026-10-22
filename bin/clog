@@ -2,7 +2,7 @@
 # clog — append a JSONL log entry for AI coding sessions.
 # Usage: clog <TYPE> "<summary>" [--agent NAME] [--repo NAME] [--session ID]
 #              [--model NAME] [--file PATH] [--family FAMILY] [--kpi KPI]
-#              [--date YYYY-MM-DD] [--echo]
+#              [--date YYYY-MM-DD] [--tags a,b] [--echo]
 # Types: DECISION | ACTION | CODE | PR | COMMIT | REPO | FOLLOWUP | LEARNING | LESSON
 # See config/rules.md for full type definitions and usage guidance.
 set -euo pipefail
@@ -29,6 +29,7 @@ Flags (must follow the two positionals):
   --family FAMILY      skill/task family
   --kpi KPI            KPI tag (LEARNING entries)
   --date YYYY-MM-DD    backfill: write to that day's file
+  --tags a,b           extra tags for this entry, after the machine defaults
   --echo               print the written JSON line to stdout
   clog serve [--port N]   start the local HTTP API (default 127.0.0.1:4848; prints a bearer token)
 Help: clog --help | clog -h   (first argument only)
@@ -102,6 +103,7 @@ FAMILY=""
 KPI=""
 DATE_OVERRIDE=""
 ECHO=false
+TAGS_FLAG=""
 VALIDATION=""
 
 while [[ $# -gt 0 ]]; do
@@ -114,6 +116,7 @@ while [[ $# -gt 0 ]]; do
     --family)  FAMILY="$2";  shift 2 ;;
     --kpi)     KPI="$2";     shift 2 ;;
     --date)    DATE_OVERRIDE="$2"; shift 2 ;;
+    --tags)    TAGS_FLAG="$2"; shift 2 ;;
     --echo)    ECHO=true; shift ;;
     *) shift ;;
   esac
@@ -158,7 +161,13 @@ if [[ ! -f "$LOG_FILE" ]]; then
   CLOG_VERSION="1.0"
 fi
 
-ENTRY=$(build_entry "$TYPE" "$SUMMARY" "$AGENT" "$REPO" "$SESSION" "$MODEL" "$FILE_PATH" "$FAMILY" "$KPI" "$CLOG_VERSION")
+# Tags: machine defaults first, then this entry's --tags; jsonl.sh trims and dedups.
+ALL_TAGS="${CLOG_DEFAULT_TAGS:-}"
+if [[ -n "$TAGS_FLAG" ]]; then
+  ALL_TAGS="${ALL_TAGS:+$ALL_TAGS,}$TAGS_FLAG"
+fi
+
+ENTRY=$(build_entry "$TYPE" "$SUMMARY" "$AGENT" "$REPO" "$SESSION" "$MODEL" "$FILE_PATH" "$FAMILY" "$KPI" "$CLOG_VERSION" "$ALL_TAGS")
 
 # Append validation field if present
 if [[ -n "$VALIDATION" ]]; then

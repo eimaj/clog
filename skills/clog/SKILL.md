@@ -23,13 +23,14 @@ For type definitions (`ACTION`, `DECISION`, `CODE`, `PR`, `COMMIT`, `REPO`, `FOL
 ```bash
 clog <TYPE> "<summary>" [--agent NAME] [--repo NAME] [--session ID] \
      [--model NAME] [--file PATH] [--family FAMILY] [--kpi KPI] \
-     [--date YYYY-MM-DD] [--echo]
+     [--date YYYY-MM-DD] [--tags a,b] [--echo]
 ```
 
 - `TYPE` and `<summary>` are required positional args.
 - `--repo` is auto-detected from git if omitted; pass explicitly when not in a repo dir.
 - `--date` is for backfill only — omit for current date. The value must match `YYYY-MM-DD` (month 01-12, day 01-31; calendar validity is not checked) and anything else is rejected.
 - `clog --help` prints the full flag reference.
+- `--tags a,b` adds per-entry tags after the machine defaults (`CLOG_DEFAULT_TAGS` or `~/.config/clog/tags.local`); items are trimmed and deduplicated.
 - `--echo` prints the written JSON line to stdout (nothing when `CLOG_DISABLE=1`). Use it when a caller needs the entry back, such as a script or the HTTP API.
 
 **Finding the binary:** `clog` must be on PATH. If not, set `$CLOG_CLI_PATH` to the full path, or check `cli_path` in `~/.config/clog/config.yaml`.

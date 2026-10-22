@@ -47,6 +47,8 @@ const OPTIONAL_FIELDS = ['agent', 'repo', 'session', 'model', 'file', 'family', 
 const FILTER_FIELDS = ['type', 'repo', 'session', 'agent'] as const;
 const DATE_PATTERN = /^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
 const TAIL_PATTERN = /^[0-9]{1,5}$/;
+// eslint-disable-next-line no-control-regex -- C0 and C1 control characters are the point
+const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f-\u009f]/;
 const MAX_TAIL = 10_000;
 const SPAWN_TIMEOUT_MS = 10_000;
 const SPAWN_MAX_BUFFER = 1024 * 1024;
@@ -190,7 +192,24 @@ async function parseWriteRequest(c: Context): Promise<WriteRequest> {
     flags.push(`--${field}`, value);
     if (field === 'date' && value !== '') date = value;
   }
+  const tags = body['tags'];
+  if (tags !== undefined) {
+    if (!isStringArray(tags) || tags.length === 0 || tags.some((t) => t.trim() === '')) {
+      throw new HttpError(400, 'invalid_field', "field 'tags' must be a non-empty array of non-empty strings");
+    }
+    // Control characters (C0/C1, including NUL and U+0085) would be stripped or
+    // rejected by the CLI's jq trim, so refuse them here to keep the item intact.
+    if (tags.some((t) => t.includes(',') || CONTROL_CHAR_PATTERN.test(t))) {
+      throw new HttpError(400, 'invalid_field', "field 'tags' items must not contain commas or control characters");
+    }
+    // The CLI merges these after the machine defaults, trims and dedups.
+    flags.push('--tags', tags.join(','));
+  }
   return { type, summary, flags, date };
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((v) => typeof v === 'string');
 }
 
 /** The one JSON object `bin/clog --echo` prints, or undefined if stdout is anything else. */
@@ -212,6 +231,7 @@ function parseEntryLine(stdout: string): Entry {
 interface ReadQuery {
   date: string;
   filters: Array<[string, string]>;
+  tag: string | undefined;
   tail: number | undefined;
 }
 
@@ -242,7 +262,21 @@ function parseReadQuery(c: Context): ReadQuery {
     const value = c.req.query(field);
     if (value !== undefined) filters.push([field, value]);
   }
-  return { date, filters, tail };
+  const tags = c.req.queries('tag') ?? [];
+  if (tags.length > 1) {
+    throw new HttpError(400, 'invalid_tag', 'tag may be given once');
+  }
+  const tag = tags[0]?.trim();
+  if (tag === '') {
+    throw new HttpError(400, 'invalid_tag', 'tag must be a non-empty string');
+  }
+  return { date, filters, tag, tail };
+}
+
+/** True when the entry's `tags` array contains `tag` (entries without tags never match). */
+function hasTag(entry: Entry, tag: string): boolean {
+  const tags = entry['tags'];
+  return isStringArray(tags) && tags.includes(tag);
 }
 
 function isEnoent(err: unknown): boolean {
@@ -380,6 +414,7 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
 
     const { records, skipped } = await readEntries(file);
     let entries = records.filter((e) => query.filters.every(([field, value]) => e[field] === value));
+    if (query.tag !== undefined) entries = entries.filter((e) => hasTag(e, query.tag as string));
     if (query.tail !== undefined) entries = entries.slice(-query.tail);
     return c.json({ date: query.date, file, entries, skipped }, 200);
   });

@@ -60,11 +60,19 @@ When no config file exists, `GET /config`, `GET /entries` and `POST /entries` SH
 - **THEN** the two lines are identical apart from `time`
 
 ### Requirement: Write request body
-The body SHALL be a JSON object with string `type` and `summary` and optional string `agent`, `repo`, `session`, `model`, `file`, `family`, `kpi` and `date`.
+The body SHALL be a JSON object with string `type` and `summary`, optional string `agent`, `repo`, `session`, `model`, `file`, `family`, `kpi` and `date`, and optional `tags`: a non-empty array of non-empty strings without commas or C0/C1 control characters, passed to the CLI as `--tags` so the entry's `tags` is the server's default tags followed by these, trimmed and deduplicated.
 
 #### Scenario: Optional fields
 - **WHEN** a client posts `family` and `kpi` along with type and summary
 - **THEN** the entry carries both fields
+
+#### Scenario: Tags in the body
+- **WHEN** the server runs with `CLOG_DEFAULT_TAGS=jbook` and a client posts `tags: ["release", "jbook"]`
+- **THEN** the entry's `tags` is `["jbook","release"]`
+
+#### Scenario: Bad tags
+- **WHEN** a client posts `tags: "release"` or `tags: ["a,b"]` or `tags: []`
+- **THEN** the status is 400 and `error.code` is `invalid_field`
 
 ### Requirement: Write input checks
 Before spawning, the server SHALL answer 400 for a body that is not JSON (`invalid_json`), a `type` that is not one of the nine (`invalid_type`), an absent or empty `summary` (`missing_summary`) and a non-string optional field (`invalid_field`). Messages for the first three SHALL match the CLI's.
@@ -174,11 +182,15 @@ When `CLOG_DISABLE` is exactly `1` in the server's environment, `POST /entries` 
 - **THEN** `date` is today and `entries` holds that day's entries
 
 ### Requirement: Read filters
-`type`, `repo`, `session` and `agent` SHALL filter by exact match and SHALL be ANDed. `tail=N` SHALL keep the last N entries after filtering.
+`type`, `repo`, `session` and `agent` SHALL filter by exact match; `tag` SHALL keep entries whose `tags` array contains the trimmed value (entries without `tags` never match); all SHALL be ANDed. `tail=N` SHALL keep the last N entries after filtering. An empty or repeated `tag` SHALL be 400 `invalid_tag`.
 
 #### Scenario: Tail after filter
 - **WHEN** a client requests `?repo=a&tail=2`
 - **THEN** the last two entries with repo `a` are returned
+
+#### Scenario: Tag filter
+- **WHEN** a client requests `?tag=release`
+- **THEN** only entries whose `tags` contains `release` are returned
 
 ### Requirement: Read validation
 `date` SHALL match `YYYY-MM-DD` as in the CLI (`invalid_date`), `type` SHALL be one of the nine (`invalid_type`) and `tail` SHALL be an integer from 1 to 10000 (`invalid_tail`); each failure SHALL be a 400.

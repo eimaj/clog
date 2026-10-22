@@ -101,7 +101,7 @@ else
   COMMIT_SHA=""
   [[ "$TYPE" == "COMMIT" ]] && COMMIT_SHA=$(git -C "$GIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
 
-  ENTRY=$(build_entry "$TYPE" "$SUMMARY" "" "$REPO" "" "" "" "" "" "")
+  ENTRY=$(build_entry "$TYPE" "$SUMMARY" "" "$REPO" "" "" "" "" "" "" "${CLOG_DEFAULT_TAGS:-}")
   if [[ -n "$COMMIT_SHA" ]]; then
     ENTRY=$(echo "$ENTRY" | jq --arg c "$COMMIT_SHA" '. + {commit: $c}')
   fi

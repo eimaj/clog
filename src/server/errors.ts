@@ -13,6 +13,7 @@ export type ErrorCode =
   | 'invalid_field'
   | 'invalid_date'
   | 'invalid_tail'
+  | 'invalid_tag'
   | 'no_config'
   | 'disabled'
   | 'clog_failed'
