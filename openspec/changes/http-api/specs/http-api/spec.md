@@ -7,11 +7,15 @@ A local HTTP service, started by `clog serve`, that writes entries by spawning `
 ## ADDED Requirements
 
 ### Requirement: Listening
-The server SHALL listen on `127.0.0.1` only, on port 4848 unless `--port N` is given, and SHALL print exactly one stdout line `clog API listening on http://127.0.0.1:<port>`. `--port 0` SHALL pick a free port and the line SHALL carry the real one.
+The server SHALL listen on `127.0.0.1` only, on port 4848 unless `--port N` is given, and SHALL print exactly two stdout lines, `clog API listening on http://127.0.0.1:<port>` then `clog API token: <token>`. `--port 0` SHALL pick a free port and the first line SHALL carry the real one.
 
 #### Scenario: Free port
 - **WHEN** the user runs `clog serve --port 0`
 - **THEN** the listening line names a real port and `GET /health` on it answers 200
+
+#### Scenario: Chosen port
+- **WHEN** the user runs `clog serve --port N` for a free port N
+- **THEN** the listening line names port N
 
 ### Requirement: Port validation
 A `--port` value that is not an integer from 0 to 65535 SHALL print `clog: invalid --port '<v>'` to stderr and exit 1.
@@ -68,6 +72,38 @@ Before spawning, the server SHALL answer 400 for a body that is not JSON (`inval
 #### Scenario: Lowercase type
 - **WHEN** a client posts type `action`
 - **THEN** the status is 400, `error.code` is `invalid_type` and nothing is written
+
+### Requirement: Bearer token
+`clog serve` SHALL use `CLOG_API_TOKEN` when non-blank (trimmed), else a random 32-hex-char token per launch. `GET /config`, `GET /entries` and `POST /entries` SHALL require `Authorization: Bearer <token>` (constant-time compare) else 401 `unauthorized`, checked before the body is parsed; the app-level 64 KiB limit runs first, so an oversized request without a token answers 413. `/health`, `/demo`, `/docs` and preflights SHALL NOT need it. `createClogRouter({ token })` SHALL enforce it; with no `token` the router is open.
+
+#### Scenario: Missing token
+- **WHEN** a client requests `GET /entries` with no Authorization header
+- **THEN** the status is 401 and `error.code` is `unauthorized`
+
+#### Scenario: Right token
+- **WHEN** a client sends `Authorization: Bearer <token>` with a valid write
+- **THEN** the status is 201
+
+### Requirement: Serialised writes
+The router SHALL run at most one `bin/clog` write child at a time per instance; concurrent `POST /entries` SHALL queue. Reads SHALL NOT be queued.
+
+#### Scenario: Parallel writes
+- **WHEN** 20 clients post 20 KiB summaries at once
+- **THEN** all answer 201 and the day file has 20 intact lines
+
+### Requirement: NUL rejected
+A `summary` or optional field containing U+0000 SHALL answer 400 `invalid_field` before anything is spawned.
+
+#### Scenario: NUL in summary
+- **WHEN** a client posts a summary containing a NUL character
+- **THEN** the status is 400 and `error.code` is `invalid_field`
+
+### Requirement: Write succeeded with warning
+When the CLI exits non-zero but stdout holds exactly one parseable JSON object line, the entry was written and the server SHALL answer 201 `{ entry, file, warning }`, with `warning` the first stderr line.
+
+#### Scenario: Auto-commit fails
+- **WHEN** the CLI prints the entry and then exits 2 with stderr `git: commit failed`
+- **THEN** the status is 201 and `warning` is `git: commit failed`
 
 ### Requirement: Write success
 A write that the CLI accepts SHALL answer 201 `{ entry, file }`, where `entry` is the echoed line parsed and `file` is the absolute path of that day's file. An entry carrying `validation` SHALL still be a 201.
@@ -158,7 +194,7 @@ A request body over 64 KiB SHALL answer 413 `payload_too_large`.
 - **THEN** the status is 413 and nothing is written
 
 ### Requirement: CORS
-The server SHALL allow cross-origin requests only from origins matching `^http://(localhost|127\.0\.0\.1)(:\d+)?$`, echoing the origin, for `GET, POST, OPTIONS` and the `Content-Type` header. Any other origin, including `null`, SHALL get no allow header. A preflight SHALL answer 204.
+The server SHALL allow cross-origin requests only from origins matching `^http://(localhost|127\.0\.0\.1)(:\d+)?$`, echoing the origin, for `GET, POST, OPTIONS` and the `Content-Type` and `Authorization` headers. Any other origin, including `null`, SHALL get no allow header. A preflight SHALL answer 204.
 
 #### Scenario: Foreign origin
 - **WHEN** a request carries `Origin: https://example.com`
@@ -172,7 +208,7 @@ The server SHALL allow cross-origin requests only from origins matching `^http:/
 - **THEN** the status is 200 and the body is the demo page
 
 ### Requirement: Mountable router
-The routes SHALL be exported as `createClogRouter(options)` with relative paths only, so another Hono app can mount them under a prefix.
+The routes SHALL be exported as `createClogRouter(options)` with relative paths only, so another Hono app can mount them under a prefix. The router SHALL carry no Host, CORS or body-limit guard; the mounting app owns those.
 
 #### Scenario: Mounted under a prefix
 - **WHEN** the router is mounted at `/clog`

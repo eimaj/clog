@@ -13,15 +13,21 @@
 - [x] 2.5 `src/server/app.ts`: `POST /entries` requires `Content-Type: application/json` (415 `unsupported_media_type` before parsing or spawning), so a non-preflighted cross-origin form or text POST cannot write.
 - [x] 2.6 `src/server/app.ts`: `createApp` rejects any `Host` other than `127.0.0.1` or `localhost` (optional port) with 403 `forbidden_host`, before CORS and the body limit; the router stays host-agnostic.
 
+- [x] 2.7 `src/server/config.ts`: the loader prints `env -0` and splits on NUL, so a multi-line parent env var cannot forge a `CLOG_*` line.
+- [x] 2.8 `src/server/app.ts`: one `bin/clog` write child at a time per router (promise chain); reads are not queued.
+- [x] 2.9 `src/server/app.ts`: `token` option; `GET /config`, `GET /entries` and `POST /entries` require `Authorization: Bearer` (401 `unauthorized`); `Authorization` added to CORS `allowHeaders`.
+- [x] 2.10 `src/server/app.ts`: NUL in a field is 400 `invalid_field`; a child that echoed one JSON line then exited non-zero is 201 with `warning`.
+
 ## 3. Serve command
 
 - [x] 3.1 `src/server/serve.ts`: `--port` parsing, loopback bind, listening line, SIGINT/SIGTERM.
 - [x] 3.2 `bin/clog`: `serve` dispatch with the node and build checks, and the usage line.
-- [x] 3.3 `tests/serve.test.ts`: child-process smoke against the built server.
+- [x] 3.3 `tests/serve.test.ts`: child-process smoke against the built server, including `--port N`, loopback-only bind and the token.
+- [x] 3.4 `src/server/serve.ts`: per-launch token (`CLOG_API_TOKEN` or random), printed as the second stdout line; `serve --help` usage line.
 
 ## 4. Demo and static routes
 
-- [x] 4.1 `docs/api/demo.html`: self-contained write form and filtered list.
+- [x] 4.1 `docs/api/demo.html`: self-contained write form and filtered list, with a token field sent as `Authorization`.
 - [x] 4.2 `GET /demo` and `GET /docs` routes.
 
 ## 5. Docs

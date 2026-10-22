@@ -7,7 +7,11 @@ When the first argument is `serve`, the CLI SHALL hand the remaining arguments t
 
 #### Scenario: Serve without a config
 - **WHEN** `CLOG_CONFIG` points at a missing file and the user runs `clog serve --port 0`
-- **THEN** the server starts and prints its listening line
+- **THEN** the server starts and prints its listening line and then its token line `clog API token: <token>`
+
+#### Scenario: Serve help
+- **WHEN** the user runs `clog serve --help`
+- **THEN** stdout is `Usage: clog serve [--port N]   (default 127.0.0.1:4848; prints the API token on start)` and the exit code is 0
 
 ### Requirement: Serve preconditions
 `clog serve` SHALL print `clog: node is required for 'clog serve'` and exit 1 when `node` is not on PATH. It SHALL print `clog: run 'npm run build' first` and exit 1 when `dist/server/serve.js` does not exist.
@@ -17,7 +21,7 @@ When the first argument is `serve`, the CLI SHALL hand the remaining arguments t
 - **THEN** stderr is `clog: run 'npm run build' first` and the exit code is 1
 
 ### Requirement: Serve usage line
-The usage text SHALL include the line `  clog serve [--port N]   start the local HTTP API (default 127.0.0.1:4848)`.
+The usage text SHALL include the line `  clog serve [--port N]   start the local HTTP API (default 127.0.0.1:4848; prints a bearer token)`.
 
 #### Scenario: Help lists serve
 - **WHEN** the user runs `clog --help`

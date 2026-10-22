@@ -10,7 +10,9 @@ Browsers and other tools cannot write a clog entry without shelling out. A local
 - Every write spawns `bin/clog --echo`; the echoed line is returned as the entry. The server never reimplements the CLI's rules.
 - New read surface over the daily JSONL files: `GET /entries` with date, type, repo, session, agent and tail filters, plus `GET /config` and `GET /health`.
 - `POST /entries` requires a JSON content type and `createApp` allows only local `Host` headers, so a foreign web page cannot write through the browser.
-- The routes are exported as `createClogRouter` so another Hono app can mount them under a prefix.
+- `clog serve` prints a per-launch bearer token (or uses `CLOG_API_TOKEN`); `GET /config`, `GET /entries` and `POST /entries` require it, so another local web page cannot read or forge entries.
+- Writes run one `bin/clog` at a time, and a write that succeeded but exited non-zero answers 201 with a `warning`.
+- The routes are exported as `createClogRouter` so another Hono app can mount them under a prefix; pass `token` to require bearer auth, the mounting app owns Host, CORS and body limits.
 - A self-contained demo page (`GET /demo`) and the reference page (`GET /docs`) are served from `docs/api/`.
 - `bin/clog` dispatches `serve` after the `--help` check and before the config load; `usage()` gains one line.
 
