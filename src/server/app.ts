@@ -1,9 +1,10 @@
 import { execFile } from 'node:child_process';
+import { timingSafeEqual } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Hono } from 'hono';
-import type { Context } from 'hono';
+import type { Context, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { loadClogConfig, readRootOf, repoRootOf, DISABLED_MESSAGE } from './config.ts';
@@ -19,6 +20,13 @@ import type { ErrorBody } from './errors.ts';
 export interface ClogRouterOptions {
   /** The `bin/clog` to spawn for writes and to resolve config and docs from. */
   clogBin?: string;
+  /**
+   * When set, `GET /config`, `GET /entries` and `POST /entries` require
+   * `Authorization: Bearer <token>` and answer 401 otherwise. When undefined the
+   * router is open; the mounting app decides. `/health`, `/demo` and `/docs`
+   * never need it. An empty string is rejected at construction.
+   */
+  token?: string;
 }
 
 export type Entry = Record<string, unknown>;
@@ -62,6 +70,15 @@ function isEntryType(value: string): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasBearerToken(header: string | undefined, token: string): boolean {
+  const match = /^bearer (.+)$/i.exec(header ?? '');
+  if (match?.[1] === undefined) return false;
+  const given = Buffer.from(match[1]);
+  const expected = Buffer.from(token);
+  // timingSafeEqual throws on unequal lengths, and length is not the secret.
+  return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
 function describeType(value: unknown): string {
@@ -277,9 +294,25 @@ export const errorHandler = (err: Error, c: Context): Response => {
   return c.json(body, status);
 };
 
+/**
+ * The clog routes (`/health`, `/demo`, `/docs`, `/config`, `/entries`) as a
+ * Hono app that can be mounted under any prefix. It is host-agnostic and
+ * carries no Host allowlist, CORS or body limit: the mounting app owns those
+ * (see `createApp`). Pass `token` to require bearer auth on the config and
+ * entries routes; without it the router is open.
+ */
 export function createClogRouter(options: ClogRouterOptions = {}): Hono {
   const clogBin = path.resolve(options.clogBin ?? DEFAULT_CLOG_BIN);
+  const { token } = options;
+  if (token === '') throw new Error('createClogRouter: token must not be empty');
   const router = new Hono();
+
+  const guard: MiddlewareHandler = async (c, next) => {
+    if (token !== undefined && !hasBearerToken(c.req.header('authorization'), token)) {
+      throw new HttpError(401, 'unauthorized', 'missing or invalid bearer token');
+    }
+    await next();
+  };
 
   // `bin/clog` appends with a plain `echo >>`, which is not atomic past the pipe
   // buffer, so overlapping writes can interleave. One spawn at a time per router.
@@ -301,9 +334,9 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
   router.get('/demo', async (c) => c.html(await readDocsPage(clogBin, DEMO_PAGE)));
   router.get('/docs', async (c) => c.html(await readDocsPage(clogBin, REFERENCE_PAGE)));
 
-  router.get('/config', async (c) => c.json(await loadClogConfig(clogBin), 200));
+  router.get('/config', guard, async (c) => c.json(await loadClogConfig(clogBin), 200));
 
-  router.post('/entries', async (c) => {
+  router.post('/entries', guard, async (c) => {
     const request = await parseWriteRequest(c);
     // The CLI would exit 0 without writing; there is no entry to return.
     if (process.env['CLOG_DISABLE'] === '1') {
@@ -320,7 +353,7 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
     return c.json({ entry, file }, 201);
   });
 
-  router.get('/entries', async (c) => {
+  router.get('/entries', guard, async (c) => {
     const query = parseReadQuery(c);
     const config = await loadClogConfig(clogBin);
     const file = path.join(readRootOf(config), logFileName(query.date));
@@ -352,7 +385,7 @@ export function createApp(options: ClogRouterOptions = {}): Hono {
     cors({
       origin: (origin) => (LOCAL_ORIGIN_PATTERN.test(origin) ? origin : null),
       allowMethods: ['GET', 'POST', 'OPTIONS'],
-      allowHeaders: ['Content-Type'],
+      allowHeaders: ['Content-Type', 'Authorization'],
     }),
   );
 

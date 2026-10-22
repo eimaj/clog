@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { serve } from '@hono/node-server';
@@ -6,7 +7,8 @@ import { createApp } from './app.ts';
 /**
  * `clog serve [--port N]`: bind the HTTP API to loopback only and run until
  * SIGINT/SIGTERM. Port 0 asks the OS for a free port; the listening line on
- * stdout always carries the real one.
+ * stdout always carries the real one. The second stdout line carries the
+ * bearer token (`CLOG_API_TOKEN` when set, else random per launch).
  */
 
 export const DEFAULT_PORT = 4848;
@@ -40,10 +42,13 @@ export async function runServe(argv: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const app = createApp();
+  const envToken = process.env['CLOG_API_TOKEN'];
+  const token = envToken !== undefined && envToken !== '' ? envToken : randomBytes(16).toString('hex');
+  const app = createApp({ token });
   await new Promise<void>((resolve, reject) => {
     const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
       process.stdout.write(`clog API listening on http://${HOST}:${info.port}\n`);
+      process.stdout.write(`clog API token: ${token}\n`);
       resolve();
     });
     server.once('error', reject);

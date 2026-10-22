@@ -674,6 +674,75 @@ describe('CORS', () => {
   }
 });
 
+describe('bearer token', () => {
+  const token = 'a'.repeat(32);
+  const secured = createApp({ token });
+  const bearer = (value: string): Record<string, string> => ({ Authorization: `Bearer ${value}` });
+  const routes: Array<[string, string, unknown]> = [
+    ['GET', '/config', undefined],
+    ['GET', '/entries', undefined],
+    ['POST', '/entries', { type: 'ACTION', summary: 'x', date: '2026-01-03' }],
+  ];
+
+  for (const [method, route, body] of routes) {
+    const headersFor: Array<[string, Record<string, string>]> = [
+      ['no header', {}],
+      ['a wrong token of the same length', bearer('b'.repeat(32))],
+      ['a wrong token of another length', bearer('short')],
+      ['the wrong scheme', { Authorization: `Basic ${token}` }],
+      ['an empty bearer', { Authorization: 'Bearer ' }],
+    ];
+    for (const [name, headers] of headersFor) {
+      it(`${method} ${route} answers 401 unauthorized with ${name}`, async () => {
+        const err = await expectError(await send(secured, method, route, body, headers), 401, 'unauthorized');
+        assert.equal(err.error.message, 'missing or invalid bearer token');
+        assert.equal(fs.existsSync(readRoot), false, 'nothing written');
+      });
+    }
+
+    it(`${method} ${route} passes with the right token`, async () => {
+      const res = await send(secured, method, route, body, bearer(token));
+      assert.equal(res.status, method === 'POST' ? 201 : 200);
+    });
+  }
+
+  it('checks the token before parsing the body', async () => {
+    const res = await send(secured, 'POST', '/entries', '{not json');
+    await expectError(res, 401, 'unauthorized');
+  });
+
+  for (const route of ['/health', '/demo', '/docs']) {
+    it(`serves ${route} without a token`, async () => {
+      assert.equal((await send(secured, 'GET', route)).status, 200);
+    });
+  }
+
+  it('answers a CORS preflight with 204 and no token, and allows the Authorization header', async () => {
+    const res = await send(secured, 'OPTIONS', '/entries', undefined, {
+      Origin: 'http://localhost:5173',
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'Authorization, Content-Type',
+    });
+    assert.equal(res.status, 204);
+    assert.match(res.headers.get('access-control-allow-headers') ?? '', /Authorization/i);
+  });
+
+  it('protects a bare router mounted with a token', async () => {
+    const host = new Hono();
+    host.route('/clog', createClogRouter({ token }));
+    await expectError(await send(host, 'GET', '/clog/entries'), 401, 'unauthorized');
+    assert.equal((await send(host, 'GET', '/clog/entries', undefined, bearer(token))).status, 200);
+  });
+
+  it('leaves the router open without a token option', async () => {
+    assert.equal((await send(createClogRouter(), 'GET', '/config')).status, 200);
+  });
+
+  it('refuses an empty token at construction', () => {
+    assert.throws(() => createClogRouter({ token: '' }), /token must not be empty/);
+  });
+});
+
 describe('Host allowlist', () => {
   for (const host of ['127.0.0.1', '127.0.0.1:4848', 'localhost', 'localhost:4848', 'LOCALHOST:9']) {
     it(`serves Host ${host}`, async () => {

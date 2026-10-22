@@ -4,7 +4,7 @@
  * kept verbatim as `message` and only the status and code are derived here.
  */
 
-export type ErrorStatus = 400 | 403 | 404 | 413 | 415 | 500 | 503;
+export type ErrorStatus = 400 | 401 | 403 | 404 | 413 | 415 | 500 | 503;
 
 export type ErrorCode =
   | 'invalid_json'
@@ -20,6 +20,7 @@ export type ErrorCode =
   | 'payload_too_large'
   | 'unsupported_media_type'
   | 'forbidden_host'
+  | 'unauthorized'
   | 'not_found'
   | 'internal_error';
 
