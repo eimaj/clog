@@ -104,6 +104,21 @@ The fallback parser SHALL NOT strip inline `# comments` from scalar values or li
 - **WHEN** `yq` is absent and the file has `log_root: /x   # comment`
 - **THEN** `CLOG_LOG_ROOT` is `/x   # comment`
 
+### Requirement: Default tags source
+The loader SHALL export `CLOG_DEFAULT_TAGS` as a comma-separated string resolved in this order: the `CLOG_DEFAULT_TAGS` environment variable when non-empty, else the contents of `$CLOG_TAGS_FILE` (default `~/.config/clog/tags.local`) with newlines removed and trailing whitespace trimmed, else empty. Default tags SHALL NEVER be read from `config.yaml`, so a dotfiles-synced config cannot carry machine-specific tags.
+
+#### Scenario: Env wins over the tags file
+- **WHEN** `CLOG_DEFAULT_TAGS=ci` and `~/.config/clog/tags.local` contains `jbook`
+- **THEN** `CLOG_DEFAULT_TAGS` is `ci`
+
+#### Scenario: Tags file only
+- **WHEN** `CLOG_DEFAULT_TAGS` is unset and the tags file contains `jbook`
+- **THEN** `CLOG_DEFAULT_TAGS` is `jbook`
+
+#### Scenario: Config key ignored
+- **WHEN** `config.yaml` contains a `tags:` key and nothing else sets tags
+- **THEN** `CLOG_DEFAULT_TAGS` is empty
+
 ### Requirement: Hook mode
 When called with `--hook`, the loader SHALL return 0 silently if the config file is missing, without exporting any `CLOG_*` variable or default. Without `--hook` it SHALL print `clog: no config at <path>. Run setup.sh to create one.` to stderr and return 1.
 

@@ -20,7 +20,8 @@ Each log entry is a single JSON object on one line in the daily `.jsonl` file at
 | `kpi` | string | no | `LEARNING` only — quality KPI (e.g., `failure`, `prompt_gap`) |
 | `commit` | string | no | Short git SHA — auto-added by `post-action-log.sh` for `COMMIT` entries |
 | `clog_version` | string | no | Schema version (e.g., `"1.0"`) — emitted once per file on first write of the day |
-| `validation` | string | no | `unknown_family` or `unknown_kpi` — set when a flag value is not in the config enum list |
+| `tags` | string[] | no | Machine-scoped default tags, e.g. `["jbook"]` — from `$CLOG_DEFAULT_TAGS` (comma-separated), else `~/.config/clog/tags.local` (or `$CLOG_TAGS_FILE`); never from `config.yaml`. Split on `,`, empty items dropped, no trimming. Emitted after `clog_version` |
+| `validation` | string | no | `unknown_family`, `unknown_kpi` or `unknown_family,unknown_kpi` — set when a flag value is not in the config enum list |
 
 ---
 

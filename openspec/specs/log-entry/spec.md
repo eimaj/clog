@@ -28,11 +28,22 @@ Every entry SHALL contain `time` (string `HH:MM:SS`, local wall-clock at write),
 - **THEN** the line is `{"time":"HH:MM:SS","type":"FOLLOWUP","summary":"investigate hooks API"}` with no other keys
 
 ### Requirement: Optional fields and key order
-After the required fields the entry SHALL contain, in this order and only when non-empty: `agent`, `repo`, `session`, `model`, `file`, `family`, `kpi`, `clog_version`, then `validation` when set by the CLI. The hook `post-action-log.sh` MAY append `commit` after all of these. Empty values SHALL be omitted, never written as `""` or `null`.
+After the required fields the entry SHALL contain, in this order and only when non-empty: `agent`, `repo`, `session`, `model`, `file`, `family`, `kpi`, `clog_version`, `tags`, then `validation` when set by the CLI. The hook `post-action-log.sh` MAY append `commit` after all of these. Empty string values SHALL be omitted, never written as `""` or `null`.
 
 #### Scenario: Full entry
-- **WHEN** every flag is supplied on the first entry of a new file with an unknown family
-- **THEN** the keys appear in the order `time, type, summary, agent, repo, session, model, file, family, kpi, clog_version, validation`
+- **WHEN** every flag is supplied on the first entry of a new file with an unknown family and default tags configured
+- **THEN** the keys appear in the order `time, type, summary, agent, repo, session, model, file, family, kpi, clog_version, tags, validation`
+
+### Requirement: Tags field
+`tags` SHALL be a JSON array of strings built from the resolved default-tags value split on `,` with empty items dropped and no trimming. It SHALL be absent when no default tags are configured. A value consisting only of commas SHALL yield `[]`.
+
+#### Scenario: Default tags configured
+- **WHEN** `CLOG_DEFAULT_TAGS=jbook` and the user runs `clog ACTION "x"`
+- **THEN** the entry contains `"tags":["jbook"]`
+
+#### Scenario: No default tags
+- **WHEN** neither `CLOG_DEFAULT_TAGS` nor the tags file is set
+- **THEN** the entry has no `tags` key
 
 ### Requirement: Schema version marker
 `clog_version` SHALL be `"1.0"` on the first entry the CLI writes to a file that did not exist, and SHALL be absent on every later entry in that file. Entries written by a hook's inline fallback path SHALL NOT carry it.
