@@ -74,7 +74,7 @@ Before spawning, the server SHALL answer 400 for a body that is not JSON (`inval
 - **THEN** the status is 400, `error.code` is `invalid_type` and nothing is written
 
 ### Requirement: Bearer token
-`clog serve` SHALL use `CLOG_API_TOKEN` when non-blank (trimmed), else a random 32-hex-char token per launch. `GET /config`, `GET /entries` and `POST /entries` SHALL require `Authorization: Bearer <token>` (constant-time compare) else 401 `unauthorized`, checked before the body is parsed; the app-level 64 KiB limit runs first, so an oversized request without a token answers 413. `/health`, `/demo`, `/docs` and preflights SHALL NOT need it. `createClogRouter({ token })` SHALL enforce it; with no `token` the router is open.
+`GET /config`, `GET /entries` and `POST /entries` SHALL require `Authorization: Bearer <token>` (constant-time compare) else 401 `unauthorized`, checked before the body is parsed. `/health`, `/demo`, `/docs` and preflights SHALL NOT need it. `createClogRouter({ token })` SHALL enforce it inside the router; with no `token` the router is open.
 
 #### Scenario: Missing token
 - **WHEN** a client requests `GET /entries` with no Authorization header
@@ -83,6 +83,21 @@ Before spawning, the server SHALL answer 400 for a body that is not JSON (`inval
 #### Scenario: Right token
 - **WHEN** a client sends `Authorization: Bearer <token>` with a valid write
 - **THEN** the status is 201
+
+#### Scenario: Oversized request without a token
+- **WHEN** a client posts more than 64 KiB to `/entries` with no Authorization header through `createApp`
+- **THEN** the status is 413, because the app-level body limit runs before the router's token check, and nothing is written
+
+### Requirement: Token source
+`clog serve` SHALL use `CLOG_API_TOKEN` when it is non-blank after trimming, else a random 32-hex-character token per launch, and SHALL print it as the second stdout line `clog API token: <token>`. The token SHALL NOT appear in any response body.
+
+#### Scenario: Blank environment token
+- **WHEN** `CLOG_API_TOKEN` is set to whitespace only
+- **THEN** a random 32-hex-character token is generated and printed
+
+#### Scenario: Fixed environment token
+- **WHEN** `CLOG_API_TOKEN=fixed-token-123`
+- **THEN** `clog API token: fixed-token-123` is printed and that value authorises requests
 
 ### Requirement: Serialised writes
 The router SHALL run at most one `bin/clog` write child at a time per instance; concurrent `POST /entries` SHALL queue. Reads SHALL NOT be queued.
