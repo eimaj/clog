@@ -178,7 +178,7 @@ describe('static pages', () => {
 
   it('demo page carries the port field, write form, filtered list and error panel', () => {
     const html = fs.readFileSync(path.join(REPO_ROOT, 'docs', 'api', 'demo.html'), 'utf-8');
-    for (const id of ['port', 'type', 'summary', 'repo', 'family', 'kpi', 'f-type', 'f-tail', 'entries', 'error-body']) {
+    for (const id of ['port', 'token', 'type', 'summary', 'repo', 'family', 'kpi', 'f-type', 'f-tail', 'entries', 'error-body']) {
       assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
     }
     assert.match(html, /POST/);

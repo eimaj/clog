@@ -76,13 +76,15 @@
 
 <main class="wrap">
   <h1>clog API demo</h1>
-  <p>Writes go through <code>POST /entries</code> (which runs <code>bin/clog --echo</code>); the list reads <code>GET /entries</code> for today. Open this page from the running server so the origin is <code>http://127.0.0.1</code> or <code>http://localhost</code>; a <code>file://</code> page sends <code>Origin: null</code>, which is refused by design.</p>
+  <p>Writes go through <code>POST /entries</code> (which runs <code>bin/clog --echo</code>); the list reads <code>GET /entries</code> for today. Paste the token <code>clog serve</code> printed into the token field. Open this page from the running server so the origin is <code>http://127.0.0.1</code> or <code>http://localhost</code>; a <code>file://</code> page sends <code>Origin: null</code>, which is refused by design.</p>
 
   <h2>Server</h2>
   <div class="panel">
     <div class="row" style="margin-top:0">
       <label for="port">port</label>
       <input id="port" class="short" inputmode="numeric" autocomplete="off">
+      <label for="token">token</label>
+      <input id="token" type="password" autocomplete="off" placeholder="printed by clog serve">
       <button id="ping" type="button" class="alt">Check /health</button>
       <span id="ping-result" class="meta" aria-live="polite"></span>
     </div>
@@ -135,6 +137,14 @@
   var $ = function (id) { return document.getElementById(id); };
 
   $('port').value = location.port || '4848';
+
+  // The token is per launch; remember it in this browser only, and work without storage.
+  var TOKEN_KEY = 'clog-api-token';
+  try { $('token').value = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { /* storage unavailable */ }
+  $('token').addEventListener('input', function () {
+    try { localStorage.setItem(TOKEN_KEY, $('token').value); } catch (e) { /* storage unavailable */ }
+  });
+
   TYPES.forEach(function (t) {
     var o = document.createElement('option');
     o.textContent = t;
@@ -155,9 +165,11 @@
 
   // Resolves with { res, body } for any HTTP answer; shows the error body for non-2xx.
   function call(method, path, payload) {
-    var init = { method: method };
+    var init = { method: method, headers: {} };
+    var token = $('token').value.trim();
+    if (token) init.headers['Authorization'] = 'Bearer ' + token;
     if (payload !== undefined) {
-      init.headers = { 'Content-Type': 'application/json' };
+      init.headers['Content-Type'] = 'application/json';
       init.body = JSON.stringify(payload);
     }
     return fetch(base() + path, init).then(function (res) {
