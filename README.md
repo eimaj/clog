@@ -95,6 +95,9 @@ clog --help
 # Print the entry as written (for scripts and the HTTP API)
 clog ACTION "deploy to staging" --echo
 
+# Tag one entry (machine default tags from CLOG_DEFAULT_TAGS or ~/.config/clog/tags.local come first)
+clog ACTION "cut release 26.15" --tags release,web
+
 # Log an action
 clog ACTION "dispatch orchestrator for phase 2 planning"
 
@@ -250,8 +253,8 @@ The server prints two lines, `clog API listening on http://127.0.0.1:<port>` and
 | ---------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `GET /health`    | `{ ok, version, clogBin }`                           |                                                                                         |
 | `GET /config`    | `{ configPath, logRoot, logSubdir, families, kpis }` | 401 `unauthorized` without the token; 503 `no_config` until a config exists; 503 `disabled` under `CLOG_DISABLE=1` |
-| `POST /entries`  | 201 `{ entry, file, warning? }`                      | 401 `unauthorized`; body `{ type, summary, agent?, repo?, session?, model?, file?, family?, kpi?, date? }` (no NUL characters); `warning` when the CLI wrote the entry then exited non-zero; writes run one at a time |
-| `GET /entries`   | `{ date, file, entries, skipped }`                   | 401 `unauthorized`; query `date`, `type`, `repo`, `session`, `agent`, `tail` (1 to 10000); default day today; 503 `no_config` / `disabled` as for `/config` |
+| `POST /entries`  | 201 `{ entry, file, warning? }`                      | 401 `unauthorized`; body `{ type, summary, agent?, repo?, session?, model?, file?, family?, kpi?, date?, tags?: string[] }` (no NUL characters; `tags` items must not contain commas and are added after the server's default tags); `warning` when the CLI wrote the entry then exited non-zero; writes run one at a time |
+| `GET /entries`   | `{ date, file, entries, skipped }`                   | 401 `unauthorized`; query `date`, `type`, `repo`, `session`, `agent`, `tag` (entry's `tags` contains it), `tail` (1 to 10000); default day today; 503 `no_config` / `disabled` as for `/config` |
 | `GET /demo`, `GET /docs` | HTML                                         |                                                                                         |
 
 **Errors** are always `{ "error": { "code", "message" } }`; when the CLI rejected the entry, `message` is its stderr line verbatim. Statuses: 400 bad input (`invalid_json`, `invalid_type`, `missing_summary`, `invalid_field`, `invalid_date`, `invalid_tail`), 401 `unauthorized`, 403 `forbidden_host`, 413 body over 64 KiB, 415 `unsupported_media_type`, 404 unknown route, 503 `no_config` or `disabled` (`CLOG_DISABLE=1`), 500 `clog_failed` / `clog_timeout`.
