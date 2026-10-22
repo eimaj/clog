@@ -161,6 +161,18 @@ describe('clog serve', () => {
     }
   });
 
+  it('treats a blank CLOG_API_TOKEN as unset and generates a random token', async () => {
+    const server = await startServer(['--port', '0'], { ...env, CLOG_API_TOKEN: '   ' });
+    try {
+      assert.match(server.token, /^[0-9a-f]{32}$/);
+      const base = `http://127.0.0.1:${server.port}`;
+      assert.equal((await fetch(`${base}/config`, { headers: { Authorization: 'Bearer    ' } })).status, 401);
+      assert.equal((await fetch(`${base}/config`, { headers: auth(server) })).status, 200);
+    } finally {
+      assert.equal(await stop(server), 0);
+    }
+  });
+
   it('exits 0 on SIGTERM', async () => {
     const server = await startServer(['--port', '0']);
     assert.equal(await stop(server, 'SIGTERM'), 0);

@@ -49,8 +49,9 @@ export async function runServe(argv: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const envToken = process.env['CLOG_API_TOKEN'];
-  const token = envToken !== undefined && envToken !== '' ? envToken : randomBytes(16).toString('hex');
+  // A blank value is treated as unset: HTTP clients cannot send a whitespace-only bearer.
+  const envToken = process.env['CLOG_API_TOKEN']?.trim() ?? '';
+  const token = envToken !== '' ? envToken : randomBytes(16).toString('hex');
   const app = createApp({ token });
   await new Promise<void>((resolve, reject) => {
     const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
