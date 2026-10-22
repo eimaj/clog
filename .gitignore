@@ -3,3 +3,5 @@ config.yaml
 test-output/
 *.bak
 .DS_Store
+node_modules/
+dist/
