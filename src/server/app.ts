@@ -8,7 +8,7 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { loadClogConfig, readRootOf, repoRootOf, DISABLED_MESSAGE } from './config.ts';
-import { HttpError, errorFromStderr, toErrorResponse } from './errors.ts';
+import { HttpError, errorFromStderr, firstLine, toErrorResponse } from './errors.ts';
 import type { ErrorBody } from './errors.ts';
 
 /**
@@ -171,6 +171,14 @@ async function parseWriteRequest(c: Context): Promise<WriteRequest> {
     throw new HttpError(400, 'missing_summary', 'clog: missing summary');
   }
 
+  // A NUL cannot be passed in an argv entry; spawn would throw. Reject up front.
+  const nulField = [['summary', summary], ...OPTIONAL_FIELDS.map((f) => [f, body[f]] as const)].find(
+    ([, v]) => typeof v === 'string' && v.includes('\u0000'),
+  );
+  if (nulField !== undefined) {
+    throw new HttpError(400, 'invalid_field', `field '${nulField[0]}' must not contain NUL`);
+  }
+
   const flags: string[] = [];
   let date: string | undefined;
   for (const field of OPTIONAL_FIELDS) {
@@ -185,18 +193,20 @@ async function parseWriteRequest(c: Context): Promise<WriteRequest> {
   return { type, summary, flags, date };
 }
 
-function parseEntryLine(stdout: string): Entry {
+/** The one JSON object `bin/clog --echo` prints, or undefined if stdout is anything else. */
+function entryFromStdout(stdout: string): Entry | undefined {
   const line = stdout.trim();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(line);
-  } catch {
+  if (line === '' || line.includes('\n')) return undefined;
+  const parsed = parseJsonLine(line);
+  return isRecord(parsed) ? parsed : undefined;
+}
+
+function parseEntryLine(stdout: string): Entry {
+  const entry = entryFromStdout(stdout);
+  if (entry === undefined) {
     throw new HttpError(500, 'clog_failed', 'clog: unparseable output from bin/clog --echo');
   }
-  if (!isRecord(parsed)) {
-    throw new HttpError(500, 'clog_failed', 'clog: unparseable output from bin/clog --echo');
-  }
-  return parsed;
+  return entry;
 }
 
 interface ReadQuery {
@@ -344,13 +354,23 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
     }
     const args = [request.type, request.summary, ...request.flags, '--echo'];
     const run = await serialised(() => runClog(clogBin, args));
-    if (run.exitCode !== 0) throw errorFromStderr(run.exitCode, run.stderr);
-    if (run.stdout.trim() === '') throw new HttpError(503, 'disabled', DISABLED_MESSAGE);
-    const entry = parseEntryLine(run.stdout);
+    // A child that printed its entry line and then failed (e.g. the auto-commit
+    // step) did write the entry: report 201 with the first stderr line as a warning.
+    let warning: string | undefined;
+    let entry: Entry;
+    if (run.exitCode !== 0) {
+      const written = entryFromStdout(run.stdout);
+      if (written === undefined) throw errorFromStderr(run.exitCode, run.stderr);
+      entry = written;
+      warning = firstLine(run.stderr);
+    } else {
+      if (run.stdout.trim() === '') throw new HttpError(503, 'disabled', DISABLED_MESSAGE);
+      entry = parseEntryLine(run.stdout);
+    }
     const config = await loadClogConfig(clogBin);
     const date = request.date ?? localDate();
     const file = path.join(readRootOf(config), logFileName(date));
-    return c.json({ entry, file }, 201);
+    return c.json(warning === undefined ? { entry, file } : { entry, file, warning }, 201);
   });
 
   router.get('/entries', guard, async (c) => {

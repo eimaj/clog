@@ -341,6 +341,8 @@ describe('POST /entries', () => {
     ['non-string summary', { type: 'ACTION', summary: 5 }, 'missing_summary', 'clog: missing summary'],
     ['non-string field', { type: 'ACTION', summary: 'x', repo: 5 }, 'invalid_field', "field 'repo' must be a string"],
     ['null field', { type: 'ACTION', summary: 'x', kpi: null }, 'invalid_field', "field 'kpi' must be a string"],
+    ['NUL in the summary', { type: 'ACTION', summary: 'a\u0000b' }, 'invalid_field', "field 'summary' must not contain NUL"],
+    ['NUL in an optional field', { type: 'ACTION', summary: 'x', repo: 'r\u0000' }, 'invalid_field', "field 'repo' must not contain NUL"],
     ['bad date text', { type: 'ACTION', summary: 'x', date: 'notadate' }, 'invalid_date', "clog: invalid --date 'notadate' (expected YYYY-MM-DD)"],
     ['compact date', { type: 'ACTION', summary: 'x', date: '20260103' }, 'invalid_date', "clog: invalid --date '20260103' (expected YYYY-MM-DD)"],
     ['traversal date', { type: 'ACTION', summary: 'x', date: '../../evil' }, 'invalid_date', "clog: invalid --date '../../evil' (expected YYYY-MM-DD)"],
@@ -474,6 +476,28 @@ rmdir "${lock}"`,
         responses.map((r) => r.status),
         Array.from({ length: 8 }, () => 201),
       );
+    });
+
+    it('answers 201 with a warning when the child printed the entry and then exited non-zero', async () => {
+      const res = await send(
+        fakeClog('fake-warn', `echo '{"time":"T","type":"ACTION","summary":"x"}'; echo "git: commit failed" >&2; echo more >&2; exit 2`),
+        'POST',
+        '/entries',
+        { type: 'ACTION', summary: 'x', date: '2026-01-03' },
+      );
+      assert.equal(res.status, 201);
+      const body = (await res.json()) as Written & { warning: string };
+      assert.deepEqual(body.entry, { time: 'T', type: 'ACTION', summary: 'x' });
+      assert.equal(body.file, path.join(readRoot, '20260103.jsonl'));
+      assert.equal(body.warning, 'git: commit failed');
+    });
+
+    it('still maps a non-zero exit with two stdout lines to 500 clog_failed', async () => {
+      const res = await send(fakeClog('fake-two', `echo '{"a":1}'; echo '{"b":2}'; exit 2`), 'POST', '/entries', {
+        type: 'ACTION',
+        summary: 'x',
+      });
+      await expectError(res, 500, 'clog_failed');
     });
 
     it('maps exit 127 to 500 clog_failed', async () => {
