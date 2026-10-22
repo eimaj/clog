@@ -211,6 +211,28 @@ describe('GET /config', () => {
     const body = await expectError(await request('GET', '/config'), 503, 'no_config');
     assert.match(body.error.message, /^clog: no config at /);
   });
+
+  it('is not changed by a multi-line parent env var that mimics a CLOG_ line', async () => {
+    process.env['CLOG_TEST_HIJACK'] = 'x\nCLOG_LOG_SUBDIR=hijacked\nCLOG_FAMILIES=evil';
+    try {
+      const body = (await (await request('GET', '/config')).json()) as { logSubdir: string; families: string[] };
+      assert.equal(body.logSubdir, 'claude');
+      assert.deepEqual(body.families, ['general', 'skills', 'tooling', 'interactive']);
+    } finally {
+      delete process.env['CLOG_TEST_HIJACK'];
+    }
+  });
+
+  it('answers 503 disabled under CLOG_DISABLE=1', async () => {
+    process.env['CLOG_DISABLE'] = '1';
+    await expectError(await request('GET', '/config'), 503, 'disabled');
+  });
+
+  it('answers 500 internal_error without a stack when the binary is absent', async () => {
+    const res = await send(createApp({ clogBin: path.join(tmp, 'absent') }), 'GET', '/config');
+    const body = await expectError(res, 500, 'internal_error');
+    assert.equal(body.error.message, 'internal server error');
+  });
 });
 
 describe('POST /entries', () => {

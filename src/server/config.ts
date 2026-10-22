@@ -20,8 +20,10 @@ export interface ClogConfig {
 const LOAD_TIMEOUT_MS = 10_000;
 const NO_CONFIG_PREFIX = 'clog: no config at';
 // "$1" is the lib path, passed as an argument so no path is ever interpolated into the script.
-const LOAD_SCRIPT = '. "$1" && load_config && env';
-const DISABLED_MESSAGE = 'clog: logging is disabled (CLOG_DISABLE=1)';
+// `env -0` NUL-separates the pairs, so a multi-line value in the parent
+// environment cannot forge a `CLOG_*=` line.
+const LOAD_SCRIPT = '. "$1" && load_config && env -0';
+export const DISABLED_MESSAGE = 'clog: logging is disabled (CLOG_DISABLE=1)';
 
 /** The repo root a `bin/clog` belongs to (its real location, through symlinks). */
 export async function repoRootOf(clogBin: string): Promise<string> {
@@ -29,15 +31,13 @@ export async function repoRootOf(clogBin: string): Promise<string> {
   return path.dirname(path.dirname(real));
 }
 
-function splitList(value: string | undefined): string[] {
-  return value === undefined || value === '' ? [] : value.split(' ');
-}
+const splitList = (value: string | undefined): string[] => value?.split(' ').filter(Boolean) ?? [];
 
 function parseEnv(output: string): Map<string, string> {
   const vars = new Map<string, string>();
-  for (const line of output.split('\n')) {
-    const eq = line.indexOf('=');
-    if (eq > 0) vars.set(line.slice(0, eq), line.slice(eq + 1));
+  for (const pair of output.split('\0')) {
+    const eq = pair.indexOf('=');
+    if (eq > 0) vars.set(pair.slice(0, eq), pair.slice(eq + 1));
   }
   return vars;
 }
@@ -91,5 +91,3 @@ export async function loadClogConfig(clogBin: string): Promise<ClogConfig> {
 export function readRootOf(config: ClogConfig): string {
   return path.join(config.logRoot, config.logSubdir);
 }
-
-export { DISABLED_MESSAGE };
