@@ -60,7 +60,7 @@ When no config file exists, `GET /config`, `GET /entries` and `POST /entries` SH
 - **THEN** the two lines are identical apart from `time`
 
 ### Requirement: Write request body
-The body SHALL be a JSON object with string `type` and `summary`, optional string `agent`, `repo`, `session`, `model`, `file`, `family`, `kpi` and `date`, and optional `tags`: a non-empty array of non-empty strings without commas or NUL, passed to the CLI as `--tags` so the entry's `tags` is the server's default tags followed by these, trimmed and deduplicated.
+The body SHALL be a JSON object with string `type` and `summary`, optional string `agent`, `repo`, `session`, `model`, `file`, `family`, `kpi` and `date`, and optional `tags`: a non-empty array of non-empty strings without commas or C0/C1 control characters, passed to the CLI as `--tags` so the entry's `tags` is the server's default tags followed by these, trimmed and deduplicated.
 
 #### Scenario: Optional fields
 - **WHEN** a client posts `family` and `kpi` along with type and summary
@@ -182,7 +182,7 @@ When `CLOG_DISABLE` is exactly `1` in the server's environment, `POST /entries` 
 - **THEN** `date` is today and `entries` holds that day's entries
 
 ### Requirement: Read filters
-`type`, `repo`, `session` and `agent` SHALL filter by exact match; `tag` SHALL keep entries whose `tags` array contains the value (entries without `tags` never match); all SHALL be ANDed. `tail=N` SHALL keep the last N entries after filtering. An empty `tag` SHALL be 400 `invalid_tag`.
+`type`, `repo`, `session` and `agent` SHALL filter by exact match; `tag` SHALL keep entries whose `tags` array contains the trimmed value (entries without `tags` never match); all SHALL be ANDed. `tail=N` SHALL keep the last N entries after filtering. An empty or repeated `tag` SHALL be 400 `invalid_tag`.
 
 #### Scenario: Tail after filter
 - **WHEN** a client requests `?repo=a&tail=2`

@@ -855,6 +855,8 @@ describe('tags', () => {
     ['a comma inside an item', ['a,b']],
     ['a non-string item', ['a', 1]],
     ['NUL inside an item', ['a\u0000']],
+    ['a C1 control character the CLI would strip', ['\u0085']],
+    ['a tab inside an item', ['a\tb']],
   ] as const) {
     it(`rejects ${name} with 400 invalid_field`, async () => {
       const res = await post({ type: 'ACTION', summary: 'x', tags, date: '2026-01-05' });
@@ -870,5 +872,8 @@ describe('tags', () => {
     const miss = (await (await request('GET', '/entries?date=2026-01-07&tag=nope')).json()) as Listed;
     assert.deepEqual(miss.entries, []);
     await expectError(await request('GET', '/entries?date=2026-01-07&tag='), 400, 'invalid_tag');
+    await expectError(await request('GET', '/entries?date=2026-01-07&tag=a&tag=b'), 400, 'invalid_tag');
+    const trimmed = (await (await request('GET', '/entries?date=2026-01-07&tag=%20release%20')).json()) as Listed;
+    assert.deepEqual(trimmed.entries.map((e) => e['summary']), ['tagged']);
   });
 });

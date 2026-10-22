@@ -47,6 +47,8 @@ const OPTIONAL_FIELDS = ['agent', 'repo', 'session', 'model', 'file', 'family', 
 const FILTER_FIELDS = ['type', 'repo', 'session', 'agent'] as const;
 const DATE_PATTERN = /^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
 const TAIL_PATTERN = /^[0-9]{1,5}$/;
+// eslint-disable-next-line no-control-regex -- C0 and C1 control characters are the point
+const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f-\u009f]/;
 const MAX_TAIL = 10_000;
 const SPAWN_TIMEOUT_MS = 10_000;
 const SPAWN_MAX_BUFFER = 1024 * 1024;
@@ -195,8 +197,10 @@ async function parseWriteRequest(c: Context): Promise<WriteRequest> {
     if (!isStringArray(tags) || tags.length === 0 || tags.some((t) => t.trim() === '')) {
       throw new HttpError(400, 'invalid_field', "field 'tags' must be a non-empty array of non-empty strings");
     }
-    if (tags.some((t) => t.includes(',') || t.includes('\u0000'))) {
-      throw new HttpError(400, 'invalid_field', "field 'tags' items must not contain commas or NUL");
+    // Control characters (C0/C1, including NUL and U+0085) would be stripped or
+    // rejected by the CLI's jq trim, so refuse them here to keep the item intact.
+    if (tags.some((t) => t.includes(',') || CONTROL_CHAR_PATTERN.test(t))) {
+      throw new HttpError(400, 'invalid_field', "field 'tags' items must not contain commas or control characters");
     }
     // The CLI merges these after the machine defaults, trims and dedups.
     flags.push('--tags', tags.join(','));
@@ -258,8 +262,12 @@ function parseReadQuery(c: Context): ReadQuery {
     const value = c.req.query(field);
     if (value !== undefined) filters.push([field, value]);
   }
-  const tag = c.req.query('tag');
-  if (tag !== undefined && tag.trim() === '') {
+  const tags = c.req.queries('tag') ?? [];
+  if (tags.length > 1) {
+    throw new HttpError(400, 'invalid_tag', 'tag may be given once');
+  }
+  const tag = tags[0]?.trim();
+  if (tag === '') {
     throw new HttpError(400, 'invalid_tag', 'tag must be a non-empty string');
   }
   return { date, filters, tag, tail };
