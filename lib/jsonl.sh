@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # lib/jsonl.sh — shared JSONL entry builder for bin/clog and hooks.
 # Usage: source this file, then call build_entry TYPE SUMMARY AGENT REPO SESSION MODEL FILE_PATH FAMILY KPI CLOG_VERSION [TAGS]
-#   TAGS is a comma-separated string (e.g. from $CLOG_DEFAULT_TAGS); optional.
+#   TAGS is a comma-separated string (defaults from $CLOG_DEFAULT_TAGS, then --tags); optional.
+#   Items are trimmed, empty items dropped, duplicates removed keeping first occurrence.
 # Prints a single JSON line to stdout. Empty fields are omitted.
 
 build_entry() {
@@ -39,5 +40,7 @@ build_entry() {
      (if $family != "" then {family: $family} else {} end) +
      (if $kpi != "" then {kpi: $kpi} else {} end) +
      (if $clog_version != "" then {clog_version: $clog_version} else {} end) +
-     (if $tags != "" then {tags: ($tags | split(",") | map(select(length > 0)))} else {} end)'
+     (if $tags != "" then {tags: ($tags | split(",")
+        | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))
+        | reduce .[] as $t ([]; if index([$t]) then . else . + [$t] end))} else {} end)'
 }
