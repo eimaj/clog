@@ -102,6 +102,7 @@
       <label for="repo">repo</label><input id="repo" placeholder="(git autodetect)">
       <label for="family">family</label><input id="family" placeholder="tooling">
       <label for="kpi">kpi</label><input id="kpi" placeholder="effective">
+      <label for="tags">tags</label><input id="tags" placeholder="release,web (added after the server's default tags)">
     </div>
     <div class="row"><button type="submit">POST /entries</button></div>
     <div id="written" class="notice" hidden>
@@ -120,6 +121,8 @@
     <div class="row" style="margin-top:0">
       <label for="f-type">type</label>
       <select id="f-type"><option value="">(all)</option></select>
+      <label for="f-tag">tag</label>
+      <input id="f-tag" class="short" placeholder="release">
       <label for="f-tail">tail</label>
       <input id="f-tail" class="short" inputmode="numeric" value="20">
       <button id="refresh" type="button" class="alt">Refresh</button>
@@ -202,8 +205,8 @@
       summary.textContent = String(e.summary);
       var meta = document.createElement('span');
       meta.className = 'meta';
-      meta.textContent = ['repo', 'family', 'kpi', 'validation'].filter(function (k) { return e[k]; })
-        .map(function (k) { return k + '=' + e[k]; }).join(' ');
+      meta.textContent = ['repo', 'family', 'kpi', 'validation', 'tags'].filter(function (k) { return e[k]; })
+        .map(function (k) { return k + '=' + (Array.isArray(e[k]) ? e[k].join(',') : e[k]); }).join(' ');
       li.append(badge, time, summary, meta);
       list.appendChild(li);
     });
@@ -213,6 +216,7 @@
   function refresh() {
     var q = [];
     if ($('f-type').value) q.push('type=' + encodeURIComponent($('f-type').value));
+    if ($('f-tag').value.trim()) q.push('tag=' + encodeURIComponent($('f-tag').value.trim()));
     if ($('f-tail').value.trim()) q.push('tail=' + encodeURIComponent($('f-tail').value.trim()));
     return call('GET', '/entries' + (q.length ? '?' + q.join('&') : '')).then(function (r) {
       if (r && r.res.ok) {
@@ -229,6 +233,8 @@
     ['repo', 'family', 'kpi'].forEach(function (k) {
       if ($(k).value.trim()) payload[k] = $(k).value.trim();
     });
+    var tags = $('tags').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+    if (tags.length) payload.tags = tags;
     $('written').hidden = true;
     call('POST', '/entries', payload).then(function (r) {
       if (r && r.res.ok) {

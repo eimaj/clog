@@ -190,7 +190,22 @@ async function parseWriteRequest(c: Context): Promise<WriteRequest> {
     flags.push(`--${field}`, value);
     if (field === 'date' && value !== '') date = value;
   }
+  const tags = body['tags'];
+  if (tags !== undefined) {
+    if (!isStringArray(tags) || tags.length === 0 || tags.some((t) => t.trim() === '')) {
+      throw new HttpError(400, 'invalid_field', "field 'tags' must be a non-empty array of non-empty strings");
+    }
+    if (tags.some((t) => t.includes(',') || t.includes('\u0000'))) {
+      throw new HttpError(400, 'invalid_field', "field 'tags' items must not contain commas or NUL");
+    }
+    // The CLI merges these after the machine defaults, trims and dedups.
+    flags.push('--tags', tags.join(','));
+  }
   return { type, summary, flags, date };
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((v) => typeof v === 'string');
 }
 
 /** The one JSON object `bin/clog --echo` prints, or undefined if stdout is anything else. */
@@ -212,6 +227,7 @@ function parseEntryLine(stdout: string): Entry {
 interface ReadQuery {
   date: string;
   filters: Array<[string, string]>;
+  tag: string | undefined;
   tail: number | undefined;
 }
 
@@ -242,7 +258,17 @@ function parseReadQuery(c: Context): ReadQuery {
     const value = c.req.query(field);
     if (value !== undefined) filters.push([field, value]);
   }
-  return { date, filters, tail };
+  const tag = c.req.query('tag');
+  if (tag !== undefined && tag.trim() === '') {
+    throw new HttpError(400, 'invalid_tag', 'tag must be a non-empty string');
+  }
+  return { date, filters, tag, tail };
+}
+
+/** True when the entry's `tags` array contains `tag` (entries without tags never match). */
+function hasTag(entry: Entry, tag: string): boolean {
+  const tags = entry['tags'];
+  return isStringArray(tags) && tags.includes(tag);
 }
 
 function isEnoent(err: unknown): boolean {
@@ -380,6 +406,7 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
 
     const { records, skipped } = await readEntries(file);
     let entries = records.filter((e) => query.filters.every(([field, value]) => e[field] === value));
+    if (query.tag !== undefined) entries = entries.filter((e) => hasTag(e, query.tag as string));
     if (query.tail !== undefined) entries = entries.slice(-query.tail);
     return c.json({ date: query.date, file, entries, skipped }, 200);
   });

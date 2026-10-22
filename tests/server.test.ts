@@ -824,3 +824,51 @@ describe('errors and mounting', () => {
     assert.equal((await send(host, 'GET', '/health')).status, 404);
   });
 });
+
+describe('tags', () => {
+  it('merges body tags after the default tags, trimmed and deduplicated, like bin/clog', async () => {
+    process.env['CLOG_DEFAULT_TAGS'] = 'jbook';
+    try {
+      const res = await post({ type: 'ACTION', summary: 'tags', tags: ['release', ' jbook ', 'web', 'release'], date: '2026-01-05' });
+      assert.equal(res.status, 201);
+      const written = (await res.json()) as Written;
+      assert.deepEqual(written.entry['tags'], ['jbook', 'release', 'web']);
+
+      execFileSync(CLOG_BIN, ['ACTION', 'tags', '--tags', 'release, jbook ,web,release', '--date', '2026-01-06'], { env: process.env });
+      const cliLine = lastLine(path.join(readRoot, '20260106.jsonl'));
+      assert.equal(withoutTime(lastLine(written.file)), withoutTime(cliLine));
+    } finally {
+      delete process.env['CLOG_DEFAULT_TAGS'];
+    }
+  });
+
+  it('writes only the body tags when no defaults are configured', async () => {
+    const res = await post({ type: 'ACTION', summary: 'tags only', tags: ['a', 'b'], date: '2026-01-05' });
+    assert.equal(res.status, 201);
+    assert.deepEqual(((await res.json()) as Written).entry['tags'], ['a', 'b']);
+  });
+
+  for (const [name, tags] of [
+    ['a string', 'release'],
+    ['an empty array', []],
+    ['a blank item', ['a', ' ']],
+    ['a comma inside an item', ['a,b']],
+    ['a non-string item', ['a', 1]],
+    ['NUL inside an item', ['a\u0000']],
+  ] as const) {
+    it(`rejects ${name} with 400 invalid_field`, async () => {
+      const res = await post({ type: 'ACTION', summary: 'x', tags, date: '2026-01-05' });
+      await expectError(res, 400, 'invalid_field');
+    });
+  }
+
+  it('filters GET /entries by tag and rejects an empty tag', async () => {
+    await post({ type: 'ACTION', summary: 'tagged', tags: ['release'], date: '2026-01-07' });
+    await post({ type: 'ACTION', summary: 'untagged', date: '2026-01-07' });
+    const hit = (await (await request('GET', '/entries?date=2026-01-07&tag=release')).json()) as Listed;
+    assert.deepEqual(hit.entries.map((e) => e['summary']), ['tagged']);
+    const miss = (await (await request('GET', '/entries?date=2026-01-07&tag=nope')).json()) as Listed;
+    assert.deepEqual(miss.entries, []);
+    await expectError(await request('GET', '/entries?date=2026-01-07&tag='), 400, 'invalid_tag');
+  });
+});
