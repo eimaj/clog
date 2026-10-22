@@ -67,6 +67,19 @@ load_config() {
   export CLOG_KPIS="${CLOG_KPIS:-}"
   export CLOG_AGENTS="${CLOG_AGENTS:-}"
   export CLOG_CLI_PATH="${CLOG_CLI_PATH:-}"
+
+  # Machine-scoped default tags (e.g. "jbook"), auto-applied to every entry.
+  # Never sourced from config.yaml (that file is typically dotfiles-synced
+  # across machines). Env wins; otherwise read a plain-text local-only file
+  # that lives outside any git repo, so it never leaves this machine.
+  export CLOG_DEFAULT_TAGS="${CLOG_DEFAULT_TAGS:-}"
+  if [[ -z "$CLOG_DEFAULT_TAGS" ]]; then
+    local tags_file="${CLOG_TAGS_FILE:-$HOME/.config/clog/tags.local}"
+    if [[ -f "$tags_file" ]]; then
+      CLOG_DEFAULT_TAGS=$(tr -d '\n' < "$tags_file" | sed 's/[[:space:]]*$//')
+      export CLOG_DEFAULT_TAGS
+    fi
+  fi
 }
 
 _clog_parse_yq() {

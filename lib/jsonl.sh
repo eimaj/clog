@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # lib/jsonl.sh — shared JSONL entry builder for bin/clog and hooks.
-# Usage: source this file, then call build_entry TYPE SUMMARY AGENT REPO SESSION MODEL FILE_PATH FAMILY KPI CLOG_VERSION
+# Usage: source this file, then call build_entry TYPE SUMMARY AGENT REPO SESSION MODEL FILE_PATH FAMILY KPI CLOG_VERSION [TAGS]
+#   TAGS is a comma-separated string (e.g. from $CLOG_DEFAULT_TAGS); optional.
 # Prints a single JSON line to stdout. Empty fields are omitted.
 
 build_entry() {
@@ -14,6 +15,7 @@ build_entry() {
   local family="$8"
   local kpi="$9"
   local clog_version="${10:-}"
+  local tags="${11:-}"
 
   jq -nc \
     --arg time "$(date +%H:%M:%S)" \
@@ -27,6 +29,7 @@ build_entry() {
     --arg family "$family" \
     --arg kpi "$kpi" \
     --arg clog_version "$clog_version" \
+    --arg tags "$tags" \
     '{time: $time, type: $type, summary: $summary} +
      (if $agent != "" then {agent: $agent} else {} end) +
      (if $repo != "" then {repo: $repo} else {} end) +
@@ -35,5 +38,6 @@ build_entry() {
      (if $file != "" then {file: $file} else {} end) +
      (if $family != "" then {family: $family} else {} end) +
      (if $kpi != "" then {kpi: $kpi} else {} end) +
-     (if $clog_version != "" then {clog_version: $clog_version} else {} end)'
+     (if $clog_version != "" then {clog_version: $clog_version} else {} end) +
+     (if $tags != "" then {tags: ($tags | split(",") | map(select(length > 0)))} else {} end)'
 }
