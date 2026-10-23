@@ -411,14 +411,16 @@ register_hook() {
           or (($m | split("|")) | index($t) != null)
           or (try ($t | test("^(?:" + $m + ")$")) catch false)
         end;
-    (.hooks[$ev] // []) as $arr
-    | if ([$arr[] | select(type == "object" and covers($t))
-           | (.hooks // [])[] | (.command // "") | select(type == "string" and contains($n))] | length) > 0
+    def arr: if type == "array" then . else [] end;
+    def cmds: (.hooks | arr)[] | select(type == "object") | (.command // "") | select(type == "string");
+    (if type == "object" then . else {} end)
+    | (.hooks[$ev] | arr) as $arr
+    | if ([$arr[] | select(type == "object" and covers($t)) | cmds | select(contains($n))] | length) > 0
       then .
-      else ([$arr[] | (.matcher? == $t)] | index(true)) as $i
+      else ([range(0; $arr | length) | select(($arr[.] | type) == "object" and $arr[.].matcher == $t)] | first) as $i
         | {"type": "command", "command": $c} as $h
         | if $i != null
-          then .hooks[$ev][$i].hooks = ((.hooks[$ev][$i].hooks // []) + [$h])
+          then .hooks[$ev] = ($arr | .[$i].hooks = ((.[$i].hooks | arr) + [$h]))
           else .hooks[$ev] = ($arr + [{"matcher": $t, "hooks": [$h]}])
           end
       end

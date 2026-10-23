@@ -181,7 +181,11 @@ A hook SHALL count as already registered when any entry under that event whose m
 - **THEN** no entry is added for either hook
 
 ### Requirement: Hook registration placement
-An uncovered hook SHALL be added to the first entry under the event whose matcher equals the tool exactly, else a new `{matcher: TOOL, hooks: [...]}` entry SHALL be appended. It SHALL NOT be added to a second entry with the same matcher.
+An uncovered hook SHALL be added to the first entry under the event whose matcher equals the tool exactly, else a new `{matcher: TOOL, hooks: [...]}` entry SHALL be appended. It SHALL NOT be added to a second entry with the same matcher. Odd shapes SHALL NOT raise an error: a non-array event value, a non-array `hooks`, or a non-object top level is treated as empty (and replaced on placement); non-object entries and hook items are ignored, and never shift the target entry's position.
+
+#### Scenario: Junk entry before the target
+- **WHEN** `PostToolUse` is `["junk", {"matcher":"Bash","hooks":[]}]`
+- **THEN** the hook is added to the `Bash` entry and the string stays in place
 
 #### Scenario: Two Bash entries
 - **WHEN** `PostToolUse` has two entries with matcher `Bash` and neither runs `post-action-log.sh`
