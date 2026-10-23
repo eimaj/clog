@@ -166,7 +166,15 @@ The model part SHALL be omitted when `model` is absent. The type SHALL default t
 - **THEN** the missing registrations are added and nothing already present is duplicated
 
 ### Requirement: Hook registration coverage check
-A hook SHALL count as already registered when any entry under that event whose matcher covers the tool runs a command ending in `/HOOK_NAME`. A matcher covers a tool when it is empty or absent, equals the tool, is a `|`-separated list containing it, or is a regex matching it. Hooks without a `command` SHALL be ignored, and a covered hook SHALL NOT be added again.
+A hook SHALL count as already registered when any entry under that event whose matcher covers the tool runs a command that contains the hook file name (`HOOK_NAME`). A matcher covers a tool when it is empty or absent, equals the tool, is a `|`-separated list containing it, or is a regex matching it. Hooks without a `command` SHALL be ignored, and a covered hook SHALL NOT be added again.
+
+#### Scenario: Quoted, wrapped or suffixed command
+- **WHEN** the command is `"$HOME/.claude/hooks/post-action-log.sh"`, `bash /x/post-log-reminder.sh --quiet`, or `/x/post-log-reminder.sh ` with a trailing space
+- **THEN** the hook counts as registered and is not added again
+
+#### Scenario: Differently named hook with the same suffix (accepted)
+- **WHEN** the command is `/x/my-post-action-log.sh`
+- **THEN** `post-action-log.sh` counts as registered, as it did before the stricter check
 
 #### Scenario: Regex matcher already covers the edit tools
 - **WHEN** `PostToolUse` has one entry with matcher `Edit|Write|MultiEdit|NotebookEdit` running both edit hooks

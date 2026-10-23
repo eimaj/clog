@@ -389,7 +389,7 @@ register_claude_hooks() {
 
 # register_hook <PreToolUse|PostToolUse> <tool> <hook-path>
 # No-op when an entry whose matcher covers <tool> (exact, "A|B" list, regex,
-# or empty) already runs a command ending in /<hook-name>. Otherwise adds the
+# or empty) already runs a command containing <hook-name>. Otherwise adds the
 # hook to the first entry whose matcher equals <tool>, or appends a new entry.
 # Writes through `cat >` so a symlinked settings file keeps its link.
 register_hook() {
@@ -402,7 +402,7 @@ register_hook() {
   # shellcheck disable=SC2064  # expand $tmp now: it is local and gone at RETURN time
   trap "rm -f '$tmp'; trap - RETURN" RETURN
 
-  if ! jq --arg ev "$event" --arg t "$tool" --arg c "$hook" --arg n "/${name}" '
+  if ! jq --arg ev "$event" --arg t "$tool" --arg c "$hook" --arg n "$name" '
     def covers($t):
       (.matcher // "") as $m
       | if ($m | type) != "string" then false
@@ -413,7 +413,7 @@ register_hook() {
         end;
     (.hooks[$ev] // []) as $arr
     | if ([$arr[] | select(type == "object" and covers($t))
-           | (.hooks // [])[] | (.command // "") | select(endswith($n))] | length) > 0
+           | (.hooks // [])[] | (.command // "") | select(type == "string" and contains($n))] | length) > 0
       then .
       else ([$arr[] | (.matcher? == $t)] | index(true)) as $i
         | {"type": "command", "command": $c} as $h
