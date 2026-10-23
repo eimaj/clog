@@ -442,6 +442,22 @@ describe('POST /entries', () => {
     assert.equal(fs.existsSync(readRoot), false);
   });
 
+  it('does not inherit the launcher session; session appears only when supplied', async () => {
+    const saved = process.env['CLAUDE_SESSION_ID'];
+    process.env['CLAUDE_SESSION_ID'] = 'launcher';
+    try {
+      const bare = (await (await post({ type: 'ACTION', summary: 'x', date: '2026-01-03' })).json()) as Written;
+      assert.equal('session' in bare.entry, false);
+      const given = (await (
+        await post({ type: 'ACTION', summary: 'y', session: 's1', date: '2026-01-03' })
+      ).json()) as Written;
+      assert.equal(given.entry['session'], 's1');
+    } finally {
+      if (saved === undefined) delete process.env['CLAUDE_SESSION_ID'];
+      else process.env['CLAUDE_SESSION_ID'] = saved;
+    }
+  });
+
   it('answers 503 no_config with the CLI message when there is no config', async () => {
     process.env['CLOG_CONFIG'] = path.join(tmp, 'missing.yaml');
     const err = await expectError(await post({ type: 'ACTION', summary: 'x' }), 503, 'no_config');
@@ -829,12 +845,12 @@ describe('tags', () => {
   it('merges body tags after the default tags, trimmed and deduplicated, like bin/clog', async () => {
     process.env['CLOG_DEFAULT_TAGS'] = 'jbook';
     try {
-      const res = await post({ type: 'ACTION', summary: 'tags', tags: ['release', ' jbook ', 'web', 'release'], date: '2026-01-05' });
+      const res = await post({ type: 'ACTION', summary: 'tags', tags: ['release', ' jbook ', 'web', 'release'], session: 's1', date: '2026-01-05' });
       assert.equal(res.status, 201);
       const written = (await res.json()) as Written;
       assert.deepEqual(written.entry['tags'], ['jbook', 'release', 'web']);
 
-      execFileSync(CLOG_BIN, ['ACTION', 'tags', '--tags', 'release, jbook ,web,release', '--date', '2026-01-06'], { env: process.env });
+      execFileSync(CLOG_BIN, ['ACTION', 'tags', '--tags', 'release, jbook ,web,release', '--session', 's1', '--date', '2026-01-06'], { env: process.env });
       const cliLine = lastLine(path.join(readRoot, '20260106.jsonl'));
       assert.equal(withoutTime(lastLine(written.file)), withoutTime(cliLine));
     } finally {

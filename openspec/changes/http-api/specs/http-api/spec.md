@@ -53,7 +53,7 @@ When no config file exists, `GET /config`, `GET /entries` and `POST /entries` SH
 - **THEN** the status is 503 and `error.code` is `no_config`
 
 ### Requirement: Write by spawning the CLI
-`POST /entries` SHALL spawn `bin/clog <type> <summary> [flags] --echo` with an argv array, never a shell string, passing only the supplied flags. The server SHALL use the `bin/clog` next to its own module, not the one on PATH.
+`POST /entries` SHALL spawn `bin/clog <type> <summary> [flags] --echo` with an argv array, never a shell string, passing only the supplied flags. The child SHALL NOT inherit the launcher's session variables, so `session` is present only when the body supplies it; an omitted `repo` is autodetected from the server's working directory. The server SHALL use the `bin/clog` next to its own module, not the one on PATH.
 
 #### Scenario: Written entry equals CLI entry
 - **WHEN** the same type, summary and flags are written through the API and the CLI

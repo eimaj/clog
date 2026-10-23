@@ -52,6 +52,19 @@ const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f-\u009f]/;
 const MAX_TAIL = 10_000;
 const SPAWN_TIMEOUT_MS = 10_000;
 const SPAWN_MAX_BUFFER = 1024 * 1024;
+// bin/clog falls back to these for `session`; a write must not inherit the launcher's.
+const SESSION_ENV_KEYS = [
+  'CLAUDE_CODE_SESSION_ID',
+  'CLAUDE_SESSION_ID',
+  'CODEX_SESSION_ID',
+  'CURSOR_SESSION_ID',
+];
+
+function childEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of SESSION_ENV_KEYS) delete env[key];
+  return env;
+}
 const MAX_BODY_BYTES = 64 * 1024;
 const DEMO_PAGE = 'demo.html';
 const REFERENCE_PAGE = 'index.html';
@@ -118,7 +131,7 @@ function runClog(clogBin: string, args: string[]): Promise<ClogRun> {
     execFile(
       clogBin,
       args,
-      { encoding: 'utf-8', timeout: SPAWN_TIMEOUT_MS, maxBuffer: SPAWN_MAX_BUFFER, env: process.env },
+      { encoding: 'utf-8', timeout: SPAWN_TIMEOUT_MS, maxBuffer: SPAWN_MAX_BUFFER, env: childEnv() },
       (error, stdout, stderr) => {
         if (error === null) {
           resolve({ exitCode: 0, stdout, stderr });
