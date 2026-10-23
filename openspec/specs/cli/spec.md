@@ -165,7 +165,7 @@ On success the CLI SHALL print nothing to stdout or stderr and SHALL exit 0.
 - **THEN** stdout and stderr are empty, the exit code is 0 and one line was appended
 
 ### Requirement: Disable switch
-When `CLOG_DISABLE` is exactly `1` and a config file is found, the CLI SHALL exit 0 without writing, for any arguments. Other values of `CLOG_DISABLE` SHALL have no effect. The config file SHALL be located before the switch is honoured.
+When `CLOG_DISABLE` is exactly `1`, the CLI SHALL exit 0 without writing or printing anything, for any arguments, whether or not a config file exists. Other values of `CLOG_DISABLE` SHALL have no effect.
 
 #### Scenario: Disabled
 - **WHEN** `CLOG_DISABLE=1` and the user runs `clog ACTION "x"`
@@ -173,14 +173,14 @@ When `CLOG_DISABLE` is exactly `1` and a config file is found, the CLI SHALL exi
 
 #### Scenario: Disabled but no config
 - **WHEN** `CLOG_DISABLE=1` and `CLOG_CONFIG` points at a missing file
-- **THEN** stderr is `clog: no config at <path>. Run setup.sh to create one.` and the exit code is 1
+- **THEN** nothing is written, nothing is printed and the exit code is 0
 
 #### Scenario: Other truthy value
 - **WHEN** `CLOG_DISABLE=true` and the user runs `clog ACTION "x"`
 - **THEN** the entry is written
 
 ### Requirement: Missing config
-When the config file does not exist, the CLI SHALL print `clog: no config at <path>. Run setup.sh to create one.` to stderr and exit 1 before reading any argument other than `--help`/`-h`.
+When the config file does not exist and `CLOG_DISABLE` is not `1`, the CLI SHALL print `clog: no config at <path>. Run setup.sh to create one.` to stderr and exit 1 before reading any argument other than `--help`/`-h`.
 
 #### Scenario: No config
 - **WHEN** `CLOG_CONFIG=/nonexistent/cfg.yaml` and the user runs `clog ACTION "x"`

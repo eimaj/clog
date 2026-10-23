@@ -242,12 +242,12 @@ clog --help | clog -h        # first argument only</code></pre>
   <table>
     <tr><th>Code</th><th>When</th><th>stderr</th><th>Written</th></tr>
     <tr><td><span class="code-badge c0">0</span></td><td>Entry appended</td><td>— (stdout: the entry line, only with <code>--echo</code>)</td><td>one line</td></tr>
-    <tr><td><span class="code-badge c0">0</span></td><td><code>CLOG_DISABLE=1</code> and a config file exists</td><td>—</td><td>nothing</td></tr>
+    <tr><td><span class="code-badge c0">0</span></td><td><code>CLOG_DISABLE=1</code> (config file or not)</td><td>—</td><td>nothing</td></tr>
     <tr><td><span class="code-badge c0">0</span></td><td><code>--help</code> / <code>-h</code></td><td>— (usage on stdout)</td><td>nothing</td></tr>
     <tr><td><span class="code-badge c1">1</span></td><td>TYPE or summary missing/empty</td><td><code>clog: missing TYPE</code> or <code>clog: missing summary</code>, then usage</td><td>nothing</td></tr>
     <tr><td><span class="code-badge c1">1</span></td><td>TYPE not one of the nine</td><td><code>clog: unknown type '…' (expected …)</code></td><td>nothing</td></tr>
     <tr><td><span class="code-badge c1">1</span></td><td><code>--date</code> malformed</td><td><code>clog: invalid --date '…' (expected YYYY-MM-DD)</code></td><td>nothing</td></tr>
-    <tr><td><span class="code-badge c1">1</span></td><td>No config file (also when <code>CLOG_DISABLE=1</code>)</td><td><code>clog: no config at &lt;path&gt;. Run setup.sh to create one.</code></td><td>nothing</td></tr>
+    <tr><td><span class="code-badge c1">1</span></td><td>No config file (unless <code>CLOG_DISABLE=1</code>)</td><td><code>clog: no config at &lt;path&gt;. Run setup.sh to create one.</code></td><td>nothing</td></tr>
     <tr><td><span class="code-badge c1">1</span></td><td>Log file not writable</td><td>bash: <code>… Permission denied</code></td><td>nothing</td></tr>
     <tr><td><span class="code-badge c1">1</span></td><td>Flag with no value</td><td>bash: <code>$2: unbound variable</code></td><td>nothing</td></tr>
     <tr><td><span class="code-badge c127">127</span></td><td><code>jq</code> not on PATH</td><td><code>jq: command not found</code></td><td>nothing</td></tr>
@@ -333,7 +333,7 @@ clog --help | clog -h        # first argument only</code></pre>
       <table>
         <tr><th>Variable</th><th>Effect</th></tr>
         <tr><td class="n">CLOG_CONFIG</td><td>Path to the config file. Default <code>~/.config/clog/config.yaml</code>.</td></tr>
-        <tr><td class="n">CLOG_DISABLE</td><td>Exactly <code>1</code>: exit 0 without writing. Checked after the config is found, so it does not rescue a missing config. Hooks honour it too.</td></tr>
+        <tr><td class="n">CLOG_DISABLE</td><td>Exactly <code>1</code>: exit 0 without writing. Checked before the config is looked up, so no config is needed. Hooks honour it too.</td></tr>
         <tr><td class="n">CLOG_LOG_ROOT, CLOG_LOG_SUBDIR, CLOG_REPORTS_ROOT, CLOG_REMINDER_THRESHOLD, CLOG_AUTO_COMMIT_ENABLED, CLOG_AUTO_COMMIT_REPO, CLOG_AUTO_COMMIT_MSG, CLOG_FAMILIES, CLOG_KPIS, CLOG_AGENTS, CLOG_CLI_PATH</td><td>Override the matching config key when non-empty. Lists are space-separated. An empty value does not clear a config value. Path values get <code>~</code> and <code>${HOME}</code> expanded.</td></tr>
         <tr><td class="n">CLOG_DEFAULT_TAGS, CLOG_TAGS_FILE</td><td>Comma-separated tags added to every entry; the file defaults to <code>~/.config/clog/tags.local</code>. Env wins over file.</td></tr>
         <tr><td class="n">CLAUDE_CODE_SESSION_ID, CLAUDE_SESSION_ID, CODEX_SESSION_ID, CURSOR_SESSION_ID</td><td>Session fallback chain, in that order, when <code>--session</code> is omitted.</td></tr>
