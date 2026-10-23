@@ -209,7 +209,7 @@ When `jq` is not on PATH, the CLI SHALL fail with exit 127 and `jq: command not 
 - **THEN** the exit code is 127
 
 ### Requirement: Auto-commit
-When `auto_commit.enabled` resolves to `true` and `auto_commit.repo_root` is non-empty, the CLI SHALL, after appending the entry, run `git -C <repo_root> add -- <log directory>` (the absolute path, which git accepts inside the worktree) and then `git commit` with `auto_commit.message`, limited to that same path (`git commit -m <message> -- <log directory>`) so files the user already staged are not committed. The log directory SHALL be resolved to an absolute path first (a relative `log_root` is relative to the CLI's working directory). If `git add` fails the commit SHALL be skipped. Both commands' stdout and stderr SHALL be discarded, and a failing `git add` or `git commit` SHALL be ignored. The entry SHALL remain on disk whatever the outcome.
+When `auto_commit.enabled` resolves to `true` and `auto_commit.repo_root` is non-empty, the CLI SHALL, after appending the entry, run `git -C <repo_root> add -- <log directory>` and then `git commit -m <auto_commit.message> -- <log directory>`, so files the user already staged are not committed. The log directory SHALL be resolved to an absolute path first (a relative `log_root` is relative to the CLI's working directory), and the commit SHALL be skipped when `git add` fails.
 
 #### Scenario: Disabled by default
 - **WHEN** the config leaves `auto_commit.enabled` at `false`
@@ -232,7 +232,7 @@ When `auto_commit.enabled` resolves to `true` and `auto_commit.repo_root` is non
 - **THEN** standard output is exactly the entry line
 
 ### Requirement: Auto-commit failures do not fail the CLI
-A failing `git add` or `git commit` during auto-commit SHALL NOT change the CLI's outcome: the entry is already written, the exit status is 0 and nothing is printed for the failure. The CLI SHALL NOT depend on GNU `realpath`.
+A failing `git add` or `git commit` during auto-commit SHALL NOT change the CLI's outcome: the entry is already written and remains on disk, the exit status is 0 and nothing is printed, because both commands' stdout and stderr are discarded. The CLI SHALL NOT depend on GNU `realpath`.
 
 #### Scenario: Enabled on macOS
 - **WHEN** auto-commit is enabled with `repo_root` set to a git repository containing the log directory, on macOS

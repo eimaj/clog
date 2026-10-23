@@ -80,7 +80,7 @@ The hook SHALL resolve the repository from the first `git -C <dir>` anywhere in 
 - **THEN** the `COMMIT` entry carries that checkout's `repo`
 
 ### Requirement: post-action-log.sh commit marker
-For the `COMMIT` entry of a command it SHALL rewrite the last line of the log file (delete-and-rewrite via a temp file, not an append) to add `commit` with the short SHA of the resolved repository's HEAD after the command ran, whenever a SHA resolves, even if the CLI wrote nothing. Messages SHALL be emitted with `printf '%s\n'` so a message such as `-n` is never taken as an option. On the inline fallback path (no CLI resolvable) the entry, including the `commit` field, SHALL be written as a single JSON line (`jq -c`).
+For the `COMMIT` entry of a command it SHALL rewrite the last line of the log file (delete-and-rewrite via a temp file, not an append) to add `commit` with the short SHA of the resolved repository's HEAD after the command ran, whenever a SHA resolves, even if the CLI wrote nothing.
 
 #### Scenario: SHA resolved
 - **WHEN** the command is `cd ~/Code/clog && git commit -m "x"`
@@ -93,6 +93,13 @@ For the `COMMIT` entry of a command it SHALL rewrite the last line of the log fi
 #### Scenario: Several commits
 - **WHEN** a command makes two commits
 - **THEN** one entry is written and its `commit` is the resolved repository's HEAD
+
+### Requirement: post-action-log.sh output format
+Messages SHALL be emitted with `printf '%s\n'` so a message such as `-n` is never taken as an option. On the inline fallback path (no CLI resolvable) each entry, including the `commit` field, SHALL be written as a single JSON line (`jq -c`).
+
+#### Scenario: Fallback entry
+- **WHEN** no CLI can be resolved and the command is `git commit -m "x"`
+- **THEN** the day file gains exactly one line for the entry
 
 ### Requirement: post-action-log.sh auto-commit
 After writing, the hook SHALL run its own auto-commit when `auto_commit.enabled` is true, staging the log directory by absolute path (`git add -- <log directory>`, the directory resolved to an absolute path first) and committing only that path (`git commit -m <message> -- <log directory>`, skipped when the add fails), and SHALL ignore any git failure and print nothing.
