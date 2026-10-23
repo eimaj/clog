@@ -113,6 +113,13 @@ while [[ $# -gt 0 ]]; do
         echo "clog: $1 needs a value" >&2
         exit 1
       fi
+      # A recognised flag in value position means the value is missing
+      case "$2" in
+        --agent|--repo|--session|--model|--file|--family|--kpi|--date|--tags|--echo)
+          echo "clog: $1 needs a value" >&2
+          exit 1
+          ;;
+      esac
       ;;
   esac
   case "$1" in

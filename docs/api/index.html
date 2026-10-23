@@ -236,7 +236,7 @@ clog --help | clog -h        # first argument only</code></pre>
     <tr><td class="n">--echo</td><td class="in">flag</td><td>—</td><td>After a successful write, prints the exact JSON line that was appended to stdout. Prints nothing when <code>CLOG_DISABLE=1</code> (nothing was written). The HTTP API uses this to return the entry.</td></tr>
     <tr><td class="n">--help, -h</td><td class="in">first argument only</td><td>—</td><td>Prints usage to stdout and exits 0, before the config is read and before <code>CLOG_DISABLE</code> is checked.</td></tr>
   </table>
-  <p class="in">An unknown <code>--flag</code> exits 1 with <code>clog: unknown flag '…'</code>, a third positional with <code>clog: unexpected argument '…'</code>, and a flag given as the last argument with no value with <code>clog: &lt;flag&gt; needs a value</code>; nothing is written in any case.</p>
+  <p class="in">An unknown <code>--flag</code> exits 1 with <code>clog: unknown flag '…'</code>, a third positional with <code>clog: unexpected argument '…'</code>, and a flag given as the last argument, or followed by another recognised flag, with no value with <code>clog: &lt;flag&gt; needs a value</code>; nothing is written in any case.</p>
 
   <h2 class="tag">Responses <small>exit codes · stdout is always empty on success</small></h2>
   <table>

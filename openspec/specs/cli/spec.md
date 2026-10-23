@@ -91,7 +91,7 @@ The CLI SHALL accept `--agent NAME`, `--repo NAME`, `--session ID`, `--model NAM
 - **THEN** the entry's `tags` is `["a","b"]`
 
 ### Requirement: Unrecognised arguments
-After the two positionals, the CLI SHALL reject an unrecognised `--` argument, an extra positional, and a recognised value flag given as the final argument, each with exit 1 and a single stderr line, before anything is written.
+After the two positionals, the CLI SHALL reject an unrecognised `--` argument, an extra positional, a recognised value flag given as the final argument, and a recognised value flag followed by another recognised flag name (`--agent`, `--repo`, `--session`, `--model`, `--file`, `--family`, `--kpi`, `--date`, `--tags`, `--echo`) instead of a value, each with exit 1 and a single stderr line, before anything is written.
 
 #### Scenario: Unknown flag
 - **WHEN** the user runs `clog ACTION "x" --bogus --repo r`
@@ -104,6 +104,14 @@ After the two positionals, the CLI SHALL reject an unrecognised `--` argument, a
 #### Scenario: Flag without a value
 - **WHEN** the user runs `clog ACTION "x" --repo`
 - **THEN** stderr is `clog: --repo needs a value`, the exit code is 1 and nothing is written
+
+#### Scenario: Flag followed by a flag
+- **WHEN** the user runs `clog ACTION "x" --repo --echo`
+- **THEN** stderr is `clog: --repo needs a value`, the exit code is 1 and nothing is written
+
+#### Scenario: Value that merely starts with dashes
+- **WHEN** the user runs `clog ACTION "x" --repo --not-a-flag --echo`
+- **THEN** the entry's `repo` is `--not-a-flag` and the entry is echoed
 
 ### Requirement: Repo autodetection
 When `--repo` is omitted, `repo` SHALL be the basename of `git rev-parse --show-toplevel` run from the current directory. Outside a git repository the field SHALL be omitted.
