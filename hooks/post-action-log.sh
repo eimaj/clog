@@ -47,43 +47,22 @@ extract_git_dir() {
   echo "$HOME"
 }
 
-# One summary per `git commit` invocation in the command, in order: the first
-# -m "…" or -m '…' of that invocation (a second -m is the same commit's body),
-# or an empty line when it has none. Newline-separated on stdout.
-commit_summaries() {
-  local rest="$1" seg last=0
-  local re='git[[:space:]]+commit'
-  local nl=$'\n' q="'"
-  local msg="-m[[:space:]]+(\"([^\"${nl}]+)\"|${q}([^${q}${nl}]+)${q})"
-  [[ $rest =~ $re ]] || return 0
-  rest="${rest#*"${BASH_REMATCH[0]}"}"
-  while [[ $last -eq 0 ]]; do
-    if [[ $rest =~ $re ]]; then
-      seg="${rest%%"${BASH_REMATCH[0]}"*}"
-      rest="${rest#*"${BASH_REMATCH[0]}"}"
-    else
-      seg="$rest"
-      last=1
-    fi
-    if [[ $seg =~ $msg ]]; then
-      echo "${BASH_REMATCH[2]}${BASH_REMATCH[3]}"
-    else
-      echo ""
-    fi
-  done
-}
-
 GIT_DIR=$(extract_git_dir "$CMD")
 
 TYPE=""
 SUMMARY=""
-COMMIT_SUMMARIES=()
 
 if echo "$CMD" | grep -qE 'git[[:space:]]+commit'; then
   TYPE="COMMIT"
-  while IFS= read -r line; do
-    COMMIT_SUMMARIES+=("$line")
-  done < <(commit_summaries "$CMD")
+  # First -m "…" or -m '…' in the command (a later -m is the same commit's body)
+  nl=$'\n' q="'"
+  msg_re="-m[[:space:]]+(\"([^\"${nl}]+)\"|${q}([^${q}${nl}]+)${q})"
+  if [[ $CMD =~ $msg_re ]]; then
+    SUMMARY="${BASH_REMATCH[2]}${BASH_REMATCH[3]}"
+  fi
+  if [ -z "$SUMMARY" ]; then
+    SUMMARY=$(git -C "$GIT_DIR" log -1 --format=%s 2>/dev/null || echo "commit")
+  fi
 elif echo "$CMD" | grep -qE 'gh[[:space:]]+pr[[:space:]]+create'; then
   TYPE="PR"
   SUMMARY=$(echo "$CMD" | grep -oE -- '--title[[:space:]]+"[^"]+"' | sed 's/--title[[:space:]]*"//;s/"$//' || echo "pr created")
@@ -113,12 +92,12 @@ write_entry() {
     if [[ -n "$COMMIT_ARG" && -f "$LOG_FILE" ]]; then
       # Patch last line to add commit field
       local_last=$(tail -1 "$LOG_FILE")
-      patched=$(echo "$local_last" | jq -c --arg c "$COMMIT_ARG" '. + {commit: $c}' 2>/dev/null)
+      patched=$(printf '%s\n' "$local_last" | jq -c --arg c "$COMMIT_ARG" '. + {commit: $c}' 2>/dev/null)
       if [[ -n "$patched" ]]; then
         # Replace last line
         tmp_file="${LOG_FILE}.tmp"
         sed '$d' "$LOG_FILE" > "$tmp_file" 2>/dev/null || true
-        echo "$patched" >> "$tmp_file"
+        printf '%s\n' "$patched" >> "$tmp_file"
         mv "$tmp_file" "$LOG_FILE"
       fi
     fi
@@ -129,30 +108,15 @@ write_entry() {
     REPO=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
     ENTRY=$(build_entry "$TYPE" "$SUMMARY" "" "$REPO" "" "" "" "" "" "" "${CLOG_DEFAULT_TAGS:-}")
     if [[ -n "$COMMIT_ARG" ]]; then
-      ENTRY=$(echo "$ENTRY" | jq --arg c "$COMMIT_ARG" '. + {commit: $c}')
+      ENTRY=$(printf '%s\n' "$ENTRY" | jq --arg c "$COMMIT_ARG" '. + {commit: $c}')
     fi
-    echo "$ENTRY" >> "$LOG_FILE"
+    printf '%s\n' "$ENTRY" >> "$LOG_FILE"
   fi
 }
 
-if [[ "$TYPE" == "COMMIT" ]]; then
-  # The SHA is resolved after the command ran, so it is only known for the
-  # last commit; earlier entries of a multi-commit command omit `commit`.
-  last=$(( ${#COMMIT_SUMMARIES[@]} - 1 ))
-  [[ $last -lt 0 ]] && { COMMIT_SUMMARIES=(""); last=0; }
-  for i in "${!COMMIT_SUMMARIES[@]}"; do
-    s="${COMMIT_SUMMARIES[$i]}"
-    sha=""
-    if [[ $i -eq $last ]]; then
-      sha=$(git -C "$GIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
-      [[ -z "$s" ]] && s=$(git -C "$GIT_DIR" log -1 --format=%s 2>/dev/null || echo "commit")
-    fi
-    [[ -z "$s" ]] && s="commit"
-    write_entry "$s" "$sha"
-  done
-else
-  write_entry "$SUMMARY" ""
-fi
+SHA=""
+[[ "$TYPE" == "COMMIT" ]] && SHA=$(git -C "$GIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
+write_entry "$SUMMARY" "$SHA"
 
 # Auto-commit log if enabled
 if [[ "${CLOG_AUTO_COMMIT_ENABLED:-false}" == "true" && -n "${CLOG_AUTO_COMMIT_REPO:-}" ]]; then

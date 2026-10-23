@@ -43,11 +43,19 @@ On PostToolUse for Bash, the hook SHALL read `tool_input.command` and write `COM
 - **THEN** nothing is written
 
 ### Requirement: post-action-log.sh commit summaries
-A `COMMIT` command SHALL yield one entry per `git commit` invocation, in order, each summarised by that invocation's first `-m "…"` or `-m '…'` value (a later `-m` of the same invocation is its body). An invocation without one SHALL use the HEAD subject when it is the last, else `commit`.
+A `COMMIT` command SHALL yield exactly one entry per Bash command, summarised by the first `-m "…"` or `-m '…'` value in the command (a later `-m` is the commit's body), or by the HEAD subject of the resolved repository when there is none.
 
 #### Scenario: Several commits in one command
 - **WHEN** the command string contains `git commit -m "one" && git commit -m 'two' -m "body"`
-- **THEN** two `COMMIT` entries are written in order, with summaries `one` and `two`
+- **THEN** one `COMMIT` entry is written, with summary `one`
+
+#### Scenario: Message mentioning git commit
+- **WHEN** the command is `git commit -m "docs: explain git commit usage"`
+- **THEN** one `COMMIT` entry is written, with summary `docs: explain git commit usage`
+
+#### Scenario: Message that looks like a flag
+- **WHEN** the command is `git commit -m "-n"`
+- **THEN** one `COMMIT` entry is written, with summary `-n`
 
 ### Requirement: post-action-log.sh trigger matching
 The triggers SHALL match `git` immediately followed by `commit` or `push` (whitespace only), so `git -C <dir> commit` SHALL NOT trigger on its own. A `gh pr create` without `--title` SHALL write nothing, because the empty summary is rejected by the CLI.
@@ -72,7 +80,7 @@ The hook SHALL resolve the repository from the first `git -C <dir>` anywhere in 
 - **THEN** the `COMMIT` entry carries that checkout's `repo`
 
 ### Requirement: post-action-log.sh commit marker
-For the last `COMMIT` entry of a command it SHALL rewrite the last line of the log file (delete-and-rewrite via a temp file, not an append) to add `commit` with the short SHA whenever a SHA resolves, even if the CLI wrote nothing. Earlier entries of a multi-commit command SHALL carry no `commit`, because the SHA is resolved only after the whole command ran.
+For the `COMMIT` entry of a command it SHALL rewrite the last line of the log file (delete-and-rewrite via a temp file, not an append) to add `commit` with the short SHA of the resolved repository's HEAD after the command ran, whenever a SHA resolves, even if the CLI wrote nothing. Messages SHALL be emitted with `printf '%s\n'` so a message such as `-n` is never taken as an option.
 
 #### Scenario: SHA resolved
 - **WHEN** the command is `cd ~/Code/clog && git commit -m "x"`
@@ -84,7 +92,7 @@ For the last `COMMIT` entry of a command it SHALL rewrite the last line of the l
 
 #### Scenario: Several commits
 - **WHEN** a command makes two commits
-- **THEN** only the second entry carries `commit`
+- **THEN** one entry is written and its `commit` is the resolved repository's HEAD
 
 ### Requirement: post-action-log.sh auto-commit
 After writing, the hook SHALL run its own auto-commit when `auto_commit.enabled` is true, staging the log directory by absolute path (`git add -- <log directory>`, the directory resolved to an absolute path first) and committing only that path (`git commit -m <message> -- <log directory>`, skipped when the add fails), and SHALL ignore any git failure and print nothing.
