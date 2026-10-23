@@ -61,13 +61,13 @@ Migrate an existing install:
 ./setup.sh --migrate
 ```
 
-The installer detects which AI coding tools are present, lets you select which to install into, writes `~/.config/clog/config.yaml`, symlinks hooks and skills, and registers the `PostToolUse` hooks in Claude Code's `settings.json`.
+The installer detects which AI coding tools are present, lets you select which to install into, writes `~/.config/clog/config.yaml`, symlinks the five hooks and the skills, and registers the hooks in Claude Code's `settings.json` (`PostToolUse` and `PreToolUse`). Re-running `./setup.sh` after an install is safe: it skips what is already registered and adds only what is missing.
 
 ---
 
 ### 🤝 Migrating from a previous install
 
-If you have an existing `~/.claude/hooks/clog.sh`:
+If you have an existing `~/.claude/hooks/clog.sh` that is a real file (not a symlink into this repo's `bin/clog`), or `CLOG_BIN` is set, `setup.sh` stops and asks for `--migrate`. `$AI_LOG_ROOT` is no longer a marker:
 
 ```bash
 ./setup.sh --migrate
@@ -76,7 +76,7 @@ If you have an existing `~/.claude/hooks/clog.sh`:
 The installer will:
 
 1. Back up `~/.claude/hooks/clog.sh` → `clog.sh.pre-clog-pkg.bak`
-2. Back up `post-action-log.sh` and `post-log-reminder.sh` the same way
+2. Back up any real-file copies of the five hooks (`post-action-log.sh`, `post-log-reminder.sh`, `post-edit-log-check.sh`, `post-write-clog.sh`, `pre-agent-clog.sh`) the same way
 3. Symlink the new `bin/clog` in their place
 4. Write a fresh `~/.config/clog/config.yaml` with your `log_root` pre-filled to the existing log directory
 
@@ -238,7 +238,7 @@ See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for tool-specific details.
 
 | Tool        | Hooks                                                              | Skills | Notes                            |
 | ----------- | ------------------------------------------------------------------ | ------ | -------------------------------- |
-| Claude Code | Full — 4 `PostToolUse` hooks: auto-logs commits/pushes/PRs, edit-log checks, staleness warn on Bash + Agent dispatch | Yes    | Hooks auto-register via setup.sh |
+| Claude Code | Full — 5 hooks: `post-action-log` (commits/pushes/PRs), `post-log-reminder` (staleness warn on Bash + Agent), `post-edit-log-check` (edit-log checks), `post-write-clog` (auto CODE entry per edit), `pre-agent-clog` (ACTION entry per Agent dispatch) | Yes    | Hooks auto-register via setup.sh |
 | Codex       | No                                                                 | Yes    | No hooks API exposed yet         |
 | Cursor      | No                                                                 | Yes    | No hooks API exposed yet         |
 | OpenCode    | No                                                                 | Yes    | No hooks API exposed yet         |

@@ -67,16 +67,15 @@ detect_existing_install() {
   info "Checking for existing clog install..."
   local found=false
 
-  if [[ -f "${HOME}/.claude/hooks/clog.sh" ]]; then
+  local legacy_clog="${HOME}/.claude/hooks/clog.sh"
+  if [[ -L "$legacy_clog" && "$(readlink "$legacy_clog")" == "${SCRIPT_DIR}/bin/clog" ]]; then
+    say "~/.claude/hooks/clog.sh already links to this repo — not a legacy install."
+  elif [[ -f "$legacy_clog" ]]; then
     say "Found: ~/.claude/hooks/clog.sh"
     found=true
   fi
   if [[ -n "${CLOG_BIN:-}" ]]; then
     say "Found: \$CLOG_BIN=${CLOG_BIN}"
-    found=true
-  fi
-  if [[ -n "${AI_LOG_ROOT:-}" ]]; then
-    say "Found: \$AI_LOG_ROOT=${AI_LOG_ROOT}"
     found=true
   fi
 
@@ -297,7 +296,8 @@ wire_claude_code() {
   run mkdir -p "$hooks_dir"
 
   # Back up and symlink hooks
-  for hook in post-action-log.sh post-log-reminder.sh post-edit-log-check.sh; do
+  for hook in post-action-log.sh post-log-reminder.sh post-edit-log-check.sh \
+    post-write-clog.sh pre-agent-clog.sh; do
     local src="${SCRIPT_DIR}/hooks/${hook}"
     local dst="${hooks_dir}/${hook}"
     if [[ -f "$dst" && ! -L "$dst" ]]; then
@@ -365,13 +365,17 @@ register_claude_hooks() {
   if [[ "$DRY_RUN" == "true" ]]; then
     say "[dry-run] Would register post-action-log.sh and post-log-reminder.sh in PostToolUse>Bash"
     say "[dry-run] Would register post-edit-log-check.sh in PostToolUse>Edit/Write/MultiEdit/NotebookEdit"
+    say "[dry-run] Would register post-write-clog.sh in PostToolUse>Edit/Write/MultiEdit/NotebookEdit"
     say "[dry-run] Would register post-log-reminder.sh in PostToolUse>Agent"
+    say "[dry-run] Would register pre-agent-clog.sh in PreToolUse>Agent"
     return 0
   fi
 
   local hook_action_log="${HOME}/.claude/hooks/post-action-log.sh"
   local hook_log_reminder="${HOME}/.claude/hooks/post-log-reminder.sh"
   local hook_edit_check="${HOME}/.claude/hooks/post-edit-log-check.sh"
+  local hook_write_clog="${HOME}/.claude/hooks/post-write-clog.sh"
+  local hook_pre_agent="${HOME}/.claude/hooks/pre-agent-clog.sh"
 
   # Step A: register Bash hooks (post-action-log + post-log-reminder)
   local action_log_registered
@@ -417,27 +421,26 @@ register_claude_hooks() {
 
   if [[ "$edit_check_registered" -gt "0" ]]; then
     say "post-edit-log-check.sh already registered — skipping edit hooks."
-    return 0
+  else
+    local tmp_settings2="${SETTINGS_JSON}.clog-setup.tmp"
+    jq --arg ec "$hook_edit_check" '
+      reduce ("Edit", "Write", "MultiEdit", "NotebookEdit") as $m (.;
+        if ([.hooks.PostToolUse[]? | select(.matcher == $m)] | length) > 0 then
+          .hooks.PostToolUse = (.hooks.PostToolUse | map(
+            if .matcher == $m then
+              .hooks = (.hooks // []) + [{"type": "command", "command": $ec}]
+            else . end
+          ))
+        else
+          .hooks.PostToolUse = (.hooks.PostToolUse // []) + [
+            {"matcher": $m, "hooks": [{"type": "command", "command": $ec}]}
+          ]
+        end
+      )
+    ' "$SETTINGS_JSON" > "$tmp_settings2" && mv "$tmp_settings2" "$SETTINGS_JSON"
+
+    say "Registered post-edit-log-check.sh in PostToolUse > Edit/Write/MultiEdit/NotebookEdit"
   fi
-
-  local tmp_settings2="${SETTINGS_JSON}.clog-setup.tmp"
-  jq --arg ec "$hook_edit_check" '
-    reduce ("Edit", "Write", "MultiEdit", "NotebookEdit") as $m (.;
-      if ([.hooks.PostToolUse[]? | select(.matcher == $m)] | length) > 0 then
-        .hooks.PostToolUse = (.hooks.PostToolUse | map(
-          if .matcher == $m then
-            .hooks = (.hooks // []) + [{"type": "command", "command": $ec}]
-          else . end
-        ))
-      else
-        .hooks.PostToolUse = (.hooks.PostToolUse // []) + [
-          {"matcher": $m, "hooks": [{"type": "command", "command": $ec}]}
-        ]
-      end
-    )
-  ' "$SETTINGS_JSON" > "$tmp_settings2" && mv "$tmp_settings2" "$SETTINGS_JSON"
-
-  say "Registered post-edit-log-check.sh in PostToolUse > Edit/Write/MultiEdit/NotebookEdit"
 
   # Step C: register post-log-reminder.sh on Agent
   local agent_reminder_registered
@@ -447,25 +450,62 @@ register_claude_hooks() {
 
   if [[ "$agent_reminder_registered" -gt "0" ]]; then
     say "post-log-reminder.sh already registered on Agent — skipping."
-    return 0
+  else
+    local tmp_settings3="${SETTINGS_JSON}.clog-setup.tmp"
+    jq --arg lr "$hook_log_reminder" '
+      if ([.hooks.PostToolUse[]? | select(.matcher == "Agent")] | length) > 0 then
+        .hooks.PostToolUse = (.hooks.PostToolUse | map(
+          if .matcher == "Agent" then
+            .hooks = (.hooks // []) + [{"type": "command", "command": $lr}]
+          else . end
+        ))
+      else
+        .hooks.PostToolUse = (.hooks.PostToolUse // []) + [
+          {"matcher": "Agent", "hooks": [{"type": "command", "command": $lr}]}
+        ]
+      end
+    ' "$SETTINGS_JSON" > "$tmp_settings3" && mv "$tmp_settings3" "$SETTINGS_JSON"
+
+    say "Registered post-log-reminder.sh in PostToolUse > Agent"
   fi
 
-  local tmp_settings3="${SETTINGS_JSON}.clog-setup.tmp"
-  jq --arg lr "$hook_log_reminder" '
-    if ([.hooks.PostToolUse[]? | select(.matcher == "Agent")] | length) > 0 then
-      .hooks.PostToolUse = (.hooks.PostToolUse | map(
-        if .matcher == "Agent" then
-          .hooks = (.hooks // []) + [{"type": "command", "command": $lr}]
-        else . end
-      ))
-    else
-      .hooks.PostToolUse = (.hooks.PostToolUse // []) + [
-        {"matcher": "Agent", "hooks": [{"type": "command", "command": $lr}]}
-      ]
-    end
-  ' "$SETTINGS_JSON" > "$tmp_settings3" && mv "$tmp_settings3" "$SETTINGS_JSON"
+  # Step D: register post-write-clog.sh on the same edit matchers as Step B
+  _register_hook PostToolUse "$hook_write_clog" post-write-clog \
+    Edit Write MultiEdit NotebookEdit
 
-  say "Registered post-log-reminder.sh in PostToolUse > Agent"
+  # Step E: register pre-agent-clog.sh on PreToolUse > Agent
+  _register_hook PreToolUse "$hook_pre_agent" pre-agent-clog Agent
+}
+
+# _register_hook <event> <command> <name-regex> <matcher>...
+# Adds <command> under each matcher of <event> that does not already hold a
+# hook whose command matches <name-regex>. Re-running changes nothing.
+_register_hook() {
+  local event="$1" cmd="$2" name="$3"
+  shift 3
+  local matchers tmp="${SETTINGS_JSON}.clog-setup.tmp"
+  matchers=$(printf '%s\n' "$@" | jq -R . | jq -s .)
+
+  jq --arg ev "$event" --arg c "$cmd" --arg n "$name" --argjson ms "$matchers" '
+    reduce $ms[] as $m (.;
+      if ([.hooks[$ev][]? | select(.matcher == $m) | (.hooks // [])[] | select(.command | test($n))] | length) > 0 then .
+      elif ([.hooks[$ev][]? | select(.matcher == $m)] | length) > 0 then
+        .hooks[$ev] |= map(
+          if .matcher == $m then .hooks = (.hooks // []) + [{"type": "command", "command": $c}] else . end
+        )
+      else
+        .hooks[$ev] = (.hooks[$ev] // []) + [{"matcher": $m, "hooks": [{"type": "command", "command": $c}]}]
+      end
+    )
+  ' "$SETTINGS_JSON" > "$tmp"
+
+  if cmp -s "$tmp" "$SETTINGS_JSON"; then
+    rm -f "$tmp"
+    say "${name}.sh already registered in ${event} > $* — skipping."
+  else
+    mv "$tmp" "$SETTINGS_JSON"
+    say "Registered ${name}.sh in ${event} > $*"
+  fi
 }
 
 wire_codex() {

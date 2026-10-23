@@ -144,19 +144,23 @@ The model part SHALL be omitted when `model` is absent. The type SHALL default t
 - **THEN** the entry's `summary` is `dispatch  — d1`
 
 ### Requirement: Installer coverage
-`setup.sh` SHALL symlink `post-action-log.sh`, `post-log-reminder.sh` and `post-edit-log-check.sh` into `~/.claude/hooks/` and SHALL also symlink `bin/clog` there as `clog.sh`. It SHALL NOT install `post-write-clog.sh` or `pre-agent-clog.sh`; those are registered by hand.
+`setup.sh` SHALL symlink `post-action-log.sh`, `post-log-reminder.sh`, `post-edit-log-check.sh`, `post-write-clog.sh` and `pre-agent-clog.sh` into `~/.claude/hooks/`, and SHALL also symlink `bin/clog` there as `clog.sh`. A `clog.sh` that is a symlink to this repo's `bin/clog` SHALL NOT count as an existing install; `$AI_LOG_ROOT` SHALL NOT either.
 
 #### Scenario: Symlinks after wiring
 - **WHEN** `setup.sh` wires Claude Code
-- **THEN** `~/.claude/hooks/` contains symlinks for the three hooks and `clog.sh`, and none for `post-write-clog.sh` or `pre-agent-clog.sh`
+- **THEN** `~/.claude/hooks/` contains symlinks for all five hooks and `clog.sh`
+
+#### Scenario: Re-run after install
+- **WHEN** `~/.claude/hooks/clog.sh` links to this repo's `bin/clog` and `setup.sh` runs without `--migrate`
+- **THEN** it does not stop with the existing-install warning
 
 ### Requirement: Installer hook registration
-`setup.sh` SHALL register the three installed hooks in an existing `~/.claude/settings.json`. It SHALL skip registration when `settings.json` is absent, and SHALL skip the Agent-matcher registration of `post-log-reminder.sh` when `post-edit-log-check.sh` is already registered.
+`setup.sh` SHALL register all five hooks in an existing `~/.claude/settings.json` and SHALL skip registration when it is absent. Each registration SHALL be evaluated independently and skipped only if that hook is already present at that matcher, so a re-run adds nothing and an earlier registration never blocks a later one.
 
 #### Scenario: Fresh install with settings.json
-- **WHEN** `setup.sh` wires Claude Code and `~/.claude/settings.json` exists with none of the hooks registered
-- **THEN** it gains `post-action-log.sh` and `post-log-reminder.sh` under the Bash matcher, `post-edit-log-check.sh` under Edit, Write, MultiEdit and NotebookEdit, and `post-log-reminder.sh` under Agent
+- **WHEN** `setup.sh` wires Claude Code and `settings.json` exists with none of the hooks registered
+- **THEN** under `PostToolUse` it gains `post-action-log.sh` and `post-log-reminder.sh` on Bash, `post-edit-log-check.sh` and `post-write-clog.sh` on Edit, Write, MultiEdit and NotebookEdit, and `post-log-reminder.sh` on Agent; under `PreToolUse` it gains `pre-agent-clog.sh` on Agent
 
 #### Scenario: Re-run with the edit hook present
-- **WHEN** `post-edit-log-check.sh` is already registered and `post-log-reminder.sh` is not registered under Agent
-- **THEN** the Agent registration is not added
+- **WHEN** `post-edit-log-check.sh` is already registered but the Agent, `post-write-clog.sh` and `pre-agent-clog.sh` registrations are missing
+- **THEN** the missing registrations are added and nothing already present is duplicated

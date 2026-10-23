@@ -11,9 +11,9 @@ Per-tool installation notes and caveats.
 ### Install
 
 Run `./setup.sh` from the clog repo root. The installer:
-1. Symlinks `hooks/post-action-log.sh` and `hooks/post-log-reminder.sh` into `~/.claude/hooks/`
+1. Symlinks the five hooks (`post-action-log.sh`, `post-log-reminder.sh`, `post-edit-log-check.sh`, `post-write-clog.sh`, `pre-agent-clog.sh`) into `~/.claude/hooks/`
 2. Symlinks all `skills/*/` into `~/.claude/skills/`
-3. Registers both hooks in `~/.claude/settings.json` under `PostToolUse > Bash`
+3. Registers them in `~/.claude/settings.json`: `post-action-log.sh` and `post-log-reminder.sh` under `PostToolUse > Bash`; `post-log-reminder.sh` under `PostToolUse > Agent`; `post-edit-log-check.sh` and `post-write-clog.sh` under `PostToolUse > Edit`, `Write`, `MultiEdit` and `NotebookEdit`; `pre-agent-clog.sh` under `PreToolUse > Agent`
 4. Optionally appends `persona/PERSONA.md` to `~/.claude/CLAUDE.md`
 
 ### Hook registration format
@@ -29,15 +29,34 @@ The installer adds to `settings.json`:
           {"type": "command", "command": "~/.claude/hooks/post-action-log.sh"},
           {"type": "command", "command": "~/.claude/hooks/post-log-reminder.sh"}
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [{"type": "command", "command": "~/.claude/hooks/post-log-reminder.sh"}]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {"type": "command", "command": "~/.claude/hooks/post-edit-log-check.sh"},
+          {"type": "command", "command": "~/.claude/hooks/post-write-clog.sh"}
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [{"type": "command", "command": "~/.claude/hooks/pre-agent-clog.sh"}]
       }
     ]
   }
 }
 ```
 
+The `Edit` entry is repeated for `Write`, `MultiEdit` and `NotebookEdit` with the same two commands.
+
 ### Manual hook registration
 
-If you prefer to edit `settings.json` by hand, add the two command entries above to the `PostToolUse > Bash` hooks array. Both hooks exit 0 always — they will not block any Bash command.
+If you prefer to edit `settings.json` by hand, add the entries above under `PostToolUse` and `PreToolUse`. All five hooks exit 0 always — they will not block any tool call. Re-running `setup.sh` is safe: it skips any registration already present and adds only what is missing.
 
 ### Skills
 
