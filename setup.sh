@@ -399,6 +399,8 @@ register_hook() {
     warn "Could not create a temp file — skipping ${name}."
     return 0
   }
+  # shellcheck disable=SC2064  # expand $tmp now: it is local and gone at RETURN time
+  trap "rm -f '$tmp'; trap - RETURN" RETURN
 
   if ! jq --arg ev "$event" --arg t "$tool" --arg c "$hook" --arg n "/${name}" '
     def covers($t):
@@ -421,7 +423,6 @@ register_hook() {
           end
       end
   ' "$SETTINGS_JSON" > "$tmp" 2>/dev/null; then
-    rm -f "$tmp"
     warn "Could not process ${SETTINGS_JSON} — skipping ${name}."
     return 0
   fi
@@ -429,10 +430,13 @@ register_hook() {
   if [[ "$(jq -S -c . "$tmp")" == "$(jq -S -c . "$SETTINGS_JSON")" ]]; then
     say "${name} already registered in ${event} > ${tool}"
   else
-    cat "$tmp" > "$SETTINGS_JSON"
-    say "Registered ${name} in ${event} > ${tool}"
+    local werr
+    if werr=$(cat "$tmp" 2>&1 > "$SETTINGS_JSON"); then
+      say "Registered ${name} in ${event} > ${tool}"
+    else
+      warn "Could not write ${SETTINGS_JSON} (${werr##*: }) — skipping ${name}."
+    fi
   fi
-  rm -f "$tmp"
 }
 
 wire_codex() {

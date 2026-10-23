@@ -186,6 +186,13 @@ An uncovered hook SHALL be added to the first entry under the event whose matche
 - **WHEN** every hook is already registered and the file is indented with four spaces
 - **THEN** the file is byte-identical afterwards and every call prints `already registered`
 
+### Requirement: Hook registration write failure
+If the write fails (read-only file or symlink target), `register_hook` SHALL print one warning naming the path and the reason, leave the file unchanged, and return success so setup continues. The temp file SHALL be removed on every exit path.
+
+#### Scenario: Read-only settings file
+- **WHEN** `settings.json` is read-only and a hook is unregistered
+- **THEN** a warning names the path and `Permission denied`, the file is unchanged, no temp file remains, and setup continues
+
 ### Requirement: Hook registration on invalid JSON
 When `settings.json` is not valid JSON, `setup.sh` SHALL print one warning naming the file, skip all registration, leave no temp file behind and continue with exit status 0.
 
