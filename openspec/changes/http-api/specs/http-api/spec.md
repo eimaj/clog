@@ -150,7 +150,7 @@ A `bin/clog` child that runs longer than 10 seconds SHALL be killed and answered
 - **THEN** the status is 500 and `error.code` is `clog_timeout`
 
 ### Requirement: Disabled logging
-When `CLOG_DISABLE` is exactly `1` in the server's environment and a config file exists, `POST /entries` SHALL answer 503 `disabled` without spawning, because the CLI would write nothing. `GET /config` and `GET /entries` SHALL also answer 503 `disabled`, because no log root resolves. With no config file all three answer `no_config`.
+When `CLOG_DISABLE` is exactly `1` in the server's environment and a config file exists, `POST /entries`, `GET /config` and `GET /entries` SHALL answer 503 `disabled` after the config file is found and before anything is spawned or read, whether or not a log root is also set in the environment. With no config file all three answer `no_config`.
 
 #### Scenario: Disabled
 - **WHEN** the server runs with `CLOG_DISABLE=1` and a client posts an entry

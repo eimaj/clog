@@ -442,20 +442,40 @@ describe('POST /entries', () => {
     assert.equal(fs.existsSync(readRoot), false);
   });
 
-  it('does not inherit the launcher session; session appears only when supplied', async () => {
-    const saved = process.env['CLAUDE_SESSION_ID'];
-    process.env['CLAUDE_SESSION_ID'] = 'launcher';
+  for (const key of ['CLAUDE_CODE_SESSION_ID', 'CLAUDE_SESSION_ID', 'CODEX_SESSION_ID', 'CURSOR_SESSION_ID']) {
+    it(`does not inherit the launcher session from ${key}; session appears only when supplied`, async () => {
+      const saved = process.env[key];
+      process.env[key] = 'launcher';
+      try {
+        const bare = (await (await post({ type: 'ACTION', summary: 'x', date: '2026-01-03' })).json()) as Written;
+        assert.equal('session' in bare.entry, false);
+        const given = (await (
+          await post({ type: 'ACTION', summary: 'y', session: 's1', date: '2026-01-03' })
+        ).json()) as Written;
+        assert.equal(given.entry['session'], 's1');
+      } finally {
+        if (saved === undefined) delete process.env[key];
+        else process.env[key] = saved;
+      }
+    });
+  }
+
+  it('answers disabled on the read routes even when the log root comes from the environment', async () => {
+    process.env['CLOG_DISABLE'] = '1';
+    process.env['CLOG_LOG_ROOT'] = path.dirname(readRoot);
+    process.env['CLOG_LOG_SUBDIR'] = path.basename(readRoot);
     try {
-      const bare = (await (await post({ type: 'ACTION', summary: 'x', date: '2026-01-03' })).json()) as Written;
-      assert.equal('session' in bare.entry, false);
-      const given = (await (
-        await post({ type: 'ACTION', summary: 'y', session: 's1', date: '2026-01-03' })
-      ).json()) as Written;
-      assert.equal(given.entry['session'], 's1');
+      await expectError(await request('GET', '/config'), 503, 'disabled');
+      await expectError(await request('GET', '/entries'), 503, 'disabled');
     } finally {
-      if (saved === undefined) delete process.env['CLAUDE_SESSION_ID'];
-      else process.env['CLAUDE_SESSION_ID'] = saved;
+      delete process.env['CLOG_DISABLE'];
+      delete process.env['CLOG_LOG_ROOT'];
+      delete process.env['CLOG_LOG_SUBDIR'];
     }
+  });
+
+  it('rejects a repeated date query parameter', async () => {
+    await expectError(await request('GET', '/entries?date=&date=2020-01-01'), 400, 'invalid_date');
   });
 
   it('answers no_config on all three guarded routes under CLOG_DISABLE=1 with no config, disabled with one', async () => {
@@ -854,6 +874,11 @@ describe('errors and mounting', () => {
     assert.equal(head.status, 200);
     assert.equal(await head.text(), '');
     assert.equal((await request('HEAD', '/nope')).status, 404);
+    for (const route of ['/config', '/entries']) {
+      const guarded = await request('HEAD', route);
+      assert.equal(guarded.status, 200, route);
+      assert.equal(await guarded.text(), '');
+    }
   });
 
   it('works when the router is mounted under a prefix', async () => {

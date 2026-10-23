@@ -250,7 +250,9 @@ interface ReadQuery {
 
 function parseReadQuery(c: Context): ReadQuery {
   // An empty `date` means today, as `--date ""` and POST `date: ""` do.
-  const date = c.req.query('date') || localDate();
+  const dates = c.req.queries('date') ?? [];
+  if (dates.length > 1) throw new HttpError(400, 'invalid_date', 'date may be given once');
+  const date = dates[0] || localDate();
   if (!DATE_PATTERN.test(date)) throw invalidDate(date);
 
   const type = c.req.query('type');
@@ -291,6 +293,17 @@ function parseReadQuery(c: Context): ReadQuery {
 function hasTag(entry: Entry, tag: string): boolean {
   const tags = entry['tags'];
   return isStringArray(tags) && tags.includes(tag);
+}
+
+/**
+ * `CLOG_DISABLE=1` makes the CLI exit 0 without writing and the config loader
+ * export nothing, so every guarded route answers 503 `disabled` once the config
+ * file has been found (a missing config answers `no_config` first).
+ */
+function assertEnabled(): void {
+  if (process.env['CLOG_DISABLE'] === '1') {
+    throw new HttpError(503, 'disabled', DISABLED_MESSAGE);
+  }
 }
 
 function isEnoent(err: unknown): boolean {
@@ -392,7 +405,11 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
   router.get('/demo', async (c) => c.html(await readDocsPage(clogBin, DEMO_PAGE)));
   router.get('/docs', async (c) => c.html(await readDocsPage(clogBin, REFERENCE_PAGE)));
 
-  router.get('/config', guard, async (c) => c.json(await loadClogConfig(clogBin), 200));
+  router.get('/config', guard, async (c) => {
+    const config = await loadClogConfig(clogBin);
+    assertEnabled();
+    return c.json(config, 200);
+  });
 
   router.post('/entries', guard, async (c) => {
     const request = await parseWriteRequest(c);
@@ -426,6 +443,7 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
   router.get('/entries', guard, async (c) => {
     const query = parseReadQuery(c);
     const config = await loadClogConfig(clogBin);
+    assertEnabled();
     const file = path.join(readRootOf(config), logFileName(query.date));
 
     const { records, skipped } = await readEntries(file);
