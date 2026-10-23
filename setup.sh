@@ -68,7 +68,7 @@ detect_existing_install() {
   local found=false
 
   local legacy_clog="${HOME}/.claude/hooks/clog.sh"
-  if [[ -L "$legacy_clog" && "$(readlink "$legacy_clog")" == "${SCRIPT_DIR}/bin/clog" ]]; then
+  if [[ -L "$legacy_clog" && "$(realpath "$legacy_clog" 2>/dev/null)" == "$(realpath "${SCRIPT_DIR}/bin/clog" 2>/dev/null)" ]]; then
     say "~/.claude/hooks/clog.sh already links to this repo — not a legacy install."
   elif [[ -f "$legacy_clog" ]]; then
     say "Found: ~/.claude/hooks/clog.sh"
