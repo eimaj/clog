@@ -321,7 +321,6 @@ clog --help | clog -h        # first argument only</code></pre>
         <tr><td class="n">auto_commit.message</td><td><code>docs(clog): auto-commit logs</code></td><td>same</td></tr>
         <tr><td class="n">families</td><td>built-in: empty (no validation); example config: <code>[general, skills, tooling, interactive]</code></td><td><code>--family</code> validation</td></tr>
         <tr><td class="n">kpis</td><td>built-in: empty (no validation); example config: <code>[token_waste, failure, prompt_gap, effective, format_issue]</code></td><td><code>--kpi</code> validation</td></tr>
-        <tr><td class="n">agents</td><td>—</td><td>parsed into <code>CLOG_AGENTS</code>; not used by the CLI</td></tr>
         <tr><td class="n">cli_path</td><td><code>""</code></td><td>written by <code>setup.sh</code>; not read by the CLI or hooks</td></tr>
       </table>
     </div>
@@ -334,7 +333,7 @@ clog --help | clog -h        # first argument only</code></pre>
         <tr><th>Variable</th><th>Effect</th></tr>
         <tr><td class="n">CLOG_CONFIG</td><td>Path to the config file. Default <code>~/.config/clog/config.yaml</code>.</td></tr>
         <tr><td class="n">CLOG_DISABLE</td><td>Exactly <code>1</code>: exit 0 without writing. Checked after the config is found, so it does not rescue a missing config. Hooks honour it too.</td></tr>
-        <tr><td class="n">CLOG_LOG_ROOT, CLOG_LOG_SUBDIR, CLOG_REPORTS_ROOT, CLOG_REMINDER_THRESHOLD, CLOG_AUTO_COMMIT_ENABLED, CLOG_AUTO_COMMIT_REPO, CLOG_AUTO_COMMIT_MSG, CLOG_FAMILIES, CLOG_KPIS, CLOG_AGENTS, CLOG_CLI_PATH</td><td>Override the matching config key when non-empty. Lists are space-separated. An empty value does not clear a config value. Path values get <code>~</code> and <code>${HOME}</code> expanded.</td></tr>
+        <tr><td class="n">CLOG_LOG_ROOT, CLOG_LOG_SUBDIR, CLOG_REPORTS_ROOT, CLOG_REMINDER_THRESHOLD, CLOG_AUTO_COMMIT_ENABLED, CLOG_AUTO_COMMIT_REPO, CLOG_AUTO_COMMIT_MSG, CLOG_FAMILIES, CLOG_KPIS, CLOG_CLI_PATH</td><td>Override the matching config key when non-empty. Lists are space-separated. An empty value does not clear a config value. Path values get <code>~</code> and <code>${HOME}</code> expanded.</td></tr>
         <tr><td class="n">CLOG_DEFAULT_TAGS, CLOG_TAGS_FILE</td><td>Comma-separated tags added to every entry; the file defaults to <code>~/.config/clog/tags.local</code>. Env wins over file.</td></tr>
         <tr><td class="n">CLAUDE_CODE_SESSION_ID, CLAUDE_SESSION_ID, CODEX_SESSION_ID, CURSOR_SESSION_ID</td><td>Session fallback chain, in that order, when <code>--session</code> is omitted.</td></tr>
         <tr><td class="n">CLOG_BIN</td><td>Hooks only: path to the binary when <code>clog</code> is not on PATH. Honoured by <code>post-action-log.sh</code>, <code>post-log-reminder.sh</code> and <code>pre-agent-clog.sh</code>; <code>post-write-clog.sh</code> clears it before checking and falls back to <code>../bin/clog</code>.</td></tr>
