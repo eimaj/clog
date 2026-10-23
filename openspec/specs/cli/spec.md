@@ -91,19 +91,19 @@ The CLI SHALL accept `--agent NAME`, `--repo NAME`, `--session ID`, `--model NAM
 - **THEN** the entry's `tags` is `["a","b"]`
 
 ### Requirement: Unrecognised arguments
-Any argument after the two positionals that is not a recognised flag SHALL be dropped silently, one token at a time, so an unknown flag's value is parsed as the next argument. Extra positionals SHALL be dropped the same way. A recognised flag given as the final argument with no value SHALL exit 1 with a bash `unbound variable` error.
+After the two positionals, the CLI SHALL reject an unrecognised `--` argument, an extra positional, and a recognised value flag given as the final argument, each with exit 1 and a single stderr line, before anything is written.
 
 #### Scenario: Unknown flag
 - **WHEN** the user runs `clog ACTION "x" --bogus --repo r`
-- **THEN** the entry is appended with `repo` `r` and no field for `bogus`, nothing is printed and the exit code is 0
+- **THEN** stderr is `clog: unknown flag '--bogus'`, the exit code is 1 and nothing is written
 
-#### Scenario: Unquoted summary
+#### Scenario: Extra positional
 - **WHEN** the user runs `clog ACTION deploy to staging`
-- **THEN** the entry's `summary` is `deploy` and the words `to staging` are dropped silently
+- **THEN** stderr is `clog: unexpected argument 'to'`, the exit code is 1 and nothing is written
 
 #### Scenario: Flag without a value
 - **WHEN** the user runs `clog ACTION "x" --repo`
-- **THEN** stderr contains `$2: unbound variable`, the exit code is 1 and nothing is written
+- **THEN** stderr is `clog: --repo needs a value`, the exit code is 1 and nothing is written
 
 ### Requirement: Repo autodetection
 When `--repo` is omitted, `repo` SHALL be the basename of `git rev-parse --show-toplevel` run from the current directory. Outside a git repository the field SHALL be omitted.
