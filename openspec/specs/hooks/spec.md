@@ -80,7 +80,7 @@ The hook SHALL resolve the repository from the first `git -C <dir>` anywhere in 
 - **THEN** the `COMMIT` entry carries that checkout's `repo`
 
 ### Requirement: post-action-log.sh commit marker
-For the `COMMIT` entry of a command it SHALL rewrite the last line of the log file (delete-and-rewrite via a temp file, not an append) to add `commit` with the short SHA of the resolved repository's HEAD after the command ran, whenever a SHA resolves, even if the CLI wrote nothing. Messages SHALL be emitted with `printf '%s\n'` so a message such as `-n` is never taken as an option.
+For the `COMMIT` entry of a command it SHALL rewrite the last line of the log file (delete-and-rewrite via a temp file, not an append) to add `commit` with the short SHA of the resolved repository's HEAD after the command ran, whenever a SHA resolves, even if the CLI wrote nothing. Messages SHALL be emitted with `printf '%s\n'` so a message such as `-n` is never taken as an option. On the inline fallback path (no CLI resolvable) the entry, including the `commit` field, SHALL be written as a single JSON line (`jq -c`).
 
 #### Scenario: SHA resolved
 - **WHEN** the command is `cd ~/Code/clog && git commit -m "x"`

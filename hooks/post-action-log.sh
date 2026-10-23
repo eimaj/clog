@@ -108,7 +108,7 @@ write_entry() {
     REPO=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
     ENTRY=$(build_entry "$TYPE" "$SUMMARY" "" "$REPO" "" "" "" "" "" "" "${CLOG_DEFAULT_TAGS:-}")
     if [[ -n "$COMMIT_ARG" ]]; then
-      ENTRY=$(printf '%s\n' "$ENTRY" | jq --arg c "$COMMIT_ARG" '. + {commit: $c}')
+      ENTRY=$(printf '%s\n' "$ENTRY" | jq -c --arg c "$COMMIT_ARG" '. + {commit: $c}')
     fi
     printf '%s\n' "$ENTRY" >> "$LOG_FILE"
   fi
