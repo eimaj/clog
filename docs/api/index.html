@@ -274,7 +274,7 @@ clog --help | clog -h        # first argument only</code></pre>
 201
 {"entry":{"time":"09:15:22","type":"ACTION","summary":"deploy to staging","repo":"my-repo"},"file":"/Users/me/clog-logs/claude/20261021.jsonl"}</code></pre>
   <h3>GET /entries</h3>
-  <p>Query: <code>date=YYYY-MM-DD</code> (default today, local time), <code>type</code>, <code>repo</code>, <code>session</code>, <code>agent</code> (exact match), <code>tag</code> (the entry's <code>tags</code> contains it; empty is 400 <code>invalid_tag</code>), all ANDed, <code>tail=N</code> (1 to 10000, applied after filtering). A missing day is <code>entries: []</code>; a line that is not valid JSON is skipped and counted in <code>skipped</code>.</p>
+  <p>Query: <code>date=YYYY-MM-DD</code> (default today, local time; empty means today), <code>type</code>, <code>repo</code>, <code>session</code>, <code>agent</code> (exact match), <code>tag</code> (the entry's <code>tags</code> contains it; empty is 400 <code>invalid_tag</code>), all ANDed, <code>tail=N</code> (1 to 10000, applied after filtering). A missing day is <code>entries: []</code>; a line that is not valid JSON is skipped and counted in <code>skipped</code>.</p>
   <h3>Bearer token</h3>
   <p><code>GET /config</code>, <code>GET /entries</code> and <code>POST /entries</code> require <code>Authorization: Bearer &lt;token&gt;</code> and answer 401 <code>unauthorized</code> (<code>missing or invalid bearer token</code>) without it. <code>/health</code>, <code>/demo</code>, <code>/docs</code> and CORS preflights need no token. A mounted <code>createClogRouter({ token })</code> enforces the same check; without <code>token</code> the router is open.</p>
   <h3>Origins and limits</h3>

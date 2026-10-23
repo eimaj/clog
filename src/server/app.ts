@@ -249,7 +249,8 @@ interface ReadQuery {
 }
 
 function parseReadQuery(c: Context): ReadQuery {
-  const date = c.req.query('date') ?? localDate();
+  // An empty `date` means today, as `--date ""` and POST `date: ""` do.
+  const date = c.req.query('date') || localDate();
   if (!DATE_PATTERN.test(date)) throw invalidDate(date);
 
   const type = c.req.query('type');

@@ -685,6 +685,14 @@ describe('GET /entries', () => {
     assert.equal((await list('?tail=10000')).status, 200);
   });
 
+  it('treats an empty date as today', async () => {
+    const res = await list('?date=');
+    assert.equal(res.status, 200);
+    const listed = (await res.json()) as Listed;
+    assert.equal(listed.date, today);
+    assert.equal(listed.entries.length, 4);
+  });
+
   it('answers 503 no_config when there is no config', async () => {
     process.env['CLOG_CONFIG'] = path.join(tmp, 'missing.yaml');
     await expectError(await list(), 503, 'no_config');

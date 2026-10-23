@@ -193,7 +193,7 @@ When `CLOG_DISABLE` is exactly `1` in the server's environment and a config file
 - **THEN** only entries whose `tags` contains `release` are returned
 
 ### Requirement: Read validation
-`date` SHALL match `YYYY-MM-DD` as in the CLI (`invalid_date`), `type` SHALL be one of the nine (`invalid_type`) and `tail` SHALL be an integer from 1 to 10000 (`invalid_tail`); each failure SHALL be a 400.
+`date` SHALL match `YYYY-MM-DD` as in the CLI (`invalid_date`), except that an empty `date` means today, `type` SHALL be one of the nine (`invalid_type`) and `tail` SHALL be an integer from 1 to 10000 (`invalid_tail`); each failure SHALL be a 400.
 
 #### Scenario: Bad tail
 - **WHEN** a client requests `?tail=0`
