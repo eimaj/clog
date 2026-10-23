@@ -87,7 +87,7 @@ For the last `COMMIT` entry of a command it SHALL rewrite the last line of the l
 - **THEN** only the second entry carries `commit`
 
 ### Requirement: post-action-log.sh auto-commit
-After writing, the hook SHALL run its own auto-commit when `auto_commit.enabled` is true, staging the log directory by absolute path (`git add -- <log directory>`), and SHALL ignore any git failure.
+After writing, the hook SHALL run its own auto-commit when `auto_commit.enabled` is true, staging the log directory by absolute path (`git add -- <log directory>`, the directory resolved to an absolute path first) and committing only that path (`git commit -m <message> -- <log directory>`, skipped when the add fails), and SHALL ignore any git failure and print nothing.
 
 #### Scenario: Auto-commit disabled
 - **WHEN** `auto_commit.enabled` is `false`

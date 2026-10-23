@@ -252,7 +252,7 @@ clog --help | clog -h        # first argument only</code></pre>
     <tr><td><span class="code-badge c1">1</span></td><td>Unknown flag, extra positional, or flag with no value</td><td><code>clog: unknown flag '…'</code>, <code>clog: unexpected argument '…'</code> or <code>clog: &lt;flag&gt; needs a value</code></td><td>nothing</td></tr>
     <tr><td><span class="code-badge c127">127</span></td><td><code>jq</code> not on PATH</td><td><code>jq: command not found</code></td><td>nothing</td></tr>
   </table>
-  <p class="in">With <code>auto_commit.enabled: true</code>, the entry is written first; a failing <code>git add</code> or <code>git commit</code> is ignored and the exit code stays 0.</p>
+  <p class="in">With <code>auto_commit.enabled: true</code>, the entry is written first, then only the log directory is committed (files you already staged are left staged); a failing <code>git add</code> or <code>git commit</code> is ignored and the exit code stays 0.</p>
 
   <h2 class="tag" id="http-api">HTTP API <small>clog serve · 127.0.0.1 only · bearer token · try it at <a href="/demo">/demo</a></small></h2>
   <p>Routes are relative to the router mount; standalone, the mount is <code>/</code>. Request and response bodies are JSON. Every error is <code>{ "error": { "code", "message" } }</code>; where <code>bin/clog</code> rejected the entry, <code>message</code> is its first stderr line verbatim. No error body carries a stack trace.</p>

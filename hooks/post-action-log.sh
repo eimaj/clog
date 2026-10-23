@@ -156,8 +156,12 @@ fi
 
 # Auto-commit log if enabled
 if [[ "${CLOG_AUTO_COMMIT_ENABLED:-false}" == "true" && -n "${CLOG_AUTO_COMMIT_REPO:-}" ]]; then
-  git -C "$CLOG_AUTO_COMMIT_REPO" add -- "$LOG_DIR" 2>/dev/null || true
-  git -C "$CLOG_AUTO_COMMIT_REPO" commit -m "${CLOG_AUTO_COMMIT_MSG:-docs(clog): auto-commit logs}" 2>/dev/null || true
+  # Absolute path: git resolves pathspecs against the repo, not our cwd.
+  ABS_LOG_DIR=$(cd "$LOG_DIR" && pwd -P) || ABS_LOG_DIR=""
+  # Pathspec-limited commit so files the user already staged are never swept in.
+  if [[ -n "$ABS_LOG_DIR" ]] && git -C "$CLOG_AUTO_COMMIT_REPO" add -- "$ABS_LOG_DIR" >/dev/null 2>&1; then
+    git -C "$CLOG_AUTO_COMMIT_REPO" commit -q -m "${CLOG_AUTO_COMMIT_MSG:-docs(clog): auto-commit logs}" -- "$ABS_LOG_DIR" >/dev/null 2>&1 || true
+  fi
 fi
 
 exit 0

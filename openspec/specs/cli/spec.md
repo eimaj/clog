@@ -201,11 +201,27 @@ When `jq` is not on PATH, the CLI SHALL fail with exit 127 and `jq: command not 
 - **THEN** the exit code is 127
 
 ### Requirement: Auto-commit
-When `auto_commit.enabled` resolves to `true` and `auto_commit.repo_root` is non-empty, the CLI SHALL, after appending the entry, run `git -C <repo_root> add -- <log directory>` (the absolute path, which git accepts inside the worktree) and then `git commit` with `auto_commit.message`. A failing `git add` or `git commit` SHALL be ignored. The entry SHALL remain on disk whatever the outcome.
+When `auto_commit.enabled` resolves to `true` and `auto_commit.repo_root` is non-empty, the CLI SHALL, after appending the entry, run `git -C <repo_root> add -- <log directory>` (the absolute path, which git accepts inside the worktree) and then `git commit` with `auto_commit.message`, limited to that same path (`git commit -m <message> -- <log directory>`) so files the user already staged are not committed. The log directory SHALL be resolved to an absolute path first (a relative `log_root` is relative to the CLI's working directory). If `git add` fails the commit SHALL be skipped. Both commands' stdout and stderr SHALL be discarded, and a failing `git add` or `git commit` SHALL be ignored. The entry SHALL remain on disk whatever the outcome.
 
 #### Scenario: Disabled by default
 - **WHEN** the config leaves `auto_commit.enabled` at `false`
 - **THEN** no git command runs after the entry is appended
+
+#### Scenario: Scoped commit
+- **WHEN** auto-commit is enabled and another file is already staged in `repo_root`
+- **THEN** the new commit contains only the log file and the other file stays staged
+
+#### Scenario: Log directory outside the repository
+- **WHEN** auto-commit is enabled and the log directory is outside `repo_root`
+- **THEN** `git add` fails, no commit is made and the exit code is 0
+
+#### Scenario: Relative log root
+- **WHEN** auto-commit is enabled and `log_root` is a relative path inside `repo_root`
+- **THEN** the log file is committed
+
+#### Scenario: Nothing printed
+- **WHEN** auto-commit is enabled and `--echo` is given
+- **THEN** standard output is exactly the entry line
 
 ### Requirement: Auto-commit failures do not fail the CLI
 A failing `git add` or `git commit` during auto-commit SHALL NOT change the CLI's outcome: the entry is already written, the exit status is 0 and nothing is printed for the failure. The CLI SHALL NOT depend on GNU `realpath`.
