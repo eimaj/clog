@@ -166,7 +166,7 @@ cli_path: ""
 | `reminder_threshold_seconds` | `900`                                                         | Seconds of inactivity before staleness warning (0 = off)       |
 | `families`                   | `[general, skills, tooling, interactive]`                     | Valid values for `--family` on LEARNING entries                |
 | `kpis`                       | `[token_waste, failure, prompt_gap, effective, format_issue]` | Valid values for `--kpi`                                       |
-| `cli_path`                   | `""`                                                          | Path to the `clog` binary, set by `setup.sh`; skills use this as a fallback when `clog` is not on PATH |
+| `cli_path`                   | `""`                                                          | Path to the `clog` binary, written by `setup.sh` for skills. Not read by the CLI or the hooks |
 
 **Config path override:**
 
@@ -182,7 +182,16 @@ export CLOG_LOG_ROOT=/tmp/ci-logs
 export CLOG_DISABLE=1   # silence all logging (CI, automated contexts)
 ```
 
-Variables that override config: `CLOG_LOG_ROOT`, `CLOG_LOG_SUBDIR`, `CLOG_REPORTS_ROOT`, `CLOG_REMINDER_THRESHOLD`, `CLOG_AUTO_COMMIT_ENABLED`, `CLOG_AUTO_COMMIT_REPO`, `CLOG_AUTO_COMMIT_MSG`, `CLOG_FAMILIES`, `CLOG_KPIS`, `CLOG_AGENTS`, `CLOG_CLI_PATH`.
+Variables that override config: `CLOG_LOG_ROOT`, `CLOG_LOG_SUBDIR`, `CLOG_REPORTS_ROOT`, `CLOG_REMINDER_THRESHOLD`, `CLOG_AUTO_COMMIT_ENABLED`, `CLOG_AUTO_COMMIT_REPO`, `CLOG_AUTO_COMMIT_MSG`, `CLOG_FAMILIES`, `CLOG_KPIS`, `CLOG_CLI_PATH`.
+
+**Environment-only variables** (no config key):
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `CLOG_BIN` | unset | Full path to the `clog` binary. The hooks use it when `clog` is not on PATH, before falling back to the repo's `bin/clog`. `post-write-clog.sh` ignores it |
+| `CLOG_EDIT_THRESHOLD` | `3` | Edits `post-edit-log-check.sh` allows without a new log entry before it warns; `0` disables the warning |
+| `CLOG_DEFAULT_TAGS` | unset | Comma-separated tags added to every entry, before any `--tags`. Beats the tags file |
+| `CLOG_TAGS_FILE` | `~/.config/clog/tags.local` | Plain-text file read for default tags when `CLOG_DEFAULT_TAGS` is empty. Kept outside the config so it stays machine-local |
 
 ---
 

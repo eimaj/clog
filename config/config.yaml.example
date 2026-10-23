@@ -31,6 +31,7 @@ kpis:
   - format_issue
 
 # Path to the clog binary. Set by setup.sh when you choose to install the CLI.
-# Skills use this as a fallback when clog is not on PATH.
+# Written for skills to read. Not read by the clog CLI or the hooks; hooks
+# use `clog` on PATH, then $CLOG_BIN, then the repo's bin/clog.
 # Leave empty if you manage PATH yourself.
 cli_path: ""

@@ -33,7 +33,7 @@ clog <TYPE> "<summary>" [--agent NAME] [--repo NAME] [--session ID] \
 - `--tags a,b` adds per-entry tags after the machine defaults (`CLOG_DEFAULT_TAGS` or `~/.config/clog/tags.local`); items are trimmed and deduplicated.
 - `--echo` prints the written JSON line to stdout (nothing when `CLOG_DISABLE=1`). Use it when a caller needs the entry back, such as a script or the HTTP API.
 
-**Finding the binary:** `clog` must be on PATH. If not, set `$CLOG_CLI_PATH` to the full path, or check `cli_path` in `~/.config/clog/config.yaml`.
+**Finding the binary:** `clog` must be on PATH. If not, put `clog` on PATH, or set `CLOG_BIN` to its full path for the hooks.
 
 ## Examples
 
