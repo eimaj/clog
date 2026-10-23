@@ -78,7 +78,7 @@ Run `./setup.sh` and select Codex when prompted. The installer symlinks `skills/
 
 ### Caveats
 
-Codex does not currently expose a `PostToolUse` hooks API. The `post-action-log.sh` and `post-log-reminder.sh` hooks cannot be registered for Codex sessions.
+Codex does not currently expose a `PostToolUse` hooks API. None of the five hooks (`post-action-log.sh`, `post-log-reminder.sh`, `post-edit-log-check.sh`, `post-write-clog.sh`, `pre-agent-clog.sh`) can be registered for Codex sessions.
 
 This means:
 - `git commit`, `git push`, and `gh pr create` are **not** auto-logged in Codex sessions. Log them manually with `clog COMMIT "..."` etc.

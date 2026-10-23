@@ -352,8 +352,8 @@ clog --help | clog -h        # first argument only</code></pre>
         <tr><td class="n">post-action-log.sh</td><td>PostToolUse Bash</td><td>COMMIT on <code>git commit</code>, PR on <code>gh pr create</code>, ACTION on <code>git push</code> (first match per command)</td><td>yes</td></tr>
         <tr><td class="n">post-log-reminder.sh</td><td>PostToolUse Bash, Agent</td><td>stdout <code>WARNING:</code> when the day's file is older than the threshold; self-logs a LEARNING</td><td>yes</td></tr>
         <tr><td class="n">post-edit-log-check.sh</td><td>PostToolUse Edit/Write/MultiEdit/NotebookEdit</td><td>stderr <code>LEDGER:</code> after N edits with no new entry</td><td>yes</td></tr>
-        <tr><td class="n">post-write-clog.sh</td><td>PostToolUse Edit/Write/MultiEdit/NotebookEdit</td><td>CODE <code>auto: wrote &lt;path&gt;</code></td><td>no — register by hand</td></tr>
-        <tr><td class="n">pre-agent-clog.sh</td><td>PreToolUse Agent</td><td>ACTION <code>dispatch &lt;type&gt; (&lt;model&gt;) — &lt;description&gt;</code></td><td>no — register by hand</td></tr>
+        <tr><td class="n">post-write-clog.sh</td><td>PostToolUse Edit/Write/MultiEdit/NotebookEdit</td><td>CODE <code>auto: wrote &lt;path&gt;</code></td><td>yes</td></tr>
+        <tr><td class="n">pre-agent-clog.sh</td><td>PreToolUse Agent</td><td>ACTION <code>dispatch &lt;type&gt; (&lt;model&gt;) — &lt;description&gt;</code></td><td>yes</td></tr>
       </table>
     </div>
   </details>
