@@ -32,19 +32,22 @@ When the config file is missing, `load_config --hook` returns 0 without setting 
 - **THEN** it exits 0 and prints `WARNING: No log entries today. …` because the unset log root resolves to a file that does not exist
 
 ### Requirement: post-action-log.sh triggers
-On PostToolUse for Bash, the hook SHALL read `tool_input.command` and write `COMMIT` entries when the command contains `git commit`, else a `PR` entry when it contains `gh pr create`, else an `ACTION` entry `pushed <branch> (<repo>)` when it contains `git push`. A `COMMIT` command SHALL yield one entry per `git commit` invocation, in order, each summarised by that invocation's first `-m "…"` or `-m '…'` value (a later `-m` of the same invocation is its body); an invocation without one SHALL use the HEAD subject when it is the last, else `commit`. The `PR` summary SHALL be the `--title "…"` value.
+On PostToolUse for Bash, the hook SHALL read `tool_input.command` and write `COMMIT` entries when the command contains `git commit`, else a `PR` entry when it contains `gh pr create`, else an `ACTION` entry `pushed <branch> (<repo>)` when it contains `git push`. The `PR` summary SHALL be the `--title "…"` value.
 
 #### Scenario: Commit with message
 - **WHEN** the hook receives `{"tool_input":{"command":"git commit -m \"feat(x): hook test\""}}`
 - **THEN** a `COMMIT` entry with `summary` `feat(x): hook test` is appended
 
-#### Scenario: Several commits in one command
-- **WHEN** the command string contains `git commit -m "one" && git commit -m 'two' -m "body"`
-- **THEN** two `COMMIT` entries are written in order, with summaries `one` and `two`
-
 #### Scenario: Unrelated command
 - **WHEN** the command is `ls`
 - **THEN** nothing is written
+
+### Requirement: post-action-log.sh commit summaries
+A `COMMIT` command SHALL yield one entry per `git commit` invocation, in order, each summarised by that invocation's first `-m "…"` or `-m '…'` value (a later `-m` of the same invocation is its body). An invocation without one SHALL use the HEAD subject when it is the last, else `commit`.
+
+#### Scenario: Several commits in one command
+- **WHEN** the command string contains `git commit -m "one" && git commit -m 'two' -m "body"`
+- **THEN** two `COMMIT` entries are written in order, with summaries `one` and `two`
 
 ### Requirement: post-action-log.sh trigger matching
 The triggers SHALL match `git` immediately followed by `commit` or `push` (whitespace only), so `git -C <dir> commit` SHALL NOT trigger on its own. A `gh pr create` without `--title` SHALL write nothing, because the empty summary is rejected by the CLI.
@@ -57,16 +60,23 @@ The triggers SHALL match `git` immediately followed by `commit` or `push` (white
 - **WHEN** the command is `gh pr create --fill`
 - **THEN** nothing is written
 
-### Requirement: post-action-log.sh repository and commit marker
-The hook SHALL resolve the repository from the first `git -C <dir>` anywhere in the command, else a leading `cd <dir>`, else the hook's working directory when it is inside a git checkout, else `$HOME`. For the last `COMMIT` entry of a command it SHALL rewrite the last line of the log file (delete-and-rewrite via a temp file, not an append) to add `commit` with the short SHA whenever a SHA resolves, even if the CLI wrote nothing. Earlier entries of a multi-commit command SHALL carry no `commit`, because the SHA is resolved only after the whole command ran.
+### Requirement: post-action-log.sh repository resolution
+The hook SHALL resolve the repository from the first `git -C <dir>` anywhere in the command, else a leading `cd <dir>`, else the hook's working directory when it is inside a git checkout, else `$HOME`.
 
 #### Scenario: Command names the repo
 - **WHEN** the command is `cd ~/Code/clog && git commit -m "x"`
-- **THEN** the `COMMIT` entry carries `repo` `clog` and `commit` set to the new HEAD's short SHA
+- **THEN** the `COMMIT` entry carries `repo` `clog`
 
 #### Scenario: Command does not name the repo
 - **WHEN** the command is `git commit -m "x"` and the hook's working directory is a git checkout
-- **THEN** the `COMMIT` entry carries that checkout's `repo` and `commit`
+- **THEN** the `COMMIT` entry carries that checkout's `repo`
+
+### Requirement: post-action-log.sh commit marker
+For the last `COMMIT` entry of a command it SHALL rewrite the last line of the log file (delete-and-rewrite via a temp file, not an append) to add `commit` with the short SHA whenever a SHA resolves, even if the CLI wrote nothing. Earlier entries of a multi-commit command SHALL carry no `commit`, because the SHA is resolved only after the whole command ran.
+
+#### Scenario: SHA resolved
+- **WHEN** the command is `cd ~/Code/clog && git commit -m "x"`
+- **THEN** the `COMMIT` entry carries `commit` set to the new HEAD's short SHA
 
 #### Scenario: No repo anywhere
 - **WHEN** the command is `git commit -m "x"` and neither the working directory nor `$HOME` is a git checkout
