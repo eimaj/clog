@@ -110,7 +110,7 @@ fi
 
 # Auto-commit log if enabled
 if [[ "${CLOG_AUTO_COMMIT_ENABLED:-false}" == "true" && -n "${CLOG_AUTO_COMMIT_REPO:-}" ]]; then
-  git -C "$CLOG_AUTO_COMMIT_REPO" add "$(realpath --relative-to="$CLOG_AUTO_COMMIT_REPO" "$LOG_DIR" 2>/dev/null || echo "logs")" 2>/dev/null
+  git -C "$CLOG_AUTO_COMMIT_REPO" add -- "$LOG_DIR" 2>/dev/null || true
   git -C "$CLOG_AUTO_COMMIT_REPO" commit -m "${CLOG_AUTO_COMMIT_MSG:-docs(clog): auto-commit logs}" 2>/dev/null || true
 fi
 

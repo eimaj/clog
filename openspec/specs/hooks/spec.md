@@ -69,7 +69,7 @@ The hook SHALL resolve the repository from the first `git -C <dir>` or leading `
 - **THEN** the `COMMIT` entry has no `commit` field
 
 ### Requirement: post-action-log.sh auto-commit
-After writing, the hook SHALL run its own auto-commit when `auto_commit.enabled` is true, using `logs` as the path when `realpath --relative-to` fails, and SHALL ignore any git failure.
+After writing, the hook SHALL run its own auto-commit when `auto_commit.enabled` is true, staging the log directory by absolute path (`git add -- <log directory>`), and SHALL ignore any git failure.
 
 #### Scenario: Auto-commit disabled
 - **WHEN** `auto_commit.enabled` is `false`

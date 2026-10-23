@@ -201,15 +201,19 @@ When `jq` is not on PATH, the CLI SHALL fail with exit 127 and `jq: command not 
 - **THEN** the exit code is 127
 
 ### Requirement: Auto-commit
-When `auto_commit.enabled` resolves to `true` and `auto_commit.repo_root` is non-empty, the CLI SHALL, after appending the entry, run `git add` on the log directory relative to `repo_root` (computed with GNU `realpath --relative-to`) and then `git commit` with `auto_commit.message`. A failing `git commit` SHALL be ignored. The entry SHALL remain on disk whatever the outcome.
+When `auto_commit.enabled` resolves to `true` and `auto_commit.repo_root` is non-empty, the CLI SHALL, after appending the entry, run `git -C <repo_root> add -- <log directory>` (the absolute path, which git accepts inside the worktree) and then `git commit` with `auto_commit.message`. A failing `git add` or `git commit` SHALL be ignored. The entry SHALL remain on disk whatever the outcome.
 
 #### Scenario: Disabled by default
 - **WHEN** the config leaves `auto_commit.enabled` at `false`
 - **THEN** no git command runs after the entry is appended
 
-### Requirement: Auto-commit without GNU realpath
-A failing `realpath` or `git add` during auto-commit SHALL abort the CLI with that command's exit status after the entry has been written. On macOS `realpath` lacks `--relative-to`, so the exit status is 128 and no commit is made.
+### Requirement: Auto-commit failures do not fail the CLI
+A failing `git add` or `git commit` during auto-commit SHALL NOT change the CLI's outcome: the entry is already written, the exit status is 0 and nothing is printed for the failure. The CLI SHALL NOT depend on GNU `realpath`.
 
 #### Scenario: Enabled on macOS
-- **WHEN** auto-commit is enabled on a system whose `realpath` rejects `--relative-to`
-- **THEN** the entry is written, stderr contains `realpath: illegal option`, the exit code is 128 and no commit is made
+- **WHEN** auto-commit is enabled with `repo_root` set to a git repository containing the log directory, on macOS
+- **THEN** the entry is written, the exit code is 0 and a commit containing the log file exists
+
+#### Scenario: Git failure
+- **WHEN** auto-commit is enabled and `repo_root` is not a git repository
+- **THEN** the entry is written, the exit code is 0 and nothing is printed
