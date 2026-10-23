@@ -458,6 +458,18 @@ describe('POST /entries', () => {
     }
   });
 
+  it('answers no_config on all three guarded routes under CLOG_DISABLE=1 with no config, disabled with one', async () => {
+    process.env['CLOG_DISABLE'] = '1';
+    const calls = (): Promise<Response>[] => [
+      post({ type: 'ACTION', summary: 'x' }),
+      request('GET', '/entries'),
+      request('GET', '/config'),
+    ];
+    for (const res of await Promise.all(calls())) await expectError(res, 503, 'disabled');
+    process.env['CLOG_CONFIG'] = path.join(tmp, 'missing.yaml');
+    for (const res of await Promise.all(calls())) await expectError(res, 503, 'no_config');
+  });
+
   it('answers 503 no_config with the CLI message when there is no config', async () => {
     process.env['CLOG_CONFIG'] = path.join(tmp, 'missing.yaml');
     const err = await expectError(await post({ type: 'ACTION', summary: 'x' }), 503, 'no_config');

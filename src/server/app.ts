@@ -397,6 +397,8 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
     const request = await parseWriteRequest(c);
     // The CLI would exit 0 without writing; there is no entry to return.
     if (process.env['CLOG_DISABLE'] === '1') {
+      // A missing config is reported as no_config, as on the read routes.
+      await loadClogConfig(clogBin);
       throw new HttpError(503, 'disabled', DISABLED_MESSAGE);
     }
     const args = [request.type, request.summary, ...request.flags, '--echo'];

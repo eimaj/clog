@@ -46,7 +46,7 @@ The server SHALL run until SIGINT or SIGTERM and SHALL then exit 0.
 - **THEN** `families` has four items
 
 ### Requirement: Missing config
-When no config file exists, `GET /config`, `GET /entries` and `POST /entries` SHALL answer 503 `no_config` with the CLI's own message. The server SHALL still start.
+When no config file exists, `GET /config`, `GET /entries` and `POST /entries` SHALL answer 503 `no_config` with the CLI's own message, also when `CLOG_DISABLE=1` is set. The server SHALL still start.
 
 #### Scenario: No config
 - **WHEN** `CLOG_CONFIG` points at a missing file and a client requests `GET /config`
@@ -150,7 +150,7 @@ A `bin/clog` child that runs longer than 10 seconds SHALL be killed and answered
 - **THEN** the status is 500 and `error.code` is `clog_timeout`
 
 ### Requirement: Disabled logging
-When `CLOG_DISABLE` is exactly `1` in the server's environment, `POST /entries` SHALL answer 503 `disabled` without spawning, because the CLI would write nothing. `GET /config` and `GET /entries` SHALL also answer 503 `disabled`, because no log root resolves.
+When `CLOG_DISABLE` is exactly `1` in the server's environment and a config file exists, `POST /entries` SHALL answer 503 `disabled` without spawning, because the CLI would write nothing. `GET /config` and `GET /entries` SHALL also answer 503 `disabled`, because no log root resolves. With no config file all three answer `no_config`.
 
 #### Scenario: Disabled
 - **WHEN** the server runs with `CLOG_DISABLE=1` and a client posts an entry
