@@ -255,7 +255,7 @@ clog --help | clog -h        # first argument only</code></pre>
   <p class="in">With <code>auto_commit.enabled: true</code> on macOS, the entry is written and then <code>realpath --relative-to</code> (GNU-only) fails, so the <code>git add</code> gets an empty pathspec under <code>set -e</code>. The entry is on disk; the exit code of that path is unverified.</p>
 
   <h2 class="tag" id="http-api">HTTP API <small>clog serve · 127.0.0.1 only · bearer token · try it at <a href="/demo">/demo</a></small></h2>
-  <p>Routes are relative to the router mount; standalone, the mount is <code>/</code>. Request and response bodies are JSON. Every error is <code>{ "error": { "code", "message" } }</code>; where <code>bin/clog</code> rejected the entry, <code>message</code> is its first stderr line verbatim. No error body carries a stack trace.</p>
+  <p>Routes are relative to the router mount; standalone, the mount is <code>/</code>. Request and response bodies are JSON. Every error is <code>{ "error": { "code", "message" } }</code>; where <code>bin/clog</code> rejected the entry, <code>message</code> is its first stderr line verbatim. No error body carries a stack trace. Any route can also answer 500 <code>internal_error</code> with the message <code>internal server error</code> for an unexpected failure (the detail goes to the server's stderr only).</p>
   <table>
     <tr><th>Route</th><th>Success</th><th>Errors</th></tr>
     <tr><td class="n">GET /health</td><td>200 <code>{ ok, version, clogBin }</code></td><td>—</td></tr>
