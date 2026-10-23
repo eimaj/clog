@@ -39,23 +39,51 @@ extract_git_dir() {
   [ -n "$dir" ] && { echo "${dir/#\~/$HOME}"; return; }
   dir=$(echo "$cmd" | grep -oE '(^|;)[[:space:]]*cd[[:space:]]+[^[:space:]]+' | head -1 | awk '{print $NF}')
   [ -n "$dir" ] && { echo "${dir/#\~/$HOME}"; return; }
+  # The hook's cwd is the project Claude Code is working in
+  if git -C "$PWD" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "$PWD"
+    return
+  fi
   echo "$HOME"
+}
+
+# One summary per `git commit` invocation in the command, in order: the first
+# -m "…" or -m '…' of that invocation (a second -m is the same commit's body),
+# or an empty line when it has none. Newline-separated on stdout.
+commit_summaries() {
+  local rest="$1" seg last=0
+  local re='git[[:space:]]+commit'
+  local nl=$'\n' q="'"
+  local msg="-m[[:space:]]+(\"([^\"${nl}]+)\"|${q}([^${q}${nl}]+)${q})"
+  [[ $rest =~ $re ]] || return 0
+  rest="${rest#*"${BASH_REMATCH[0]}"}"
+  while [[ $last -eq 0 ]]; do
+    if [[ $rest =~ $re ]]; then
+      seg="${rest%%"${BASH_REMATCH[0]}"*}"
+      rest="${rest#*"${BASH_REMATCH[0]}"}"
+    else
+      seg="$rest"
+      last=1
+    fi
+    if [[ $seg =~ $msg ]]; then
+      echo "${BASH_REMATCH[2]}${BASH_REMATCH[3]}"
+    else
+      echo ""
+    fi
+  done
 }
 
 GIT_DIR=$(extract_git_dir "$CMD")
 
 TYPE=""
 SUMMARY=""
+COMMIT_SUMMARIES=()
 
 if echo "$CMD" | grep -qE 'git[[:space:]]+commit'; then
   TYPE="COMMIT"
-  SUMMARY=$(echo "$CMD" | grep -oE -- '-m[[:space:]]+"[^"]+"' | head -1 | sed 's/-m[[:space:]]*"//;s/"$//')
-  if [ -z "$SUMMARY" ]; then
-    SUMMARY=$(echo "$CMD" | grep -oE -- "-m[[:space:]]+'[^']+'" | head -1 | sed "s/-m[[:space:]]*'//;s/'$//")
-  fi
-  if [ -z "$SUMMARY" ]; then
-    SUMMARY=$(git -C "$GIT_DIR" log -1 --format=%s 2>/dev/null || echo "commit")
-  fi
+  while IFS= read -r line; do
+    COMMIT_SUMMARIES+=("$line")
+  done < <(commit_summaries "$CMD")
 elif echo "$CMD" | grep -qE 'gh[[:space:]]+pr[[:space:]]+create'; then
   TYPE="PR"
   SUMMARY=$(echo "$CMD" | grep -oE -- '--title[[:space:]]+"[^"]+"' | sed 's/--title[[:space:]]*"//;s/"$//' || echo "pr created")
@@ -72,40 +100,58 @@ LOG_DIR="${CLOG_LOG_ROOT}/${CLOG_LOG_SUBDIR}"
 LOG_FILE="${LOG_DIR}/$(date +%Y%m%d).jsonl"
 mkdir -p "$LOG_DIR"
 
-if [[ -n "$CLOG_BIN_RESOLVED" && -x "$CLOG_BIN_RESOLVED" ]]; then
-  # Delegate to bin/clog
-  REPO_ARG=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-  COMMIT_ARG=""
-  [[ "$TYPE" == "COMMIT" ]] && COMMIT_ARG=$(git -C "$GIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
+# write_entry <summary> <commit-sha-or-empty>: append one entry of $TYPE.
+write_entry() {
+  local SUMMARY="$1" COMMIT_ARG="$2"
+  if [[ -n "$CLOG_BIN_RESOLVED" && -x "$CLOG_BIN_RESOLVED" ]]; then
+    # Delegate to bin/clog
+    REPO_ARG=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
 
-  "$CLOG_BIN_RESOLVED" "$TYPE" "$SUMMARY" ${REPO_ARG:+--repo "$REPO_ARG"} 2>/dev/null || true
+    "$CLOG_BIN_RESOLVED" "$TYPE" "$SUMMARY" ${REPO_ARG:+--repo "$REPO_ARG"} 2>/dev/null || true
 
-  # Append commit SHA inline when auto-logged via hook (bin/clog doesn't expose --commit)
-  if [[ -n "$COMMIT_ARG" && -f "$LOG_FILE" ]]; then
-    # Patch last line to add commit field
-    local_last=$(tail -1 "$LOG_FILE")
-    patched=$(echo "$local_last" | jq -c --arg c "$COMMIT_ARG" '. + {commit: $c}' 2>/dev/null)
-    if [[ -n "$patched" ]]; then
-      # Replace last line
-      tmp_file="${LOG_FILE}.tmp"
-      sed '$d' "$LOG_FILE" > "$tmp_file" 2>/dev/null || true
-      echo "$patched" >> "$tmp_file"
-      mv "$tmp_file" "$LOG_FILE"
+    # Append commit SHA inline when auto-logged via hook (bin/clog doesn't expose --commit)
+    if [[ -n "$COMMIT_ARG" && -f "$LOG_FILE" ]]; then
+      # Patch last line to add commit field
+      local_last=$(tail -1 "$LOG_FILE")
+      patched=$(echo "$local_last" | jq -c --arg c "$COMMIT_ARG" '. + {commit: $c}' 2>/dev/null)
+      if [[ -n "$patched" ]]; then
+        # Replace last line
+        tmp_file="${LOG_FILE}.tmp"
+        sed '$d' "$LOG_FILE" > "$tmp_file" 2>/dev/null || true
+        echo "$patched" >> "$tmp_file"
+        mv "$tmp_file" "$LOG_FILE"
+      fi
     fi
+  else
+    # Fallback: inline JSONL append using lib/jsonl.sh
+    # shellcheck source=../lib/jsonl.sh
+    . "${SCRIPT_DIR}/../lib/jsonl.sh"
+    REPO=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
+    ENTRY=$(build_entry "$TYPE" "$SUMMARY" "" "$REPO" "" "" "" "" "" "" "${CLOG_DEFAULT_TAGS:-}")
+    if [[ -n "$COMMIT_ARG" ]]; then
+      ENTRY=$(echo "$ENTRY" | jq --arg c "$COMMIT_ARG" '. + {commit: $c}')
+    fi
+    echo "$ENTRY" >> "$LOG_FILE"
   fi
-else
-  # Fallback: inline JSONL append using lib/jsonl.sh
-  # shellcheck source=../lib/jsonl.sh
-  . "${SCRIPT_DIR}/../lib/jsonl.sh"
-  REPO=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-  COMMIT_SHA=""
-  [[ "$TYPE" == "COMMIT" ]] && COMMIT_SHA=$(git -C "$GIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
+}
 
-  ENTRY=$(build_entry "$TYPE" "$SUMMARY" "" "$REPO" "" "" "" "" "" "" "${CLOG_DEFAULT_TAGS:-}")
-  if [[ -n "$COMMIT_SHA" ]]; then
-    ENTRY=$(echo "$ENTRY" | jq --arg c "$COMMIT_SHA" '. + {commit: $c}')
-  fi
-  echo "$ENTRY" >> "$LOG_FILE"
+if [[ "$TYPE" == "COMMIT" ]]; then
+  # The SHA is resolved after the command ran, so it is only known for the
+  # last commit; earlier entries of a multi-commit command omit `commit`.
+  last=$(( ${#COMMIT_SUMMARIES[@]} - 1 ))
+  [[ $last -lt 0 ]] && { COMMIT_SUMMARIES=(""); last=0; }
+  for i in "${!COMMIT_SUMMARIES[@]}"; do
+    s="${COMMIT_SUMMARIES[$i]}"
+    sha=""
+    if [[ $i -eq $last ]]; then
+      sha=$(git -C "$GIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
+      [[ -z "$s" ]] && s=$(git -C "$GIT_DIR" log -1 --format=%s 2>/dev/null || echo "commit")
+    fi
+    [[ -z "$s" ]] && s="commit"
+    write_entry "$s" "$sha"
+  done
+else
+  write_entry "$SUMMARY" ""
 fi
 
 # Auto-commit log if enabled
