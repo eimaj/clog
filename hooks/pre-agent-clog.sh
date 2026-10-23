@@ -57,7 +57,10 @@ else
   LOG_DIR="${CLOG_LOG_ROOT}/${CLOG_LOG_SUBDIR}"
   LOG_FILE="${LOG_DIR}/$(date +%Y%m%d).jsonl"
   mkdir -p "$LOG_DIR"
-  build_entry ACTION "$SUMMARY" "" "$REPO_ARG" "" "" "" "" "" "" >> "$LOG_FILE"
+  # First write of the day carries clog_version, as bin/clog does
+  CLOG_VERSION=""
+  [[ ! -f "$LOG_FILE" ]] && CLOG_VERSION="1.0"
+  build_entry ACTION "$SUMMARY" "" "$REPO_ARG" "" "" "" "" "" "$CLOG_VERSION" "${CLOG_DEFAULT_TAGS:-}" >> "$LOG_FILE"
 fi
 
 exit 0

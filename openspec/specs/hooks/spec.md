@@ -145,7 +145,11 @@ On PreToolUse for Agent, the hook SHALL write an `ACTION` entry `dispatch <subag
 - **THEN** nothing is written
 
 ### Requirement: pre-agent-clog.sh summary defaults
-The model part SHALL be omitted when `model` is absent. The type SHALL default to `claude` only when `subagent_type` is absent or null; an empty string SHALL yield `dispatch  — <description>`. The inline fallback path (no CLI resolvable) SHALL emit the same entry without `clog_version` and without `session`.
+The model part SHALL be omitted when `model` is absent. The type SHALL default to `claude` only when `subagent_type` is absent or null; an empty string SHALL yield `dispatch  — <description>`. The inline fallback path (no CLI resolvable) SHALL emit the same entry without `session`, with the default tags (`CLOG_DEFAULT_TAGS`) and with `clog_version` `"1.0"` when the day file did not yet exist.
+
+#### Scenario: Fallback on a new day
+- **WHEN** no CLI is resolvable, `CLOG_DEFAULT_TAGS` is `t` and today's file does not exist
+- **THEN** the entry has `clog_version` `"1.0"` and `tags` `["t"]`
 
 #### Scenario: Empty subagent type
 - **WHEN** the payload has `"subagent_type":""` and `"description":"d1"`
