@@ -829,6 +829,13 @@ describe('errors and mounting', () => {
     assert.equal(err.error.message, 'no route for DELETE /entries');
   });
 
+  it('answers HEAD on a GET route like GET without a body, and HEAD on an unknown route with 404', async () => {
+    const head = await request('HEAD', '/health');
+    assert.equal(head.status, 200);
+    assert.equal(await head.text(), '');
+    assert.equal((await request('HEAD', '/nope')).status, 404);
+  });
+
   it('works when the router is mounted under a prefix', async () => {
     const host = new Hono();
     host.route('/clog', createClogRouter());

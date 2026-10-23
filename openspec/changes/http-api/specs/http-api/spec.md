@@ -207,7 +207,7 @@ A missing day file SHALL answer 200 with `entries: []`. A line that is not a JSO
 - **THEN** `entries` has one item and `skipped` is 1
 
 ### Requirement: Error shape
-Every error body SHALL be `{ error: { code, message } }`. No body SHALL contain a stack trace. Unknown routes and unsupported methods SHALL answer 404 `not_found`.
+Every error body SHALL be `{ error: { code, message } }`. No body SHALL contain a stack trace. Unknown routes and unsupported methods SHALL answer 404 `not_found`; `HEAD` on a GET route SHALL answer like GET without a body.
 
 #### Scenario: Unknown route
 - **WHEN** a client requests `GET /nope`
