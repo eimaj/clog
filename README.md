@@ -61,13 +61,13 @@ Migrate an existing install:
 ./setup.sh --migrate
 ```
 
-The installer detects which AI coding tools are present, lets you select which to install into, writes `~/.config/clog/config.yaml`, symlinks the five hooks and the skills, and registers the hooks in Claude Code's `settings.json` (`PostToolUse` and `PreToolUse`). Re-running `./setup.sh` after an install is safe: it skips what is already registered and adds only what is missing.
+The installer detects which AI coding tools are present, lets you select which to install into, writes `~/.config/clog/config.yaml`, symlinks the five hooks and the skills, and registers the hooks in Claude Code's `settings.json` (`PostToolUse` and `PreToolUse`). Re-running `./setup.sh` after an install is safe: it skips any hook an existing matcher already covers (including `A|B` and regex matchers), adds only what is missing, and writes through a symlinked `settings.json`. Invalid JSON there makes it warn and register nothing.
 
 ---
 
 ### 🤝 Migrating from a previous install
 
-If you have an existing `~/.claude/hooks/clog.sh` that is a real file (not a symlink into this repo's `bin/clog`), or `CLOG_BIN` is set, `setup.sh` stops and asks for `--migrate`. `$AI_LOG_ROOT` is no longer a marker:
+If you have an existing `~/.claude/hooks/clog.sh` that is not a link resolving to this repo's `bin/clog` (a real file, or a link to another clone), or `CLOG_BIN` is set, `setup.sh` stops and asks for `--migrate`. `$AI_LOG_ROOT` is no longer a marker:
 
 ```bash
 ./setup.sh --migrate

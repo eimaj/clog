@@ -144,7 +144,7 @@ The model part SHALL be omitted when `model` is absent. The type SHALL default t
 - **THEN** the entry's `summary` is `dispatch  — d1`
 
 ### Requirement: Installer coverage
-`setup.sh` SHALL symlink `post-action-log.sh`, `post-log-reminder.sh`, `post-edit-log-check.sh`, `post-write-clog.sh` and `pre-agent-clog.sh` into `~/.claude/hooks/`, and SHALL also symlink `bin/clog` there as `clog.sh`. A `clog.sh` that is a symlink to this repo's `bin/clog` SHALL NOT count as an existing install; `$AI_LOG_ROOT` SHALL NOT either.
+`setup.sh` SHALL symlink `post-action-log.sh`, `post-log-reminder.sh`, `post-edit-log-check.sh`, `post-write-clog.sh` and `pre-agent-clog.sh` into `~/.claude/hooks/`, and SHALL also symlink `bin/clog` there as `clog.sh`. A `clog.sh` whose `realpath` equals that of this repo's `bin/clog` (relative link, `/private` prefix or chained symlinks included) SHALL NOT count as an existing install; a link to another clone or a regular file SHALL. `$AI_LOG_ROOT` SHALL NOT.
 
 #### Scenario: Symlinks after wiring
 - **WHEN** `setup.sh` wires Claude Code
@@ -155,7 +155,7 @@ The model part SHALL be omitted when `model` is absent. The type SHALL default t
 - **THEN** it does not stop with the existing-install warning
 
 ### Requirement: Installer hook registration
-`setup.sh` SHALL register all five hooks in an existing `~/.claude/settings.json` and SHALL skip registration when it is absent. Each registration SHALL be evaluated independently and skipped only if that hook is already present at that matcher, so a re-run adds nothing and an earlier registration never blocks a later one.
+`setup.sh` SHALL register all five hooks in an existing `~/.claude/settings.json` through one routine, `register_hook EVENT TOOL HOOK_PATH`, called once per (event, tool, hook), and SHALL skip registration when the file is absent. Each call is evaluated independently, so an earlier registration never blocks a later one.
 
 #### Scenario: Fresh install with settings.json
 - **WHEN** `setup.sh` wires Claude Code and `settings.json` exists with none of the hooks registered
@@ -164,3 +164,31 @@ The model part SHALL be omitted when `model` is absent. The type SHALL default t
 #### Scenario: Re-run with the edit hook present
 - **WHEN** `post-edit-log-check.sh` is already registered but the Agent, `post-write-clog.sh` and `pre-agent-clog.sh` registrations are missing
 - **THEN** the missing registrations are added and nothing already present is duplicated
+
+### Requirement: Hook registration coverage check
+A hook SHALL count as already registered when any entry under that event whose matcher covers the tool runs a command ending in `/HOOK_NAME`. A matcher covers a tool when it is empty or absent, equals the tool, is a `|`-separated list containing it, or is a regex matching it. Hooks without a `command` SHALL be ignored, and a covered hook SHALL NOT be added again.
+
+#### Scenario: Regex matcher already covers the edit tools
+- **WHEN** `PostToolUse` has one entry with matcher `Edit|Write|MultiEdit|NotebookEdit` running both edit hooks
+- **THEN** no entry is added for either hook
+
+### Requirement: Hook registration placement
+An uncovered hook SHALL be added to the first entry under the event whose matcher equals the tool exactly, else a new `{matcher: TOOL, hooks: [...]}` entry SHALL be appended. It SHALL NOT be added to a second entry with the same matcher.
+
+#### Scenario: Two Bash entries
+- **WHEN** `PostToolUse` has two entries with matcher `Bash` and neither runs `post-action-log.sh`
+- **THEN** it is added to the first entry only
+
+### Requirement: Hook registration write-through
+`setup.sh` SHALL write settings by `cat` from a temp file into `~/.claude/settings.json`, never by `mv`, so a symlinked file keeps its link. It SHALL write only when `jq -S -c` of the new document differs from the old, and SHALL print `Registered` only then, else `already registered`.
+
+#### Scenario: Fully registered file with different indentation
+- **WHEN** every hook is already registered and the file is indented with four spaces
+- **THEN** the file is byte-identical afterwards and every call prints `already registered`
+
+### Requirement: Hook registration on invalid JSON
+When `settings.json` is not valid JSON, `setup.sh` SHALL print one warning naming the file, skip all registration, leave no temp file behind and continue with exit status 0.
+
+#### Scenario: Corrupt settings file
+- **WHEN** `settings.json` contains truncated JSON
+- **THEN** one warning is printed, the file is unchanged and `setup.sh` does not fail

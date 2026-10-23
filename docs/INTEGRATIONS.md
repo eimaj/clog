@@ -18,7 +18,7 @@ Run `./setup.sh` from the clog repo root. The installer:
 
 ### Hook registration format
 
-The installer adds to `settings.json`:
+The installer adds the following to `settings.json`, writing absolute paths (your `$HOME`, shown here as `/Users/you`):
 ```json
 {
   "hooks": {
@@ -26,26 +26,26 @@ The installer adds to `settings.json`:
       {
         "matcher": "Bash",
         "hooks": [
-          {"type": "command", "command": "~/.claude/hooks/post-action-log.sh"},
-          {"type": "command", "command": "~/.claude/hooks/post-log-reminder.sh"}
+          {"type": "command", "command": "/Users/you/.claude/hooks/post-action-log.sh"},
+          {"type": "command", "command": "/Users/you/.claude/hooks/post-log-reminder.sh"}
         ]
       },
       {
         "matcher": "Agent",
-        "hooks": [{"type": "command", "command": "~/.claude/hooks/post-log-reminder.sh"}]
+        "hooks": [{"type": "command", "command": "/Users/you/.claude/hooks/post-log-reminder.sh"}]
       },
       {
         "matcher": "Edit",
         "hooks": [
-          {"type": "command", "command": "~/.claude/hooks/post-edit-log-check.sh"},
-          {"type": "command", "command": "~/.claude/hooks/post-write-clog.sh"}
+          {"type": "command", "command": "/Users/you/.claude/hooks/post-edit-log-check.sh"},
+          {"type": "command", "command": "/Users/you/.claude/hooks/post-write-clog.sh"}
         ]
       }
     ],
     "PreToolUse": [
       {
         "matcher": "Agent",
-        "hooks": [{"type": "command", "command": "~/.claude/hooks/pre-agent-clog.sh"}]
+        "hooks": [{"type": "command", "command": "/Users/you/.claude/hooks/pre-agent-clog.sh"}]
       }
     ]
   }
@@ -56,7 +56,7 @@ The `Edit` entry is repeated for `Write`, `MultiEdit` and `NotebookEdit` with th
 
 ### Manual hook registration
 
-If you prefer to edit `settings.json` by hand, add the entries above under `PostToolUse` and `PreToolUse`. All five hooks exit 0 always — they will not block any tool call. Re-running `setup.sh` is safe: it skips any registration already present and adds only what is missing.
+If you prefer to edit `settings.json` by hand, add the entries above under `PostToolUse` and `PreToolUse`. All five hooks exit 0 always — they will not block any tool call. Re-running `setup.sh` is safe: a hook is skipped when any entry whose matcher covers the tool (exact name, `A|B` list, regex or empty matcher) already runs it, so an existing `Edit|Write|...` entry is respected. Only missing hooks are added, to the first entry whose matcher equals the tool, and `settings.json` is rewritten in place, so a symlinked file keeps its link. If `settings.json` is not valid JSON, the installer warns and registers nothing.
 
 ### Skills
 
