@@ -15,13 +15,14 @@ Structured JSONL session logging for AI coding tools. Drop it into Claude Code, 
 {"time":"14:33:15","type":"CODE","summary":"add session fallback chain in bin/clog","file":"bin/clog","repo":"my-repo"}
 {"time":"14:45:00","type":"LEARNING","summary":"rapid-fire edit chain — checkpoint deferred at each pause","family":"interactive","kpi":"failure"}
 {"time":"14:50:22","type":"LEARNING","summary":"skill misfire","family":"unknown","kpi":"failure","validation":"unknown_family"}
+{"time":"15:02:09","type":"ACTION","summary":"cut release 26.15","repo":"my-repo","tags":["jbook","release"]}
 ```
 
 The `validation` field is appended when `--family` or `--kpi` values don't match those declared in your config — entries are never rejected, only flagged so retros can surface drift.
 
 Nine entry types (`ACTION`, `DECISION`, `CODE`, `PR`, `COMMIT`, `REPO`, `FOLLOWUP`, `LEARNING`, `LESSON`) cover every meaningful event in a session. The log is append-only, plain text, and readable with any JSON tool.
 
-Auto-hooks catch `git commit`, `git push`, and `gh pr create` events. Retro skills turn the raw log into reports and improvement proposals.
+Five Claude Code hooks log commits, pushes and PRs, every file edit, and every subagent dispatch, and warn when the log goes stale. An optional local HTTP API (`clog serve`) lets a web page or another tool write and read entries. Retro skills turn the raw log into reports and improvement proposals.
 
 ---
 
@@ -118,7 +119,7 @@ clog FOLLOWUP "investigate whether Cursor exposes hooks API"
 clog ACTION "deploy to staging" --repo my-repo --agent orchestrator
 ```
 
-For the full type table, `--family`, and `--kpi` reference, see [skills/clog/SKILL.md](skills/clog/SKILL.md).
+`clog --help` lists every flag. For the type table, `--family` and `--kpi` rubrics, see [config/rules.md](config/rules.md); for exit codes and error messages, [docs/api/index.html](docs/api/index.html).
 
 ---
 
@@ -192,6 +193,7 @@ Variables that override config: `CLOG_LOG_ROOT`, `CLOG_LOG_SUBDIR`, `CLOG_REPORT
 | `CLOG_EDIT_THRESHOLD` | `3` | Edits `post-edit-log-check.sh` allows without a new log entry before it warns; `0` disables the warning |
 | `CLOG_DEFAULT_TAGS` | unset | Comma-separated tags added to every entry, before any `--tags`. Beats the tags file |
 | `CLOG_TAGS_FILE` | `~/.config/clog/tags.local` | Plain-text file read for default tags when `CLOG_DEFAULT_TAGS` is empty. Kept outside the config so it stays machine-local |
+| `CLOG_API_TOKEN` | unset (random per launch) | Bearer token `clog serve` requires on `/config` and `/entries`. Blank means random |
 
 ---
 
@@ -247,7 +249,7 @@ See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for tool-specific details.
 
 ## 🌐 HTTP API
 
-`clog serve` starts a local HTTP service so a browser or another tool can write and read entries. Every write spawns `bin/clog --echo`, so validation, config precedence and the JSON line stay in the CLI. It needs Node on PATH (the tests use Node 24's built-in TypeScript support).
+`clog serve` starts a local HTTP service so a browser or another tool can write and read entries. Every write spawns `bin/clog --echo`, so validation, config precedence and the JSON line stay in the CLI. It needs Node on PATH; Node 24 or newer, because the test suite relies on Node's built-in TypeScript support. `bin/clog` itself stays dependency-free (bash + jq).
 
 ```bash
 npm install
@@ -262,11 +264,11 @@ The server prints two lines, `clog API listening on http://127.0.0.1:<port>` and
 | ---------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `GET /health`    | `{ ok, version, clogBin }`                           |                                                                                         |
 | `GET /config`    | `{ configPath, logRoot, logSubdir, families, kpis }` | 401 `unauthorized` without the token; 503 `disabled` under `CLOG_DISABLE=1` (checked first, as the CLI does); otherwise 503 `no_config` until a config exists |
-| `POST /entries`  | 201 `{ entry, file, warning? }`                      | 401 `unauthorized`; body `{ type, summary, agent?, repo?, session?, model?, file?, family?, kpi?, date?, tags?: string[] }` (no NUL characters; `tags` items must not contain commas and are added after the server's default tags); `repo` defaults to the git repo containing the server's working directory, or is absent when there is none; `session` is absent unless supplied; `warning` when the CLI wrote the entry then exited non-zero; writes run one at a time |
-| `GET /entries`   | `{ date, file, entries, skipped }`                   | 401 `unauthorized`; query `date`, `type`, `repo`, `session`, `agent`, `tag` (entry's `tags` contains it), `tail` (1 to 10000); default day today (also for an empty `date`); 503 `no_config` / `disabled` as for `/config` |
+| `POST /entries`  | 201 `{ entry, file, warning? }`                      | 401 `unauthorized`; body `{ type, summary, agent?, repo?, session?, model?, file?, family?, kpi?, date?, tags?: string[] }` (no NUL or control characters; `tags` items must not contain commas and are added after the server's default tags, trimmed and deduplicated); `repo` defaults to the git repo containing the server's working directory, or is absent when there is none; `session` is absent unless supplied; `warning` when the CLI wrote the entry then exited non-zero; writes run one at a time |
+| `GET /entries`   | `{ date, file, entries, skipped }`                   | 401 `unauthorized`; query `date`, `type`, `repo`, `session`, `agent`, `tag` (entry's `tags` contains it; once only), `tail` (1 to 10000); default day today (also for an empty `date`; a repeated `date` is 400); 503 `no_config` / `disabled` as for `/config` |
 | `GET /demo`, `GET /docs` | HTML                                         |                                                                                         |
 
-**Errors** are always `{ "error": { "code", "message" } }`; when the CLI rejected the entry, `message` is its stderr line verbatim. Statuses: 400 bad input (`invalid_json`, `invalid_type`, `missing_summary`, `invalid_field`, `invalid_date`, `invalid_tail`), 401 `unauthorized`, 403 `forbidden_host`, 413 body over 64 KiB, 415 `unsupported_media_type`, 404 unknown route, 503 `no_config` or `disabled` (`CLOG_DISABLE=1`), 500 `clog_failed` / `clog_timeout`, 500 `internal_error` (message `internal server error`, never a stack, for any unexpected failure).
+**Errors** are always `{ "error": { "code", "message" } }`; when the CLI rejected the entry, `message` is its stderr line verbatim. Statuses: 400 bad input (`invalid_json`, `invalid_type`, `missing_summary`, `invalid_field`, `invalid_date`, `invalid_tag`, `invalid_tail`), 401 `unauthorized`, 403 `forbidden_host`, 413 body over 64 KiB, 415 `unsupported_media_type`, 404 unknown route, 503 `no_config` or `disabled` (`CLOG_DISABLE=1`), 500 `clog_failed` / `clog_timeout` (10 s; the CLI's whole process group is killed), 500 `internal_error` (message `internal server error`, never a stack, for any unexpected failure).
 
 **Bind and CORS:** listens on `127.0.0.1` only; the bearer token above is the only credential, so any local page that knows it can read and write. CORS allows only `http://localhost[:port]` and `http://127.0.0.1[:port]` origins; a `file://` page (`Origin: null`) is refused, which is why the demo is served by the server itself. `POST /entries` needs `Content-Type: application/json`, and `createApp` answers 403 `forbidden_host` unless `Host` is `127.0.0.1` or `localhost` (optional port).
 
@@ -278,7 +280,9 @@ The server prints two lines, `clog API listening on http://127.0.0.1:<port>` and
 
 ## 📐 Schema reference
 
-See [docs/SCHEMA.md](docs/SCHEMA.md) for the full JSONL field reference and example entries, or open [docs/api/index.html](docs/api/index.html) for the browsable CLI reference (types, flags, exit codes, config, env, hooks, and a command builder).
+See [docs/SCHEMA.md](docs/SCHEMA.md) for the full JSONL field reference and example entries, or open [docs/api/index.html](docs/api/index.html) for the browsable CLI and HTTP reference (types, flags, exit codes, config, env, hooks, routes, and a command builder).
+
+The behavioural contract is the set of OpenSpec baselines in [openspec/specs/](openspec/specs/) (`cli`, `config`, `log-entry`, `hooks`) plus the `http-api` change under `openspec/changes/`; `tests/cli/run.sh` and the node tests pin every scenario in them. Propose a behaviour change as an `openspec/changes/<name>/` delta before changing code.
 
 ---
 
