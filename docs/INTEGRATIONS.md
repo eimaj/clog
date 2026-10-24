@@ -11,14 +11,14 @@ Per-tool installation notes and caveats.
 ### Install
 
 Run `./setup.sh` from the clog repo root. The installer:
-1. Symlinks `hooks/post-action-log.sh` and `hooks/post-log-reminder.sh` into `~/.claude/hooks/`
+1. Symlinks the five hooks (`post-action-log.sh`, `post-log-reminder.sh`, `post-edit-log-check.sh`, `post-write-clog.sh`, `pre-agent-clog.sh`) into `~/.claude/hooks/`
 2. Symlinks all `skills/*/` into `~/.claude/skills/`
-3. Registers both hooks in `~/.claude/settings.json` under `PostToolUse > Bash`
+3. Registers them in `~/.claude/settings.json`: `post-action-log.sh` and `post-log-reminder.sh` under `PostToolUse > Bash`; `post-log-reminder.sh` under `PostToolUse > Agent`; `post-edit-log-check.sh` and `post-write-clog.sh` under `PostToolUse > Edit`, `Write`, `MultiEdit` and `NotebookEdit`; `pre-agent-clog.sh` under `PreToolUse > Agent`
 4. Optionally appends `persona/PERSONA.md` to `~/.claude/CLAUDE.md`
 
 ### Hook registration format
 
-The installer adds to `settings.json`:
+The installer adds the following to `settings.json`, writing absolute paths (your `$HOME`, shown here as `/Users/you`):
 ```json
 {
   "hooks": {
@@ -26,18 +26,37 @@ The installer adds to `settings.json`:
       {
         "matcher": "Bash",
         "hooks": [
-          {"type": "command", "command": "~/.claude/hooks/post-action-log.sh"},
-          {"type": "command", "command": "~/.claude/hooks/post-log-reminder.sh"}
+          {"type": "command", "command": "/Users/you/.claude/hooks/post-action-log.sh"},
+          {"type": "command", "command": "/Users/you/.claude/hooks/post-log-reminder.sh"}
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [{"type": "command", "command": "/Users/you/.claude/hooks/post-log-reminder.sh"}]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {"type": "command", "command": "/Users/you/.claude/hooks/post-edit-log-check.sh"},
+          {"type": "command", "command": "/Users/you/.claude/hooks/post-write-clog.sh"}
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [{"type": "command", "command": "/Users/you/.claude/hooks/pre-agent-clog.sh"}]
       }
     ]
   }
 }
 ```
 
+The `Edit` entry is repeated for `Write`, `MultiEdit` and `NotebookEdit` with the same two commands.
+
 ### Manual hook registration
 
-If you prefer to edit `settings.json` by hand, add the two command entries above to the `PostToolUse > Bash` hooks array. Both hooks exit 0 always — they will not block any Bash command.
+If you prefer to edit `settings.json` by hand, add the entries above under `PostToolUse` and `PreToolUse`. All five hooks exit 0 always — they will not block any tool call. Re-running `setup.sh` is safe: a hook is skipped when any entry whose matcher covers the tool (exact name, `A|B` list, regex or empty matcher) already runs it, so an existing `Edit|Write|...` entry is respected. Only missing hooks are added, to the first entry whose matcher equals the tool, and `settings.json` is rewritten in place, so a symlinked file keeps its link. If `settings.json` is not valid JSON, the installer warns and registers nothing.
 
 ### Skills
 
@@ -59,7 +78,7 @@ Run `./setup.sh` and select Codex when prompted. The installer symlinks `skills/
 
 ### Caveats
 
-Codex does not currently expose a `PostToolUse` hooks API. The `post-action-log.sh` and `post-log-reminder.sh` hooks cannot be registered for Codex sessions.
+Codex does not currently expose a `PostToolUse` hooks API. None of the five hooks (`post-action-log.sh`, `post-log-reminder.sh`, `post-edit-log-check.sh`, `post-write-clog.sh`, `pre-agent-clog.sh`) can be registered for Codex sessions.
 
 This means:
 - `git commit`, `git push`, and `gh pr create` are **not** auto-logged in Codex sessions. Log them manually with `clog COMMIT "..."` etc.

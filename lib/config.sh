@@ -34,7 +34,7 @@ load_config() {
   local env_key
   for env_key in CLOG_LOG_ROOT CLOG_LOG_SUBDIR CLOG_REPORTS_ROOT \
     CLOG_REMINDER_THRESHOLD CLOG_AUTO_COMMIT_ENABLED CLOG_AUTO_COMMIT_REPO \
-    CLOG_AUTO_COMMIT_MSG CLOG_FAMILIES CLOG_KPIS CLOG_AGENTS CLOG_CLI_PATH; do
+    CLOG_AUTO_COMMIT_MSG CLOG_FAMILIES CLOG_KPIS CLOG_CLI_PATH; do
     [[ -n "${!env_key:-}" ]] && env_snap+=("${env_key}=${!env_key}")
   done
 
@@ -66,7 +66,6 @@ load_config() {
   export CLOG_AUTO_COMMIT_MSG="${CLOG_AUTO_COMMIT_MSG:-docs(clog): auto-commit logs}"
   export CLOG_FAMILIES="${CLOG_FAMILIES:-}"
   export CLOG_KPIS="${CLOG_KPIS:-}"
-  export CLOG_AGENTS="${CLOG_AGENTS:-}"
   export CLOG_CLI_PATH="${CLOG_CLI_PATH:-}"
 
   # Machine-scoped default tags (e.g. "jbook"), auto-applied to every entry.
@@ -122,10 +121,6 @@ _clog_parse_yq() {
   kpis=$(yq '.kpis[]? // ""' "$cfg" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
   [[ -n "$kpis" ]] && export CLOG_KPIS="$kpis"
 
-  local agents
-  agents=$(yq '.agents[]? // ""' "$cfg" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
-  [[ -n "$agents" ]] && export CLOG_AGENTS="$agents"
-
   local cli_path
   cli_path=$(yq '.cli_path // ""' "$cfg" 2>/dev/null | _clog_expand_home)
   [[ -n "$cli_path" ]] && export CLOG_CLI_PATH="$cli_path"
@@ -178,9 +173,6 @@ _clog_parse_basic() {
 
   local kpis; kpis=$(_read_list kpis)
   [[ -n "$kpis" ]] && export CLOG_KPIS="$kpis"
-
-  local agents; agents=$(_read_list agents)
-  [[ -n "$agents" ]] && export CLOG_AGENTS="$agents"
 
   local cli_path; cli_path=$(_read_flat cli_path)
   [[ -n "$cli_path" ]] && export CLOG_CLI_PATH="$cli_path"

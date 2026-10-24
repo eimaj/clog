@@ -32,7 +32,7 @@ The loader SHALL export `auto_commit.enabled` as `CLOG_AUTO_COMMIT_ENABLED` (def
 - **THEN** `CLOG_AUTO_COMMIT_ENABLED` is `false` and `CLOG_AUTO_COMMIT_REPO` is empty
 
 ### Requirement: Enum list keys
-The loader SHALL export the block lists `families`, `kpis` and `agents` as `CLOG_FAMILIES`, `CLOG_KPIS` and `CLOG_AGENTS`, each a single space-separated string, defaulting to empty. An empty list SHALL disable the matching `--family` or `--kpi` validation.
+The loader SHALL export the block lists `families` and `kpis` as `CLOG_FAMILIES` and `CLOG_KPIS`, each a single space-separated string, defaulting to empty. An empty list SHALL disable the matching `--family` or `--kpi` validation.
 
 #### Scenario: Example config lists
 - **WHEN** `config/config.yaml.example` is loaded
@@ -43,7 +43,7 @@ The loader SHALL export the block lists `families`, `kpis` and `agents` as `CLOG
 - **THEN** `clog LEARNING "x" --family anything` writes the entry without a `validation` field
 
 ### Requirement: Exported but unused keys
-The loader SHALL export `cli_path` as `CLOG_CLI_PATH` (default empty). `CLOG_CLI_PATH`, `CLOG_AGENTS` and `CLOG_REPORTS_ROOT` SHALL be available in the environment but are not read by the CLI or by any hook.
+The loader SHALL export `cli_path` as `CLOG_CLI_PATH` (default empty). `CLOG_CLI_PATH` and `CLOG_REPORTS_ROOT` SHALL be available in the environment but are not read by the CLI or by any hook.
 
 #### Scenario: cli_path set
 - **WHEN** the config sets `cli_path: ~/.local/bin/clog`

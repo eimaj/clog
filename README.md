@@ -61,13 +61,13 @@ Migrate an existing install:
 ./setup.sh --migrate
 ```
 
-The installer detects which AI coding tools are present, lets you select which to install into, writes `~/.config/clog/config.yaml`, symlinks hooks and skills, and registers the `PostToolUse` hooks in Claude Code's `settings.json`.
+The installer detects which AI coding tools are present, lets you select which to install into, writes `~/.config/clog/config.yaml`, symlinks the five hooks and the skills, and registers the hooks in Claude Code's `settings.json` (`PostToolUse` and `PreToolUse`). Re-running `./setup.sh` after an install is safe: it skips any hook an existing matcher already covers (including `A|B` and regex matchers), adds only what is missing, and writes through a symlinked `settings.json`. Invalid JSON there makes it warn and register nothing.
 
 ---
 
 ### 🤝 Migrating from a previous install
 
-If you have an existing `~/.claude/hooks/clog.sh`:
+If you have an existing `~/.claude/hooks/clog.sh` that is not a link resolving to this repo's `bin/clog` (a real file, or a link to another clone), or `CLOG_BIN` is set, `setup.sh` stops and asks for `--migrate`. `$AI_LOG_ROOT` is no longer a marker:
 
 ```bash
 ./setup.sh --migrate
@@ -76,7 +76,7 @@ If you have an existing `~/.claude/hooks/clog.sh`:
 The installer will:
 
 1. Back up `~/.claude/hooks/clog.sh` → `clog.sh.pre-clog-pkg.bak`
-2. Back up `post-action-log.sh` and `post-log-reminder.sh` the same way
+2. Back up any real-file copies of the five hooks (`post-action-log.sh`, `post-log-reminder.sh`, `post-edit-log-check.sh`, `post-write-clog.sh`, `pre-agent-clog.sh`) the same way
 3. Symlink the new `bin/clog` in their place
 4. Write a fresh `~/.config/clog/config.yaml` with your `log_root` pre-filled to the existing log directory
 
@@ -166,7 +166,7 @@ cli_path: ""
 | `reminder_threshold_seconds` | `900`                                                         | Seconds of inactivity before staleness warning (0 = off)       |
 | `families`                   | `[general, skills, tooling, interactive]`                     | Valid values for `--family` on LEARNING entries                |
 | `kpis`                       | `[token_waste, failure, prompt_gap, effective, format_issue]` | Valid values for `--kpi`                                       |
-| `cli_path`                   | `""`                                                          | Path to the `clog` binary, set by `setup.sh`; skills use this as a fallback when `clog` is not on PATH |
+| `cli_path`                   | `""`                                                          | Path to the `clog` binary, written by `setup.sh` for skills. Not read by the CLI or the hooks |
 
 **Config path override:**
 
@@ -182,7 +182,16 @@ export CLOG_LOG_ROOT=/tmp/ci-logs
 export CLOG_DISABLE=1   # silence all logging (CI, automated contexts)
 ```
 
-Variables that override config: `CLOG_LOG_ROOT`, `CLOG_LOG_SUBDIR`, `CLOG_REPORTS_ROOT`, `CLOG_REMINDER_THRESHOLD`, `CLOG_AUTO_COMMIT_ENABLED`, `CLOG_AUTO_COMMIT_REPO`, `CLOG_AUTO_COMMIT_MSG`, `CLOG_FAMILIES`, `CLOG_KPIS`, `CLOG_AGENTS`, `CLOG_CLI_PATH`.
+Variables that override config: `CLOG_LOG_ROOT`, `CLOG_LOG_SUBDIR`, `CLOG_REPORTS_ROOT`, `CLOG_REMINDER_THRESHOLD`, `CLOG_AUTO_COMMIT_ENABLED`, `CLOG_AUTO_COMMIT_REPO`, `CLOG_AUTO_COMMIT_MSG`, `CLOG_FAMILIES`, `CLOG_KPIS`, `CLOG_CLI_PATH`.
+
+**Environment-only variables** (no config key):
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `CLOG_BIN` | unset | Full path to the `clog` binary. The hooks use it when `clog` is not on PATH, before falling back to the repo's `bin/clog`. `post-write-clog.sh` ignores it |
+| `CLOG_EDIT_THRESHOLD` | `3` | Edits `post-edit-log-check.sh` allows without a new log entry before it warns; `0` disables the warning |
+| `CLOG_DEFAULT_TAGS` | unset | Comma-separated tags added to every entry, before any `--tags`. Beats the tags file |
+| `CLOG_TAGS_FILE` | `~/.config/clog/tags.local` | Plain-text file read for default tags when `CLOG_DEFAULT_TAGS` is empty. Kept outside the config so it stays machine-local |
 
 ---
 
@@ -229,7 +238,7 @@ See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for tool-specific details.
 
 | Tool        | Hooks                                                              | Skills | Notes                            |
 | ----------- | ------------------------------------------------------------------ | ------ | -------------------------------- |
-| Claude Code | Full — 4 `PostToolUse` hooks: auto-logs commits/pushes/PRs, edit-log checks, staleness warn on Bash + Agent dispatch | Yes    | Hooks auto-register via setup.sh |
+| Claude Code | Full — 5 hooks: `post-action-log` (commits/pushes/PRs), `post-log-reminder` (staleness warn on Bash + Agent), `post-edit-log-check` (edit-log checks), `post-write-clog` (auto CODE entry per edit), `pre-agent-clog` (ACTION entry per Agent dispatch) | Yes    | Hooks auto-register via setup.sh |
 | Codex       | No                                                                 | Yes    | No hooks API exposed yet         |
 | Cursor      | No                                                                 | Yes    | No hooks API exposed yet         |
 | OpenCode    | No                                                                 | Yes    | No hooks API exposed yet         |
