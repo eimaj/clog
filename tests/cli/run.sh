@@ -340,6 +340,11 @@ c_cli__date_garbage() {
   done
   expect_file nothing_written "$T/logs" absent
 }
+c_cli__date_trailing_junk() {
+  runclog ACTION x --date "2026-01-02 evil"
+  expect run 1 EMPTY "=clog: invalid --date '2026-01-02 evil' (expected YYYY-MM-DD)"
+  expect_file nothing_written "$T/logs" absent
+}
 c_cli__date_impossible_day() {
   runclog ACTION x --date 2026-02-30
   expect run 0 EMPTY EMPTY
@@ -504,6 +509,20 @@ c_entry__required_fields_first() {
   expect run 0 EMPTY EMPTY
   expect_json order "$LOGF" 'keys_unsorted[0:3]|join(",")' 'time,type,summary'
   expect_json time "$LOGF" '.time|test("^[0-9]{2}:[0-9]{2}:[0-9]{2}$")' true
+}
+c_entry__time_is_local() {
+  # A zone far from UTC makes a UTC-stamped time differ from local by hours.
+  local want got try
+  ENVX=(TZ=Pacific/Kiritimati)
+  for try in 1 2; do
+    find "$LOGDIR" -type f -delete 2>/dev/null
+    runclog ACTION x
+    want=$(TZ=Pacific/Kiritimati date +%H)
+    # The file date is local too, so it may not be today's in this zone.
+    got=$(cat "$LOGDIR"/*.jsonl | jq -r '.time[0:2]')
+    [[ $got == "$want" ]] && break
+  done  # second try absorbs an hour boundary crossed mid-run
+  expect_eq local_hour "$got" "$want"
 }
 c_entry__key_order_full() {
   ENVX=(CLOG_DEFAULT_TAGS=jbook)
@@ -1002,6 +1021,17 @@ c_hooks__reminder_within_window() {
   expect run 0 EMPTY EMPTY
   expect_file nothing_written "$T/logs" absent
 }
+c_hooks__reminder_marker_expiry() {
+  seed_log; age_file "$LOGF" 7200
+  ENVX=(CLOG_REMINDER_THRESHOLD=100)
+  touch "$T/tmp/clog-reminder-warned"
+  STDIN=$(bash_payload ls); hook post-log-reminder.sh
+  expect fresh_marker_quiet 0 EMPTY EMPTY
+  ENVX=(CLOG_REMINDER_THRESHOLD=5)
+  age_file "$T/tmp/clog-reminder-warned" 60
+  STDIN=$(bash_payload ls); hook post-log-reminder.sh
+  expect old_marker_rewarns 0 '^WARNING: Last log entry was' EMPTY
+}
 c_hooks__reminder_fresh_log() {
   seed_log
   STDIN=$(bash_payload ls); hook post-log-reminder.sh
@@ -1044,6 +1074,7 @@ c_hooks__edit_check_threshold() {
     expect "edit$i" 0 EMPTY "$want"
   done
   expect_file writes_nothing "$T/logs" absent
+  expect_file marker_under_tmpdir "$T/tmp/clog-edit-counter-s1" exists
 }
 c_hooks__edit_check_threshold_env() {
   local i want
@@ -1121,11 +1152,14 @@ c_hooks__agent_dispatch_without_description() {
 }
 c_hooks__agent_model_omitted() {
   STDIN='{"tool_input":{"description":"d","subagent_type":"Explore"}}'; hook pre-agent-clog.sh
+  expect run 0 EMPTY EMPTY
   expect_json summary "$LOGF" '.summary' 'dispatch Explore — d'
 }
 c_hooks__agent_type_defaults_to_claude() {
   STDIN='{"tool_input":{"description":"d"}}'; hook pre-agent-clog.sh
+  expect absent_run 0 EMPTY EMPTY
   STDIN='{"tool_input":{"description":"d","subagent_type":null}}'; hook pre-agent-clog.sh
+  expect null_run 0 EMPTY EMPTY
   expect_json absent "$LOGF" '.summary' 'dispatch claude — d' 1
   expect_json null "$LOGF" '.summary' 'dispatch claude — d' 2
 }
