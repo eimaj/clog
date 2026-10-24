@@ -127,8 +127,12 @@ When called with `--hook`, the loader SHALL return 0 silently if the config file
 - **THEN** it returns 0, prints nothing and `CLOG_LOG_ROOT` remains unset
 
 ### Requirement: Disable short-circuit
-When `CLOG_DISABLE` is exactly `1`, the loader SHALL return 0 after locating the config file and before parsing it.
+When `CLOG_DISABLE` is exactly `1`, the loader SHALL return 0 before locating the config file, so a missing file is not an error, and before parsing it.
 
 #### Scenario: Disabled
 - **WHEN** `CLOG_DISABLE=1` and the config file exists
 - **THEN** no `CLOG_*` value is read from the file
+
+#### Scenario: Disabled without a config file
+- **WHEN** `CLOG_DISABLE=1` and the config file does not exist
+- **THEN** the loader returns 0 and prints nothing

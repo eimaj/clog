@@ -10,6 +10,12 @@ load_config() {
     [[ "$arg" == "--hook" ]] && hook_mode=true
   done
 
+  # Short-circuit if disabled (before the config is located: a disabled clog
+  # needs no config)
+  if [[ "${CLOG_DISABLE:-}" == "1" ]]; then
+    return 0
+  fi
+
   # Resolve config path
   local config_path="${CLOG_CONFIG:-$HOME/.config/clog/config.yaml}"
 
@@ -20,11 +26,6 @@ load_config() {
       echo "clog: no config at ${config_path}. Run setup.sh to create one." >&2
       return 1
     fi
-  fi
-
-  # Short-circuit if disabled
-  if [[ "${CLOG_DISABLE:-}" == "1" ]]; then
-    return 0
   fi
 
   # Snapshot non-empty CLOG_* env values; the parsers overwrite them from the

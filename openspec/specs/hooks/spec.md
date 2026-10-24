@@ -32,19 +32,30 @@ When the config file is missing, `load_config --hook` returns 0 without setting 
 - **THEN** it exits 0 and prints `WARNING: No log entries today. …` because the unset log root resolves to a file that does not exist
 
 ### Requirement: post-action-log.sh triggers
-On PostToolUse for Bash, the hook SHALL read `tool_input.command` and write at most one entry: `COMMIT` when the command contains `git commit`, `PR` when it contains `gh pr create`, or `ACTION` `pushed <branch> (<repo>)` when it contains `git push`. The `COMMIT` summary SHALL be the first `-m "…"` or `-m '…'` value, else the HEAD subject; the `PR` summary SHALL be the `--title "…"` value.
+On PostToolUse for Bash, the hook SHALL read `tool_input.command` and write `COMMIT` entries when the command contains `git commit`, else a `PR` entry when it contains `gh pr create`, else an `ACTION` entry `pushed <branch> (<repo>)` when it contains `git push`. The `PR` summary SHALL be the `--title "…"` value.
 
 #### Scenario: Commit with message
 - **WHEN** the hook receives `{"tool_input":{"command":"git commit -m \"feat(x): hook test\""}}`
 - **THEN** a `COMMIT` entry with `summary` `feat(x): hook test` is appended
 
-#### Scenario: Several commits in one command
-- **WHEN** the command string contains two `git commit -m` invocations
-- **THEN** only one `COMMIT` entry is written, for the first message
-
 #### Scenario: Unrelated command
 - **WHEN** the command is `ls`
 - **THEN** nothing is written
+
+### Requirement: post-action-log.sh commit summaries
+A `COMMIT` command SHALL yield exactly one entry per Bash command, summarised by the first `-m "…"` or `-m '…'` value in the command (a later `-m` is the commit's body), or by the HEAD subject of the resolved repository when there is none.
+
+#### Scenario: Several commits in one command
+- **WHEN** the command string contains `git commit -m "one" && git commit -m 'two' -m "body"`
+- **THEN** one `COMMIT` entry is written, with summary `one`
+
+#### Scenario: Message mentioning git commit
+- **WHEN** the command is `git commit -m "docs: explain git commit usage"`
+- **THEN** one `COMMIT` entry is written, with summary `docs: explain git commit usage`
+
+#### Scenario: Message that looks like a flag
+- **WHEN** the command is `git commit -m "-n"`
+- **THEN** one `COMMIT` entry is written, with summary `-n`
 
 ### Requirement: post-action-log.sh trigger matching
 The triggers SHALL match `git` immediately followed by `commit` or `push` (whitespace only), so `git -C <dir> commit` SHALL NOT trigger on its own. A `gh pr create` without `--title` SHALL write nothing, because the empty summary is rejected by the CLI.
@@ -57,19 +68,41 @@ The triggers SHALL match `git` immediately followed by `commit` or `push` (white
 - **WHEN** the command is `gh pr create --fill`
 - **THEN** nothing is written
 
-### Requirement: post-action-log.sh repository and commit marker
-The hook SHALL resolve the repository from the first `git -C <dir>` or leading `cd <dir>` anywhere in the command, else from `$HOME`. For `COMMIT` entries it SHALL rewrite the last line of the log file (delete-and-rewrite via a temp file, not an append) to add `commit` with the short SHA whenever a SHA resolves, even if the CLI wrote nothing.
+### Requirement: post-action-log.sh repository resolution
+The hook SHALL resolve the repository from the first `git -C <dir>` anywhere in the command, else a leading `cd <dir>`, else the hook's working directory when it is inside a git checkout, else `$HOME`.
 
 #### Scenario: Command names the repo
 - **WHEN** the command is `cd ~/Code/clog && git commit -m "x"`
-- **THEN** the `COMMIT` entry carries `repo` `clog` and `commit` set to the new HEAD's short SHA
+- **THEN** the `COMMIT` entry carries `repo` `clog`
 
 #### Scenario: Command does not name the repo
-- **WHEN** the command is `git commit -m "x"` and `$HOME` is not a git checkout
+- **WHEN** the command is `git commit -m "x"` and the hook's working directory is a git checkout
+- **THEN** the `COMMIT` entry carries that checkout's `repo`
+
+### Requirement: post-action-log.sh commit marker
+For the `COMMIT` entry of a command it SHALL rewrite the last line of the log file (delete-and-rewrite via a temp file, not an append) to add `commit` with the short SHA of the resolved repository's HEAD after the command ran, whenever a SHA resolves, even if the CLI wrote nothing.
+
+#### Scenario: SHA resolved
+- **WHEN** the command is `cd ~/Code/clog && git commit -m "x"`
+- **THEN** the `COMMIT` entry carries `commit` set to the new HEAD's short SHA
+
+#### Scenario: No repo anywhere
+- **WHEN** the command is `git commit -m "x"` and neither the working directory nor `$HOME` is a git checkout
 - **THEN** the `COMMIT` entry has no `commit` field
 
+#### Scenario: Several commits
+- **WHEN** a command makes two commits
+- **THEN** one entry is written and its `commit` is the resolved repository's HEAD
+
+### Requirement: post-action-log.sh output format
+Messages SHALL be emitted with `printf '%s\n'` so a message such as `-n` is never taken as an option. On the inline fallback path (no CLI resolvable) each entry, including the `commit` field, SHALL be written as a single JSON line (`jq -c`).
+
+#### Scenario: Fallback entry
+- **WHEN** no CLI can be resolved and the command is `git commit -m "x"`
+- **THEN** the day file gains exactly one line for the entry
+
 ### Requirement: post-action-log.sh auto-commit
-After writing, the hook SHALL run its own auto-commit when `auto_commit.enabled` is true, using `logs` as the path when `realpath --relative-to` fails, and SHALL ignore any git failure.
+After writing, the hook SHALL run its own auto-commit when `auto_commit.enabled` is true, staging the log directory by absolute path (`git add -- <log directory>`, the directory resolved to an absolute path first) and committing only that path (`git commit -m <message> -- <log directory>`, skipped when the add fails), and SHALL ignore any git failure and print nothing.
 
 #### Scenario: Auto-commit disabled
 - **WHEN** `auto_commit.enabled` is `false`
@@ -137,7 +170,11 @@ On PreToolUse for Agent, the hook SHALL write an `ACTION` entry `dispatch <subag
 - **THEN** nothing is written
 
 ### Requirement: pre-agent-clog.sh summary defaults
-The model part SHALL be omitted when `model` is absent. The type SHALL default to `claude` only when `subagent_type` is absent or null; an empty string SHALL yield `dispatch  — <description>`. The inline fallback path (no CLI resolvable) SHALL emit the same entry without `clog_version` and without `session`.
+The model part SHALL be omitted when `model` is absent. The type SHALL default to `claude` only when `subagent_type` is absent or null; an empty string SHALL yield `dispatch  — <description>`. The inline fallback path (no CLI resolvable) SHALL emit the same entry without `session`, with the default tags (`CLOG_DEFAULT_TAGS`) and with `clog_version` `"1.0"` when the day file did not yet exist.
+
+#### Scenario: Fallback on a new day
+- **WHEN** no CLI is resolvable, `CLOG_DEFAULT_TAGS` is `t` and today's file does not exist
+- **THEN** the entry has `clog_version` `"1.0"` and `tags` `["t"]`
 
 #### Scenario: Empty subagent type
 - **WHEN** the payload has `"subagent_type":""` and `"description":"d1"`

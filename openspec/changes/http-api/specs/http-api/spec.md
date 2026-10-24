@@ -46,14 +46,14 @@ The server SHALL run until SIGINT or SIGTERM and SHALL then exit 0.
 - **THEN** `families` has four items
 
 ### Requirement: Missing config
-When no config file exists, `GET /config`, `GET /entries` and `POST /entries` SHALL answer 503 `no_config` with the CLI's own message. The server SHALL still start.
+When no config file exists, `GET /config`, `GET /entries` and `POST /entries` SHALL answer 503 `no_config` with the CLI's own message, also when `CLOG_DISABLE=1` is set. The server SHALL still start.
 
 #### Scenario: No config
 - **WHEN** `CLOG_CONFIG` points at a missing file and a client requests `GET /config`
 - **THEN** the status is 503 and `error.code` is `no_config`
 
 ### Requirement: Write by spawning the CLI
-`POST /entries` SHALL spawn `bin/clog <type> <summary> [flags] --echo` with an argv array, never a shell string, passing only the supplied flags. The server SHALL use the `bin/clog` next to its own module, not the one on PATH.
+`POST /entries` SHALL spawn `bin/clog <type> <summary> [flags] --echo` with an argv array, never a shell string, passing only the supplied flags. The child SHALL NOT inherit the launcher's session variables, so `session` is present only when the body supplies it; an omitted `repo` is autodetected from the server's working directory. The server SHALL use the `bin/clog` next to its own module, not the one on PATH.
 
 #### Scenario: Written entry equals CLI entry
 - **WHEN** the same type, summary and flags are written through the API and the CLI
@@ -150,7 +150,7 @@ A `bin/clog` child that runs longer than 10 seconds SHALL be killed and answered
 - **THEN** the status is 500 and `error.code` is `clog_timeout`
 
 ### Requirement: Disabled logging
-When `CLOG_DISABLE` is exactly `1` in the server's environment, `POST /entries` SHALL answer 503 `disabled` without spawning, because the CLI would write nothing. `GET /config` and `GET /entries` SHALL also answer 503 `disabled`, because no log root resolves.
+When `CLOG_DISABLE` is exactly `1` in the server's environment and a config file exists, `POST /entries`, `GET /config` and `GET /entries` SHALL answer 503 `disabled` after the config file is found and before anything is spawned or read, whether or not a log root is also set in the environment. With no config file all three answer `no_config`.
 
 #### Scenario: Disabled
 - **WHEN** the server runs with `CLOG_DISABLE=1` and a client posts an entry
@@ -193,7 +193,7 @@ When `CLOG_DISABLE` is exactly `1` in the server's environment, `POST /entries` 
 - **THEN** only entries whose `tags` contains `release` are returned
 
 ### Requirement: Read validation
-`date` SHALL match `YYYY-MM-DD` as in the CLI (`invalid_date`), `type` SHALL be one of the nine (`invalid_type`) and `tail` SHALL be an integer from 1 to 10000 (`invalid_tail`); each failure SHALL be a 400.
+`date` SHALL match `YYYY-MM-DD` as in the CLI (`invalid_date`), except that an empty `date` means today, `type` SHALL be one of the nine (`invalid_type`) and `tail` SHALL be an integer from 1 to 10000 (`invalid_tail`); each failure SHALL be a 400.
 
 #### Scenario: Bad tail
 - **WHEN** a client requests `?tail=0`
@@ -207,7 +207,7 @@ A missing day file SHALL answer 200 with `entries: []`. A line that is not a JSO
 - **THEN** `entries` has one item and `skipped` is 1
 
 ### Requirement: Error shape
-Every error body SHALL be `{ error: { code, message } }`. No body SHALL contain a stack trace. Unknown routes and unsupported methods SHALL answer 404 `not_found`.
+Every error body SHALL be `{ error: { code, message } }`. No body SHALL contain a stack trace. An unexpected failure SHALL answer 500 `internal_error` with the message `internal server error`. Unknown routes and unsupported methods SHALL answer 404 `not_found`; `HEAD` on a GET route SHALL answer like GET without a body.
 
 #### Scenario: Unknown route
 - **WHEN** a client requests `GET /nope`

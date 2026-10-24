@@ -158,7 +158,7 @@ clog --help | clog -h        # first argument only</code></pre>
   <details class="op" style="--c: var(--t-commit)">
     <summary><span class="m">COMMIT</span><span class="path">clog COMMIT "&lt;summary&gt;"</span><span class="desc">A git commit landed</span><span class="chev" aria-hidden="true">▶</span></summary>
     <div class="body">
-      <p>Normally written by <code>hooks/post-action-log.sh</code> on <code>git commit</code>, using the <code>-m</code> message as the summary. The hook adds a <code>commit</code> field (short SHA) when it can resolve the repo; the CLI itself has no <code>--commit</code> flag.</p>
+      <p>Normally written by <code>hooks/post-action-log.sh</code> on <code>git commit</code>, using the first <code>-m</code> message of the command as the summary (one entry per Bash command, however many commits it makes). The hook adds a <code>commit</code> field (short SHA) to that entry when it can resolve the repo (<code>git -C</code>, leading <code>cd</code>, the hook's working directory, then <code>$HOME</code>); the CLI itself has no <code>--commit</code> flag.</p>
 <pre><code>{"time":"11:46:33","type":"COMMIT","summary":"feat(hooks): add post-log-reminder","repo":"clog","commit":"a3f9b12"}</code></pre>
     </div>
   </details>
@@ -236,26 +236,26 @@ clog --help | clog -h        # first argument only</code></pre>
     <tr><td class="n">--echo</td><td class="in">flag</td><td>—</td><td>After a successful write, prints the exact JSON line that was appended to stdout. Prints nothing when <code>CLOG_DISABLE=1</code> (nothing was written). The HTTP API uses this to return the entry.</td></tr>
     <tr><td class="n">--help, -h</td><td class="in">first argument only</td><td>—</td><td>Prints usage to stdout and exits 0, before the config is read and before <code>CLOG_DISABLE</code> is checked.</td></tr>
   </table>
-  <p class="in">Unknown flags are silently ignored. A flag given as the last argument with no value fails with a bash <code>unbound variable</code> error, exit 1.</p>
+  <p class="in">An unknown <code>--flag</code> exits 1 with <code>clog: unknown flag '…'</code>, a third positional with <code>clog: unexpected argument '…'</code>, and a flag given as the last argument, or followed by another recognised flag, with no value with <code>clog: &lt;flag&gt; needs a value</code>; nothing is written in any case.</p>
 
   <h2 class="tag">Responses <small>exit codes · stdout is always empty on success</small></h2>
   <table>
     <tr><th>Code</th><th>When</th><th>stderr</th><th>Written</th></tr>
     <tr><td><span class="code-badge c0">0</span></td><td>Entry appended</td><td>— (stdout: the entry line, only with <code>--echo</code>)</td><td>one line</td></tr>
-    <tr><td><span class="code-badge c0">0</span></td><td><code>CLOG_DISABLE=1</code> and a config file exists</td><td>—</td><td>nothing</td></tr>
+    <tr><td><span class="code-badge c0">0</span></td><td><code>CLOG_DISABLE=1</code> (config file or not)</td><td>—</td><td>nothing</td></tr>
     <tr><td><span class="code-badge c0">0</span></td><td><code>--help</code> / <code>-h</code></td><td>— (usage on stdout)</td><td>nothing</td></tr>
     <tr><td><span class="code-badge c1">1</span></td><td>TYPE or summary missing/empty</td><td><code>clog: missing TYPE</code> or <code>clog: missing summary</code>, then usage</td><td>nothing</td></tr>
     <tr><td><span class="code-badge c1">1</span></td><td>TYPE not one of the nine</td><td><code>clog: unknown type '…' (expected …)</code></td><td>nothing</td></tr>
     <tr><td><span class="code-badge c1">1</span></td><td><code>--date</code> malformed</td><td><code>clog: invalid --date '…' (expected YYYY-MM-DD)</code></td><td>nothing</td></tr>
-    <tr><td><span class="code-badge c1">1</span></td><td>No config file (also when <code>CLOG_DISABLE=1</code>)</td><td><code>clog: no config at &lt;path&gt;. Run setup.sh to create one.</code></td><td>nothing</td></tr>
+    <tr><td><span class="code-badge c1">1</span></td><td>No config file (unless <code>CLOG_DISABLE=1</code>)</td><td><code>clog: no config at &lt;path&gt;. Run setup.sh to create one.</code></td><td>nothing</td></tr>
     <tr><td><span class="code-badge c1">1</span></td><td>Log file not writable</td><td>bash: <code>… Permission denied</code></td><td>nothing</td></tr>
-    <tr><td><span class="code-badge c1">1</span></td><td>Flag with no value</td><td>bash: <code>$2: unbound variable</code></td><td>nothing</td></tr>
+    <tr><td><span class="code-badge c1">1</span></td><td>Unknown flag, extra positional, or flag with no value</td><td><code>clog: unknown flag '…'</code>, <code>clog: unexpected argument '…'</code> or <code>clog: &lt;flag&gt; needs a value</code></td><td>nothing</td></tr>
     <tr><td><span class="code-badge c127">127</span></td><td><code>jq</code> not on PATH</td><td><code>jq: command not found</code></td><td>nothing</td></tr>
   </table>
-  <p class="in">With <code>auto_commit.enabled: true</code> on macOS, the entry is written and then <code>realpath --relative-to</code> (GNU-only) fails, so the <code>git add</code> gets an empty pathspec under <code>set -e</code>. The entry is on disk; the exit code of that path is unverified.</p>
+  <p class="in">With <code>auto_commit.enabled: true</code>, the entry is written first, then only the log directory is committed (files you already staged are left staged); a failing <code>git add</code> or <code>git commit</code> is ignored and the exit code stays 0.</p>
 
   <h2 class="tag" id="http-api">HTTP API <small>clog serve · 127.0.0.1 only · bearer token · try it at <a href="/demo">/demo</a></small></h2>
-  <p>Routes are relative to the router mount; standalone, the mount is <code>/</code>. Request and response bodies are JSON. Every error is <code>{ "error": { "code", "message" } }</code>; where <code>bin/clog</code> rejected the entry, <code>message</code> is its first stderr line verbatim. No error body carries a stack trace.</p>
+  <p>Routes are relative to the router mount; standalone, the mount is <code>/</code>. Request and response bodies are JSON. Every error is <code>{ "error": { "code", "message" } }</code>; where <code>bin/clog</code> rejected the entry, <code>message</code> is its first stderr line verbatim. No error body carries a stack trace. Any route can also answer 500 <code>internal_error</code> with the message <code>internal server error</code> for an unexpected failure (the detail goes to the server's stderr only).</p>
   <table>
     <tr><th>Route</th><th>Success</th><th>Errors</th></tr>
     <tr><td class="n">GET /health</td><td>200 <code>{ ok, version, clogBin }</code></td><td>—</td></tr>
@@ -267,14 +267,14 @@ clog --help | clog -h        # first argument only</code></pre>
     <tr><td class="n">anything else</td><td>—</td><td>404 <code>not_found</code></td></tr>
   </table>
   <h3>POST /entries</h3>
-  <p>Body: <code>{ "type", "summary", "agent"?, "repo"?, "session"?, "model"?, "file"?, "family"?, "kpi"?, "date"?, "tags"? }</code>, all strings except <code>tags</code>, a non-empty array of non-empty strings without commas (passed as <code>--tags</code>, so the entry's <code>tags</code> is the server's default tags followed by these, trimmed and deduplicated). <code>type</code> and <code>summary</code> are checked before spawning with the CLI's own messages, and the shape of <code>tags</code> (no commas or control characters in items) with the server's; everything else (<code>date</code>, <code>family</code>, <code>kpi</code>) is passed through and the CLI's verdict is mapped. A field containing a NUL character is refused with 400 <code>invalid_field</code> before anything is spawned. Writes are serialised: the server runs one <code>bin/clog</code> at a time, so concurrent POSTs queue and never interleave in the day file. If the CLI printed the entry and then exited non-zero (for example the auto-commit step failed), the entry is on disk and the answer is 201 with <code>warning</code> set to the first stderr line. An unknown <code>family</code> or <code>kpi</code> is still a 201 with <code>entry.validation</code> set. With <code>CLOG_DISABLE=1</code> in the server's environment the answer is 503 <code>disabled</code> and nothing is written.</p>
+  <p>Body: <code>{ "type", "summary", "agent"?, "repo"?, "session"?, "model"?, "file"?, "family"?, "kpi"?, "date"?, "tags"? }</code>, all strings except <code>tags</code>, a non-empty array of non-empty strings without commas (passed as <code>--tags</code>, so the entry's <code>tags</code> is the server's default tags followed by these, trimmed and deduplicated). <code>type</code> and <code>summary</code> are checked before spawning with the CLI's own messages, and the shape of <code>tags</code> (no commas or control characters in items) with the server's; everything else (<code>date</code>, <code>family</code>, <code>kpi</code>) is passed through and the CLI's verdict is mapped. A field containing a NUL character is refused with 400 <code>invalid_field</code> before anything is spawned. Writes are serialised: the server runs one <code>bin/clog</code> at a time, so concurrent POSTs queue and never interleave in the day file. If the CLI printed the entry and then exited non-zero (for example the auto-commit step failed), the entry is on disk and the answer is 201 with <code>warning</code> set to the first stderr line. An unknown <code>family</code> or <code>kpi</code> is still a 201 with <code>entry.validation</code> set. <code>repo</code> defaults to the git repo containing the server's working directory, or is absent when there is none; <code>session</code> is absent unless supplied (the server strips the session environment variables from the child). With <code>CLOG_DISABLE=1</code> in the server's environment the answer is 503 <code>disabled</code> and nothing is written (503 <code>no_config</code> instead when no config file exists, as on the read routes).</p>
 <pre><code>POST /entries
 {"type":"ACTION","summary":"deploy to staging","repo":"my-repo"}
 
 201
 {"entry":{"time":"09:15:22","type":"ACTION","summary":"deploy to staging","repo":"my-repo"},"file":"/Users/me/clog-logs/claude/20261021.jsonl"}</code></pre>
   <h3>GET /entries</h3>
-  <p>Query: <code>date=YYYY-MM-DD</code> (default today, local time), <code>type</code>, <code>repo</code>, <code>session</code>, <code>agent</code> (exact match), <code>tag</code> (the entry's <code>tags</code> contains it; empty is 400 <code>invalid_tag</code>), all ANDed, <code>tail=N</code> (1 to 10000, applied after filtering). A missing day is <code>entries: []</code>; a line that is not valid JSON is skipped and counted in <code>skipped</code>.</p>
+  <p>Query: <code>date=YYYY-MM-DD</code> (default today, local time; empty means today), <code>type</code>, <code>repo</code>, <code>session</code>, <code>agent</code> (exact match), <code>tag</code> (the entry's <code>tags</code> contains it; empty is 400 <code>invalid_tag</code>), all ANDed, <code>tail=N</code> (1 to 10000, applied after filtering). A missing day is <code>entries: []</code>; a line that is not valid JSON is skipped and counted in <code>skipped</code>.</p>
   <h3>Bearer token</h3>
   <p><code>GET /config</code>, <code>GET /entries</code> and <code>POST /entries</code> require <code>Authorization: Bearer &lt;token&gt;</code> and answer 401 <code>unauthorized</code> (<code>missing or invalid bearer token</code>) without it. <code>/health</code>, <code>/demo</code>, <code>/docs</code> and CORS preflights need no token. A mounted <code>createClogRouter({ token })</code> enforces the same check; without <code>token</code> the router is open.</p>
   <h3>Origins and limits</h3>
@@ -297,8 +297,8 @@ clog --help | clog -h        # first argument only</code></pre>
         <tr><td class="n">file</td><td>string</td><td>no</td><td><code>--file</code></td></tr>
         <tr><td class="n">family</td><td>string</td><td>no</td><td><code>--family</code></td></tr>
         <tr><td class="n">kpi</td><td>string</td><td>no</td><td><code>--kpi</code></td></tr>
-        <tr><td class="n">clog_version</td><td>string <code>"1.0"</code></td><td>no</td><td>first entry of a new daily file written by the CLI</td></tr>
-        <tr><td class="n">tags</td><td>string[]</td><td>no</td><td><code>CLOG_DEFAULT_TAGS</code> or <code>~/.config/clog/tags.local</code>, split on <code>,</code> without trimming (<code>"a, b"</code> → <code>["a"," b"]</code>; a value of only commas writes <code>[]</code>). Not added by the <code>pre-agent-clog.sh</code> fallback path. Uncommitted feature: not implemented by <code>bin/clog</code> at HEAD 96ae789.</td></tr>
+        <tr><td class="n">clog_version</td><td>string <code>"1.0"</code></td><td>no</td><td>first entry of a new daily file written by the CLI or the <code>pre-agent-clog.sh</code> fallback</td></tr>
+        <tr><td class="n">tags</td><td>string[]</td><td>no</td><td><code>CLOG_DEFAULT_TAGS</code> or <code>~/.config/clog/tags.local</code>, split on <code>,</code> without trimming (<code>"a, b"</code> → <code>["a"," b"]</code>; a value of only commas writes <code>[]</code>). Uncommitted feature: not implemented by <code>bin/clog</code> at HEAD 96ae789.</td></tr>
         <tr><td class="n">validation</td><td>enum <code>unknown_family</code> · <code>unknown_kpi</code> · <code>unknown_family,unknown_kpi</code></td><td>no</td><td>appended by the CLI when a value is outside the configured list</td></tr>
         <tr><td class="n">commit</td><td>string (short SHA)</td><td>no</td><td>appended last by <code>post-action-log.sh</code> on COMMIT</td></tr>
       </table>
@@ -332,7 +332,7 @@ clog --help | clog -h        # first argument only</code></pre>
       <table>
         <tr><th>Variable</th><th>Effect</th></tr>
         <tr><td class="n">CLOG_CONFIG</td><td>Path to the config file. Default <code>~/.config/clog/config.yaml</code>.</td></tr>
-        <tr><td class="n">CLOG_DISABLE</td><td>Exactly <code>1</code>: exit 0 without writing. Checked after the config is found, so it does not rescue a missing config. Hooks honour it too.</td></tr>
+        <tr><td class="n">CLOG_DISABLE</td><td>Exactly <code>1</code>: exit 0 without writing. Checked before the config is looked up, so no config is needed. Hooks honour it too.</td></tr>
         <tr><td class="n">CLOG_LOG_ROOT, CLOG_LOG_SUBDIR, CLOG_REPORTS_ROOT, CLOG_REMINDER_THRESHOLD, CLOG_AUTO_COMMIT_ENABLED, CLOG_AUTO_COMMIT_REPO, CLOG_AUTO_COMMIT_MSG, CLOG_FAMILIES, CLOG_KPIS, CLOG_CLI_PATH</td><td>Override the matching config key when non-empty. Lists are space-separated. An empty value does not clear a config value. Path values get <code>~</code> and <code>${HOME}</code> expanded.</td></tr>
         <tr><td class="n">CLOG_DEFAULT_TAGS, CLOG_TAGS_FILE</td><td>Comma-separated tags added to every entry; the file defaults to <code>~/.config/clog/tags.local</code>. Env wins over file.</td></tr>
         <tr><td class="n">CLAUDE_CODE_SESSION_ID, CLAUDE_SESSION_ID, CODEX_SESSION_ID, CURSOR_SESSION_ID</td><td>Session fallback chain, in that order, when <code>--session</code> is omitted.</td></tr>
@@ -348,7 +348,7 @@ clog --help | clog -h        # first argument only</code></pre>
     <div class="body">
       <table>
         <tr><th>Hook</th><th>Event</th><th>Writes</th><th>Installed by setup.sh</th></tr>
-        <tr><td class="n">post-action-log.sh</td><td>PostToolUse Bash</td><td>COMMIT on <code>git commit</code>, PR on <code>gh pr create</code>, ACTION on <code>git push</code> (first match per command)</td><td>yes</td></tr>
+        <tr><td class="n">post-action-log.sh</td><td>PostToolUse Bash</td><td>COMMIT on <code>git commit</code>, PR on <code>gh pr create</code>, ACTION on <code>git push</code> (one COMMIT per <code>git commit</code> in the command; otherwise first match)</td><td>yes</td></tr>
         <tr><td class="n">post-log-reminder.sh</td><td>PostToolUse Bash, Agent</td><td>stdout <code>WARNING:</code> when the day's file is older than the threshold; self-logs a LEARNING</td><td>yes</td></tr>
         <tr><td class="n">post-edit-log-check.sh</td><td>PostToolUse Edit/Write/MultiEdit/NotebookEdit</td><td>stderr <code>LEDGER:</code> after N edits with no new entry</td><td>yes</td></tr>
         <tr><td class="n">post-write-clog.sh</td><td>PostToolUse Edit/Write/MultiEdit/NotebookEdit</td><td>CODE <code>auto: wrote &lt;path&gt;</code></td><td>yes</td></tr>
@@ -398,7 +398,7 @@ clog --help | clog -h        # first argument only</code></pre>
       <li><code>hooks/*.sh</code> — hook events and what they write · <code>config/rules.md</code> — type, family and kpi definitions</li>
       <li><code>docs/SCHEMA.md</code>, <code>config/config.yaml.example</code>, <code>README.md</code> — defaults and examples</li>
     </ul>
-    Known gaps are tracked in the CLI audit report (not in this repo): unknown flags ignored, <code>CLOG_DISABLE</code> without a config, hook git-dir fallback to <code>$HOME</code>, no automated tests.
+    Known gaps are tracked in the CLI audit report (not in this repo): no automated tests.
   </div>
 </main>
 

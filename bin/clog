@@ -108,6 +108,21 @@ VALIDATION=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --agent|--repo|--session|--model|--file|--family|--kpi|--date|--tags)
+      if [[ $# -lt 2 ]]; then
+        echo "clog: $1 needs a value" >&2
+        exit 1
+      fi
+      # A recognised flag in value position means the value is missing
+      case "$2" in
+        --agent|--repo|--session|--model|--file|--family|--kpi|--date|--tags|--echo)
+          echo "clog: $1 needs a value" >&2
+          exit 1
+          ;;
+      esac
+      ;;
+  esac
+  case "$1" in
     --agent)   AGENT="$2";   shift 2 ;;
     --repo)    REPO="$2";    shift 2 ;;
     --session) SESSION="$2"; shift 2 ;;
@@ -118,7 +133,8 @@ while [[ $# -gt 0 ]]; do
     --date)    DATE_OVERRIDE="$2"; shift 2 ;;
     --tags)    TAGS_FLAG="$2"; shift 2 ;;
     --echo)    ECHO=true; shift ;;
-    *) shift ;;
+    --*) echo "clog: unknown flag '$1'" >&2; exit 1 ;;
+    *)   echo "clog: unexpected argument '$1'" >&2; exit 1 ;;
   esac
 done
 
@@ -183,8 +199,12 @@ fi
 
 # Auto-commit log if enabled
 if [[ "${CLOG_AUTO_COMMIT_ENABLED:-false}" == "true" && -n "${CLOG_AUTO_COMMIT_REPO:-}" ]]; then
-  git -C "$CLOG_AUTO_COMMIT_REPO" add "$(realpath --relative-to="$CLOG_AUTO_COMMIT_REPO" "$LOG_DIR")" 2>/dev/null
-  git -C "$CLOG_AUTO_COMMIT_REPO" commit -m "${CLOG_AUTO_COMMIT_MSG:-docs(clog): auto-commit logs}" 2>/dev/null || true
+  # Absolute path: git resolves pathspecs against the repo, not our cwd.
+  ABS_LOG_DIR=$(cd "$LOG_DIR" && pwd -P) || ABS_LOG_DIR=""
+  # Pathspec-limited commit so files the user already staged are never swept in.
+  if [[ -n "$ABS_LOG_DIR" ]] && git -C "$CLOG_AUTO_COMMIT_REPO" add -- "$ABS_LOG_DIR" >/dev/null 2>&1; then
+    git -C "$CLOG_AUTO_COMMIT_REPO" commit -q -m "${CLOG_AUTO_COMMIT_MSG:-docs(clog): auto-commit logs}" -- "$ABS_LOG_DIR" >/dev/null 2>&1 || true
+  fi
 fi
 
 exit 0

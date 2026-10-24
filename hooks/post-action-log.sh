@@ -39,6 +39,11 @@ extract_git_dir() {
   [ -n "$dir" ] && { echo "${dir/#\~/$HOME}"; return; }
   dir=$(echo "$cmd" | grep -oE '(^|;)[[:space:]]*cd[[:space:]]+[^[:space:]]+' | head -1 | awk '{print $NF}')
   [ -n "$dir" ] && { echo "${dir/#\~/$HOME}"; return; }
+  # The hook's cwd is the project Claude Code is working in
+  if git -C "$PWD" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "$PWD"
+    return
+  fi
   echo "$HOME"
 }
 
@@ -49,9 +54,11 @@ SUMMARY=""
 
 if echo "$CMD" | grep -qE 'git[[:space:]]+commit'; then
   TYPE="COMMIT"
-  SUMMARY=$(echo "$CMD" | grep -oE -- '-m[[:space:]]+"[^"]+"' | head -1 | sed 's/-m[[:space:]]*"//;s/"$//')
-  if [ -z "$SUMMARY" ]; then
-    SUMMARY=$(echo "$CMD" | grep -oE -- "-m[[:space:]]+'[^']+'" | head -1 | sed "s/-m[[:space:]]*'//;s/'$//")
+  # First -m "…" or -m '…' in the command (a later -m is the same commit's body)
+  nl=$'\n' q="'"
+  msg_re="-m[[:space:]]+(\"([^\"${nl}]+)\"|${q}([^${q}${nl}]+)${q})"
+  if [[ $CMD =~ $msg_re ]]; then
+    SUMMARY="${BASH_REMATCH[2]}${BASH_REMATCH[3]}"
   fi
   if [ -z "$SUMMARY" ]; then
     SUMMARY=$(git -C "$GIT_DIR" log -1 --format=%s 2>/dev/null || echo "commit")
@@ -72,46 +79,53 @@ LOG_DIR="${CLOG_LOG_ROOT}/${CLOG_LOG_SUBDIR}"
 LOG_FILE="${LOG_DIR}/$(date +%Y%m%d).jsonl"
 mkdir -p "$LOG_DIR"
 
-if [[ -n "$CLOG_BIN_RESOLVED" && -x "$CLOG_BIN_RESOLVED" ]]; then
-  # Delegate to bin/clog
-  REPO_ARG=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-  COMMIT_ARG=""
-  [[ "$TYPE" == "COMMIT" ]] && COMMIT_ARG=$(git -C "$GIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
+# write_entry <summary> <commit-sha-or-empty>: append one entry of $TYPE.
+write_entry() {
+  local SUMMARY="$1" COMMIT_ARG="$2"
+  if [[ -n "$CLOG_BIN_RESOLVED" && -x "$CLOG_BIN_RESOLVED" ]]; then
+    # Delegate to bin/clog
+    REPO_ARG=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
 
-  "$CLOG_BIN_RESOLVED" "$TYPE" "$SUMMARY" ${REPO_ARG:+--repo "$REPO_ARG"} 2>/dev/null || true
+    "$CLOG_BIN_RESOLVED" "$TYPE" "$SUMMARY" ${REPO_ARG:+--repo "$REPO_ARG"} 2>/dev/null || true
 
-  # Append commit SHA inline when auto-logged via hook (bin/clog doesn't expose --commit)
-  if [[ -n "$COMMIT_ARG" && -f "$LOG_FILE" ]]; then
-    # Patch last line to add commit field
-    local_last=$(tail -1 "$LOG_FILE")
-    patched=$(echo "$local_last" | jq -c --arg c "$COMMIT_ARG" '. + {commit: $c}' 2>/dev/null)
-    if [[ -n "$patched" ]]; then
-      # Replace last line
-      tmp_file="${LOG_FILE}.tmp"
-      sed '$d' "$LOG_FILE" > "$tmp_file" 2>/dev/null || true
-      echo "$patched" >> "$tmp_file"
-      mv "$tmp_file" "$LOG_FILE"
+    # Append commit SHA inline when auto-logged via hook (bin/clog doesn't expose --commit)
+    if [[ -n "$COMMIT_ARG" && -f "$LOG_FILE" ]]; then
+      # Patch last line to add commit field
+      local_last=$(tail -1 "$LOG_FILE")
+      patched=$(printf '%s\n' "$local_last" | jq -c --arg c "$COMMIT_ARG" '. + {commit: $c}' 2>/dev/null)
+      if [[ -n "$patched" ]]; then
+        # Replace last line
+        tmp_file="${LOG_FILE}.tmp"
+        sed '$d' "$LOG_FILE" > "$tmp_file" 2>/dev/null || true
+        printf '%s\n' "$patched" >> "$tmp_file"
+        mv "$tmp_file" "$LOG_FILE"
+      fi
     fi
+  else
+    # Fallback: inline JSONL append using lib/jsonl.sh
+    # shellcheck source=../lib/jsonl.sh
+    . "${SCRIPT_DIR}/../lib/jsonl.sh"
+    REPO=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
+    ENTRY=$(build_entry "$TYPE" "$SUMMARY" "" "$REPO" "" "" "" "" "" "" "${CLOG_DEFAULT_TAGS:-}")
+    if [[ -n "$COMMIT_ARG" ]]; then
+      ENTRY=$(printf '%s\n' "$ENTRY" | jq -c --arg c "$COMMIT_ARG" '. + {commit: $c}')
+    fi
+    printf '%s\n' "$ENTRY" >> "$LOG_FILE"
   fi
-else
-  # Fallback: inline JSONL append using lib/jsonl.sh
-  # shellcheck source=../lib/jsonl.sh
-  . "${SCRIPT_DIR}/../lib/jsonl.sh"
-  REPO=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
-  COMMIT_SHA=""
-  [[ "$TYPE" == "COMMIT" ]] && COMMIT_SHA=$(git -C "$GIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
+}
 
-  ENTRY=$(build_entry "$TYPE" "$SUMMARY" "" "$REPO" "" "" "" "" "" "" "${CLOG_DEFAULT_TAGS:-}")
-  if [[ -n "$COMMIT_SHA" ]]; then
-    ENTRY=$(echo "$ENTRY" | jq --arg c "$COMMIT_SHA" '. + {commit: $c}')
-  fi
-  echo "$ENTRY" >> "$LOG_FILE"
-fi
+SHA=""
+[[ "$TYPE" == "COMMIT" ]] && SHA=$(git -C "$GIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
+write_entry "$SUMMARY" "$SHA"
 
 # Auto-commit log if enabled
 if [[ "${CLOG_AUTO_COMMIT_ENABLED:-false}" == "true" && -n "${CLOG_AUTO_COMMIT_REPO:-}" ]]; then
-  git -C "$CLOG_AUTO_COMMIT_REPO" add "$(realpath --relative-to="$CLOG_AUTO_COMMIT_REPO" "$LOG_DIR" 2>/dev/null || echo "logs")" 2>/dev/null
-  git -C "$CLOG_AUTO_COMMIT_REPO" commit -m "${CLOG_AUTO_COMMIT_MSG:-docs(clog): auto-commit logs}" 2>/dev/null || true
+  # Absolute path: git resolves pathspecs against the repo, not our cwd.
+  ABS_LOG_DIR=$(cd "$LOG_DIR" && pwd -P) || ABS_LOG_DIR=""
+  # Pathspec-limited commit so files the user already staged are never swept in.
+  if [[ -n "$ABS_LOG_DIR" ]] && git -C "$CLOG_AUTO_COMMIT_REPO" add -- "$ABS_LOG_DIR" >/dev/null 2>&1; then
+    git -C "$CLOG_AUTO_COMMIT_REPO" commit -q -m "${CLOG_AUTO_COMMIT_MSG:-docs(clog): auto-commit logs}" -- "$ABS_LOG_DIR" >/dev/null 2>&1 || true
+  fi
 fi
 
 exit 0
