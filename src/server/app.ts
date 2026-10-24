@@ -296,9 +296,9 @@ function hasTag(entry: Entry, tag: string): boolean {
 }
 
 /**
- * `CLOG_DISABLE=1` makes the CLI exit 0 without writing and the config loader
- * export nothing, so every guarded route answers 503 `disabled` once the config
- * file has been found (a missing config answers `no_config` first).
+ * `CLOG_DISABLE=1` makes the CLI exit 0 without writing, before it even looks
+ * for a config, so every guarded route answers 503 `disabled` first; a missing
+ * config only matters when logging is enabled.
  */
 function assertEnabled(): void {
   if (process.env['CLOG_DISABLE'] === '1') {
@@ -406,19 +406,15 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
   router.get('/docs', async (c) => c.html(await readDocsPage(clogBin, REFERENCE_PAGE)));
 
   router.get('/config', guard, async (c) => {
-    const config = await loadClogConfig(clogBin);
     assertEnabled();
-    return c.json(config, 200);
+    return c.json(await loadClogConfig(clogBin), 200);
   });
 
   router.post('/entries', guard, async (c) => {
     const request = await parseWriteRequest(c);
-    // The CLI would exit 0 without writing; there is no entry to return.
-    if (process.env['CLOG_DISABLE'] === '1') {
-      // A missing config is reported as no_config, as on the read routes.
-      await loadClogConfig(clogBin);
-      throw new HttpError(503, 'disabled', DISABLED_MESSAGE);
-    }
+    // The CLI exits 0 without writing (and without needing a config) under
+    // CLOG_DISABLE=1, so there is no entry to return: disabled wins over no_config.
+    assertEnabled();
     const args = [request.type, request.summary, ...request.flags, '--echo'];
     const run = await serialised(() => runClog(clogBin, args));
     // A child that printed its entry line and then failed (e.g. the auto-commit
@@ -442,8 +438,8 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
 
   router.get('/entries', guard, async (c) => {
     const query = parseReadQuery(c);
-    const config = await loadClogConfig(clogBin);
     assertEnabled();
+    const config = await loadClogConfig(clogBin);
     const file = path.join(readRootOf(config), logFileName(query.date));
 
     const { records, skipped } = await readEntries(file);
