@@ -20,7 +20,7 @@
 - [x] 2.11 `src/server/app.ts`: optional `tags: string[]` in the write body, passed as `--tags`; non-array, empty, comma or NUL items are 400 `invalid_field`.
 - [x] 2.12 `src/server/app.ts`: `GET /entries?tag=` keeps entries whose `tags` contains the value; empty `tag` is 400 `invalid_tag`.
 - [x] 2.13 `src/server/app.ts`: the write child's env drops `CLAUDE_CODE_SESSION_ID`, `CLAUDE_SESSION_ID`, `CODEX_SESSION_ID`, `CURSOR_SESSION_ID`, so `session` appears only when the body supplies it.
-- [x] 2.14 `src/server/app.ts`: under `CLOG_DISABLE=1`, `POST /entries` resolves the config first, so a missing config is 503 `no_config` on all three guarded routes.
+- [x] 2.14 `src/server/app.ts`: under `CLOG_DISABLE=1` all three guarded routes answer 503 `disabled` before the config is looked up, mirroring the CLI; `no_config` applies only when logging is enabled.
 - [x] 2.15 `src/server/app.ts`: an empty `GET /entries?date=` means today, as in the CLI and on POST.
 - [x] 2.16 `tests/server.test.ts`: `HEAD /health` is 200 with an empty body and `HEAD /nope` is 404.
 

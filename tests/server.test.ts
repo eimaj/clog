@@ -478,7 +478,7 @@ describe('POST /entries', () => {
     await expectError(await request('GET', '/entries?date=&date=2020-01-01'), 400, 'invalid_date');
   });
 
-  it('answers no_config on all three guarded routes under CLOG_DISABLE=1 with no config, disabled with one', async () => {
+  it('answers disabled on all three guarded routes under CLOG_DISABLE=1, with or without a config', async () => {
     process.env['CLOG_DISABLE'] = '1';
     const calls = (): Promise<Response>[] => [
       post({ type: 'ACTION', summary: 'x' }),
@@ -486,8 +486,9 @@ describe('POST /entries', () => {
       request('GET', '/config'),
     ];
     for (const res of await Promise.all(calls())) await expectError(res, 503, 'disabled');
+    // The CLI honours CLOG_DISABLE before it looks for a config, so the API does too.
     process.env['CLOG_CONFIG'] = path.join(tmp, 'missing.yaml');
-    for (const res of await Promise.all(calls())) await expectError(res, 503, 'no_config');
+    for (const res of await Promise.all(calls())) await expectError(res, 503, 'disabled');
   });
 
   it('answers 503 no_config with the CLI message when there is no config', async () => {
