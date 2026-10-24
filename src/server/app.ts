@@ -52,6 +52,19 @@ const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f-\u009f]/;
 const MAX_TAIL = 10_000;
 const SPAWN_TIMEOUT_MS = 10_000;
 const SPAWN_MAX_BUFFER = 1024 * 1024;
+// bin/clog falls back to these for `session`; a write must not inherit the launcher's.
+const SESSION_ENV_KEYS = [
+  'CLAUDE_CODE_SESSION_ID',
+  'CLAUDE_SESSION_ID',
+  'CODEX_SESSION_ID',
+  'CURSOR_SESSION_ID',
+];
+
+function childEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of SESSION_ENV_KEYS) delete env[key];
+  return env;
+}
 const MAX_BODY_BYTES = 64 * 1024;
 const DEMO_PAGE = 'demo.html';
 const REFERENCE_PAGE = 'index.html';
@@ -118,7 +131,7 @@ function runClog(clogBin: string, args: string[]): Promise<ClogRun> {
     execFile(
       clogBin,
       args,
-      { encoding: 'utf-8', timeout: SPAWN_TIMEOUT_MS, maxBuffer: SPAWN_MAX_BUFFER, env: process.env },
+      { encoding: 'utf-8', timeout: SPAWN_TIMEOUT_MS, maxBuffer: SPAWN_MAX_BUFFER, env: childEnv() },
       (error, stdout, stderr) => {
         if (error === null) {
           resolve({ exitCode: 0, stdout, stderr });
@@ -236,7 +249,10 @@ interface ReadQuery {
 }
 
 function parseReadQuery(c: Context): ReadQuery {
-  const date = c.req.query('date') ?? localDate();
+  // An empty `date` means today, as `--date ""` and POST `date: ""` do.
+  const dates = c.req.queries('date') ?? [];
+  if (dates.length > 1) throw new HttpError(400, 'invalid_date', 'date may be given once');
+  const date = dates[0] || localDate();
   if (!DATE_PATTERN.test(date)) throw invalidDate(date);
 
   const type = c.req.query('type');
@@ -277,6 +293,17 @@ function parseReadQuery(c: Context): ReadQuery {
 function hasTag(entry: Entry, tag: string): boolean {
   const tags = entry['tags'];
   return isStringArray(tags) && tags.includes(tag);
+}
+
+/**
+ * `CLOG_DISABLE=1` makes the CLI exit 0 without writing and the config loader
+ * export nothing, so every guarded route answers 503 `disabled` once the config
+ * file has been found (a missing config answers `no_config` first).
+ */
+function assertEnabled(): void {
+  if (process.env['CLOG_DISABLE'] === '1') {
+    throw new HttpError(503, 'disabled', DISABLED_MESSAGE);
+  }
 }
 
 function isEnoent(err: unknown): boolean {
@@ -378,12 +405,18 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
   router.get('/demo', async (c) => c.html(await readDocsPage(clogBin, DEMO_PAGE)));
   router.get('/docs', async (c) => c.html(await readDocsPage(clogBin, REFERENCE_PAGE)));
 
-  router.get('/config', guard, async (c) => c.json(await loadClogConfig(clogBin), 200));
+  router.get('/config', guard, async (c) => {
+    const config = await loadClogConfig(clogBin);
+    assertEnabled();
+    return c.json(config, 200);
+  });
 
   router.post('/entries', guard, async (c) => {
     const request = await parseWriteRequest(c);
     // The CLI would exit 0 without writing; there is no entry to return.
     if (process.env['CLOG_DISABLE'] === '1') {
+      // A missing config is reported as no_config, as on the read routes.
+      await loadClogConfig(clogBin);
       throw new HttpError(503, 'disabled', DISABLED_MESSAGE);
     }
     const args = [request.type, request.summary, ...request.flags, '--echo'];
@@ -410,6 +443,7 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
   router.get('/entries', guard, async (c) => {
     const query = parseReadQuery(c);
     const config = await loadClogConfig(clogBin);
+    assertEnabled();
     const file = path.join(readRootOf(config), logFileName(query.date));
 
     const { records, skipped } = await readEntries(file);

@@ -442,6 +442,54 @@ describe('POST /entries', () => {
     assert.equal(fs.existsSync(readRoot), false);
   });
 
+  for (const key of ['CLAUDE_CODE_SESSION_ID', 'CLAUDE_SESSION_ID', 'CODEX_SESSION_ID', 'CURSOR_SESSION_ID']) {
+    it(`does not inherit the launcher session from ${key}; session appears only when supplied`, async () => {
+      const saved = process.env[key];
+      process.env[key] = 'launcher';
+      try {
+        const bare = (await (await post({ type: 'ACTION', summary: 'x', date: '2026-01-03' })).json()) as Written;
+        assert.equal('session' in bare.entry, false);
+        const given = (await (
+          await post({ type: 'ACTION', summary: 'y', session: 's1', date: '2026-01-03' })
+        ).json()) as Written;
+        assert.equal(given.entry['session'], 's1');
+      } finally {
+        if (saved === undefined) delete process.env[key];
+        else process.env[key] = saved;
+      }
+    });
+  }
+
+  it('answers disabled on the read routes even when the log root comes from the environment', async () => {
+    process.env['CLOG_DISABLE'] = '1';
+    process.env['CLOG_LOG_ROOT'] = path.dirname(readRoot);
+    process.env['CLOG_LOG_SUBDIR'] = path.basename(readRoot);
+    try {
+      await expectError(await request('GET', '/config'), 503, 'disabled');
+      await expectError(await request('GET', '/entries'), 503, 'disabled');
+    } finally {
+      delete process.env['CLOG_DISABLE'];
+      delete process.env['CLOG_LOG_ROOT'];
+      delete process.env['CLOG_LOG_SUBDIR'];
+    }
+  });
+
+  it('rejects a repeated date query parameter', async () => {
+    await expectError(await request('GET', '/entries?date=&date=2020-01-01'), 400, 'invalid_date');
+  });
+
+  it('answers no_config on all three guarded routes under CLOG_DISABLE=1 with no config, disabled with one', async () => {
+    process.env['CLOG_DISABLE'] = '1';
+    const calls = (): Promise<Response>[] => [
+      post({ type: 'ACTION', summary: 'x' }),
+      request('GET', '/entries'),
+      request('GET', '/config'),
+    ];
+    for (const res of await Promise.all(calls())) await expectError(res, 503, 'disabled');
+    process.env['CLOG_CONFIG'] = path.join(tmp, 'missing.yaml');
+    for (const res of await Promise.all(calls())) await expectError(res, 503, 'no_config');
+  });
+
   it('answers 503 no_config with the CLI message when there is no config', async () => {
     process.env['CLOG_CONFIG'] = path.join(tmp, 'missing.yaml');
     const err = await expectError(await post({ type: 'ACTION', summary: 'x' }), 503, 'no_config');
@@ -657,6 +705,14 @@ describe('GET /entries', () => {
     assert.equal((await list('?tail=10000')).status, 200);
   });
 
+  it('treats an empty date as today', async () => {
+    const res = await list('?date=');
+    assert.equal(res.status, 200);
+    const listed = (await res.json()) as Listed;
+    assert.equal(listed.date, today);
+    assert.equal(listed.entries.length, 4);
+  });
+
   it('answers 503 no_config when there is no config', async () => {
     process.env['CLOG_CONFIG'] = path.join(tmp, 'missing.yaml');
     await expectError(await list(), 503, 'no_config');
@@ -813,6 +869,18 @@ describe('errors and mounting', () => {
     assert.equal(err.error.message, 'no route for DELETE /entries');
   });
 
+  it('answers HEAD on a GET route like GET without a body, and HEAD on an unknown route with 404', async () => {
+    const head = await request('HEAD', '/health');
+    assert.equal(head.status, 200);
+    assert.equal(await head.text(), '');
+    assert.equal((await request('HEAD', '/nope')).status, 404);
+    for (const route of ['/config', '/entries']) {
+      const guarded = await request('HEAD', route);
+      assert.equal(guarded.status, 200, route);
+      assert.equal(await guarded.text(), '');
+    }
+  });
+
   it('works when the router is mounted under a prefix', async () => {
     const host = new Hono();
     host.route('/clog', createClogRouter());
@@ -829,12 +897,12 @@ describe('tags', () => {
   it('merges body tags after the default tags, trimmed and deduplicated, like bin/clog', async () => {
     process.env['CLOG_DEFAULT_TAGS'] = 'jbook';
     try {
-      const res = await post({ type: 'ACTION', summary: 'tags', tags: ['release', ' jbook ', 'web', 'release'], date: '2026-01-05' });
+      const res = await post({ type: 'ACTION', summary: 'tags', tags: ['release', ' jbook ', 'web', 'release'], session: 's1', date: '2026-01-05' });
       assert.equal(res.status, 201);
       const written = (await res.json()) as Written;
       assert.deepEqual(written.entry['tags'], ['jbook', 'release', 'web']);
 
-      execFileSync(CLOG_BIN, ['ACTION', 'tags', '--tags', 'release, jbook ,web,release', '--date', '2026-01-06'], { env: process.env });
+      execFileSync(CLOG_BIN, ['ACTION', 'tags', '--tags', 'release, jbook ,web,release', '--session', 's1', '--date', '2026-01-06'], { env: process.env });
       const cliLine = lastLine(path.join(readRoot, '20260106.jsonl'));
       assert.equal(withoutTime(lastLine(written.file)), withoutTime(cliLine));
     } finally {
