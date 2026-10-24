@@ -91,19 +91,27 @@ The CLI SHALL accept `--agent NAME`, `--repo NAME`, `--session ID`, `--model NAM
 - **THEN** the entry's `tags` is `["a","b"]`
 
 ### Requirement: Unrecognised arguments
-Any argument after the two positionals that is not a recognised flag SHALL be dropped silently, one token at a time, so an unknown flag's value is parsed as the next argument. Extra positionals SHALL be dropped the same way. A recognised flag given as the final argument with no value SHALL exit 1 with a bash `unbound variable` error.
+After the two positionals, the CLI SHALL reject an unrecognised `--` argument, an extra positional, a recognised value flag given as the final argument, and a recognised value flag followed by another recognised flag name (`--agent`, `--repo`, `--session`, `--model`, `--file`, `--family`, `--kpi`, `--date`, `--tags`, `--echo`) instead of a value, each with exit 1 and a single stderr line, before anything is written.
 
 #### Scenario: Unknown flag
 - **WHEN** the user runs `clog ACTION "x" --bogus --repo r`
-- **THEN** the entry is appended with `repo` `r` and no field for `bogus`, nothing is printed and the exit code is 0
+- **THEN** stderr is `clog: unknown flag '--bogus'`, the exit code is 1 and nothing is written
 
-#### Scenario: Unquoted summary
+#### Scenario: Extra positional
 - **WHEN** the user runs `clog ACTION deploy to staging`
-- **THEN** the entry's `summary` is `deploy` and the words `to staging` are dropped silently
+- **THEN** stderr is `clog: unexpected argument 'to'`, the exit code is 1 and nothing is written
 
 #### Scenario: Flag without a value
 - **WHEN** the user runs `clog ACTION "x" --repo`
-- **THEN** stderr contains `$2: unbound variable`, the exit code is 1 and nothing is written
+- **THEN** stderr is `clog: --repo needs a value`, the exit code is 1 and nothing is written
+
+#### Scenario: Flag followed by a flag
+- **WHEN** the user runs `clog ACTION "x" --repo --echo`
+- **THEN** stderr is `clog: --repo needs a value`, the exit code is 1 and nothing is written
+
+#### Scenario: Value that merely starts with dashes
+- **WHEN** the user runs `clog ACTION "x" --repo --not-a-flag --echo`
+- **THEN** the entry's `repo` is `--not-a-flag` and the entry is echoed
 
 ### Requirement: Repo autodetection
 When `--repo` is omitted, `repo` SHALL be the basename of `git rev-parse --show-toplevel` run from the current directory. Outside a git repository the field SHALL be omitted.
@@ -165,7 +173,7 @@ On success the CLI SHALL print nothing to stdout or stderr and SHALL exit 0.
 - **THEN** stdout and stderr are empty, the exit code is 0 and one line was appended
 
 ### Requirement: Disable switch
-When `CLOG_DISABLE` is exactly `1` and a config file is found, the CLI SHALL exit 0 without writing, for any arguments. Other values of `CLOG_DISABLE` SHALL have no effect. The config file SHALL be located before the switch is honoured.
+When `CLOG_DISABLE` is exactly `1`, the CLI SHALL exit 0 without writing or printing anything, for any arguments, whether or not a config file exists. Other values of `CLOG_DISABLE` SHALL have no effect.
 
 #### Scenario: Disabled
 - **WHEN** `CLOG_DISABLE=1` and the user runs `clog ACTION "x"`
@@ -173,14 +181,14 @@ When `CLOG_DISABLE` is exactly `1` and a config file is found, the CLI SHALL exi
 
 #### Scenario: Disabled but no config
 - **WHEN** `CLOG_DISABLE=1` and `CLOG_CONFIG` points at a missing file
-- **THEN** stderr is `clog: no config at <path>. Run setup.sh to create one.` and the exit code is 1
+- **THEN** nothing is written, nothing is printed and the exit code is 0
 
 #### Scenario: Other truthy value
 - **WHEN** `CLOG_DISABLE=true` and the user runs `clog ACTION "x"`
 - **THEN** the entry is written
 
 ### Requirement: Missing config
-When the config file does not exist, the CLI SHALL print `clog: no config at <path>. Run setup.sh to create one.` to stderr and exit 1 before reading any argument other than `--help`/`-h`.
+When the config file does not exist and `CLOG_DISABLE` is not `1`, the CLI SHALL print `clog: no config at <path>. Run setup.sh to create one.` to stderr and exit 1 before reading any argument other than `--help`/`-h`.
 
 #### Scenario: No config
 - **WHEN** `CLOG_CONFIG=/nonexistent/cfg.yaml` and the user runs `clog ACTION "x"`
@@ -201,15 +209,35 @@ When `jq` is not on PATH, the CLI SHALL fail with exit 127 and `jq: command not 
 - **THEN** the exit code is 127
 
 ### Requirement: Auto-commit
-When `auto_commit.enabled` resolves to `true` and `auto_commit.repo_root` is non-empty, the CLI SHALL, after appending the entry, run `git add` on the log directory relative to `repo_root` (computed with GNU `realpath --relative-to`) and then `git commit` with `auto_commit.message`. A failing `git commit` SHALL be ignored. The entry SHALL remain on disk whatever the outcome.
+When `auto_commit.enabled` resolves to `true` and `auto_commit.repo_root` is non-empty, the CLI SHALL, after appending the entry, run `git -C <repo_root> add -- <log directory>` and then `git commit -m <auto_commit.message> -- <log directory>`, so files the user already staged are not committed. The log directory SHALL be resolved to an absolute path first (a relative `log_root` is relative to the CLI's working directory), and the commit SHALL be skipped when `git add` fails.
 
 #### Scenario: Disabled by default
 - **WHEN** the config leaves `auto_commit.enabled` at `false`
 - **THEN** no git command runs after the entry is appended
 
-### Requirement: Auto-commit without GNU realpath
-A failing `realpath` or `git add` during auto-commit SHALL abort the CLI with that command's exit status after the entry has been written. On macOS `realpath` lacks `--relative-to`, so the exit status is 128 and no commit is made.
+#### Scenario: Scoped commit
+- **WHEN** auto-commit is enabled and another file is already staged in `repo_root`
+- **THEN** the new commit contains only the log file and the other file stays staged
+
+#### Scenario: Log directory outside the repository
+- **WHEN** auto-commit is enabled and the log directory is outside `repo_root`
+- **THEN** `git add` fails, no commit is made and the exit code is 0
+
+#### Scenario: Relative log root
+- **WHEN** auto-commit is enabled and `log_root` is a relative path inside `repo_root`
+- **THEN** the log file is committed
+
+#### Scenario: Nothing printed
+- **WHEN** auto-commit is enabled and `--echo` is given
+- **THEN** standard output is exactly the entry line
+
+### Requirement: Auto-commit failures do not fail the CLI
+A failing `git add` or `git commit` during auto-commit SHALL NOT change the CLI's outcome: the entry is already written and remains on disk, the exit status is 0 and nothing is printed, because both commands' stdout and stderr are discarded. The CLI SHALL NOT depend on GNU `realpath`.
 
 #### Scenario: Enabled on macOS
-- **WHEN** auto-commit is enabled on a system whose `realpath` rejects `--relative-to`
-- **THEN** the entry is written, stderr contains `realpath: illegal option`, the exit code is 128 and no commit is made
+- **WHEN** auto-commit is enabled with `repo_root` set to a git repository containing the log directory, on macOS
+- **THEN** the entry is written, the exit code is 0 and a commit containing the log file exists
+
+#### Scenario: Git failure
+- **WHEN** auto-commit is enabled and `repo_root` is not a git repository
+- **THEN** the entry is written, the exit code is 0 and nothing is printed
