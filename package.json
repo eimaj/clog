@@ -6,7 +6,7 @@
   "description": "Structured JSONL session logging; local HTTP API",
   "scripts": {
     "build": "tsc -p .",
-    "typecheck": "tsc --noEmit -p .",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.test.json",
     "lint": "eslint .",
     "test": "node --test \"tests/**/*.test.ts\"",
     "check:cli": "bash tests/cli/run.sh",
