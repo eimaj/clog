@@ -67,7 +67,7 @@ expect_json() {
 
 # ---- scratch environment ----------------------------------------------------
 new_env() {
-  T=$(mktemp -d "${TMPDIR:-/tmp}/clog-cli.XXXXXX") || exit 2
+  T=$(mktemp -d "${TMPDIR:-/tmp}/clog-cli.XXXXXX") || { echo "FAIL: mktemp"; exit 2; }
   T=$(cd "$T" && pwd -P)
   mkdir -p "$T/home" "$T/tmp" "$T/work"
   RUNDIR=$T/work ENVX=() EXTRA=() STDIN=""
@@ -1155,13 +1155,19 @@ c_hooks__agent_fallback_new_day() {
 # runner
 # ============================================================================
 CASES=$(grep -oE '^c_[A-Za-z0-9_]+\(\)' "$SELF" | tr -d '()')
-RESDIR=$(mktemp -d "${TMPDIR:-/tmp}/clog-cli-res.XXXXXX")
+RESDIR=$(mktemp -d "${TMPDIR:-/tmp}/clog-cli-res.XXXXXX") || { echo "FAIL: mktemp"; exit 2; }
 PASSED=0 FAILED=0 SKIPPED=0
 for fn in $CASES; do
   name=${fn#c_}; name=${name/__//}
   [[ -z ${1:-} || $name == *"$1"* ]] || continue
-  ( FN=$fn; new_env; trap cleanup EXIT; "$fn" )
-  if [[ -f $RESDIR/$fn.fail ]]; then
+  # The explicit `exit 0` keeps a case's last assertion status out of the result;
+  # only new_env's `exit 2` (or a crash) surfaces as a non-zero case status.
+  ( FN=$fn; new_env; trap cleanup EXIT; "$fn"; exit 0 )
+  rc=$?
+  if [[ $rc -ne 0 ]]; then
+    printf 'FAIL %s: case exited %d\n' "$name" "$rc"
+    FAILED=$((FAILED + 1))
+  elif [[ -f $RESDIR/$fn.fail ]]; then
     printf 'FAIL %s: %s\n' "$name" "$(paste -sd'|' "$RESDIR/$fn.fail")"
     FAILED=$((FAILED + 1))
   elif [[ -f $RESDIR/$fn.skip ]]; then
@@ -1173,6 +1179,10 @@ for fn in $CASES; do
   fi
 done
 find "$RESDIR" -depth -delete 2>/dev/null
+if (( PASSED + FAILED + SKIPPED == 0 )); then
+  printf "FAIL: no case matches '%s'\n" "${1:-}"
+  exit 1
+fi
 [[ $SKIPPED -eq 0 ]] || printf '%d skipped\n' "$SKIPPED"
 printf '%d passed, %d failed\n' "$PASSED" "$FAILED"
 [[ $FAILED -eq 0 ]]
