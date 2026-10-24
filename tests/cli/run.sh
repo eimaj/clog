@@ -15,13 +15,23 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0
 export GIT_AUTHOR_NAME=clog-test GIT_AUTHOR_EMAIL=t@example.invalid
 export GIT_COMMITTER_NAME=clog-test GIT_COMMITTER_EMAIL=t@example.invalid
 
-# PATH variants. TPATH has jq but no yq and no clog, so the fallback parser runs
+# PATH variants, each a scratch dir of symlinks to the tools clog needs, so no
+# machine-wide directory (e.g. /opt/homebrew/bin, which holds jq and yq side by
+# side) leaks yq or clog in. TPATH has no yq and no clog: the fallback parser runs
 # and hooks resolve ../bin/clog. YQPATH adds yq for the parity cases.
-TPATH=/usr/bin:/bin:/usr/sbin:/sbin
-PATH=$TPATH command -v jq >/dev/null 2>&1 || TPATH=$TPATH:$(dirname "$(command -v jq)")
-HAVE_YQ=0 YQPATH=$TPATH
-if command -v yq >/dev/null 2>&1 && ! PATH=$TPATH command -v yq >/dev/null 2>&1; then
-  HAVE_YQ=1 YQPATH=$TPATH:$(dirname "$(command -v yq)")
+TOOLS=(bash jq git cat date sed awk grep tr head tail mktemp dirname basename env printf
+  touch stat wc cut sort mkdir readlink mv which)
+TOOLDIR=$(mktemp -d "${TMPDIR:-/tmp}/clog-cli-tools.XXXXXX") || { echo "FAIL: mktemp"; exit 2; }
+trap 'find "$TOOLDIR" -depth -delete 2>/dev/null' EXIT
+TPATH=$TOOLDIR/plain YQPATH=$TOOLDIR/yq HAVE_YQ=0
+mkdir -p "$TPATH" "$YQPATH"
+for t in "${TOOLS[@]}"; do
+  d=$(type -P "$t") || { echo "FAIL: required tool '$t' not found on PATH"; exit 2; }
+  ln -s "$d" "$TPATH/$t" && ln -s "$d" "$YQPATH/$t" || { echo "FAIL: cannot link '$t'"; exit 2; }
+done
+if d=$(type -P yq); then
+  HAVE_YQ=1
+  ln -s "$d" "$YQPATH/yq"
 fi
 VARIANTS=("$TPATH")
 [[ $HAVE_YQ == 1 ]] && VARIANTS+=("$YQPATH")
@@ -107,7 +117,7 @@ dumpv() {
   ENVX=(PATH="$p" CLOG_CONFIG="$cfg" ${EXTRA[@]+"${EXTRA[@]}"})
   run bash -c '. "$1/lib/config.sh"; shift; load_config "$@"; rc=$?; env | grep "^CLOG_" | sort; exit $rc' _ "$REPO" "$@"
 }
-fallback_ok() { [[ $HAVE_YQ == 1 || $TPATH == /usr/bin:/bin:/usr/sbin:/sbin ]] || { skip "no PATH without yq"; return 1; }; }
+fallback_ok() { :; }  # TPATH never contains yq, so the fallback parser always runs
 need_yq() { [[ $HAVE_YQ == 1 ]] || { skip "yq not installed"; return 1; }; }
 # ac_cfg <repo_root> <log_root>: enable auto-commit.
 ac_cfg() {
