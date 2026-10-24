@@ -6,10 +6,11 @@
   "description": "Structured JSONL session logging; local HTTP API",
   "scripts": {
     "build": "tsc -p .",
-    "typecheck": "tsc --noEmit -p .",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.test.json",
     "lint": "eslint .",
     "test": "node --test \"tests/**/*.test.ts\"",
-    "check": "npm run lint && npm run typecheck && npm test",
+    "check:cli": "bash tests/cli/run.sh",
+    "check": "npm run lint && npm run typecheck && npm test && npm run check:cli",
     "serve": "node dist/server/serve.js"
   },
   "dependencies": {

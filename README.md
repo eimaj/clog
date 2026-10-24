@@ -272,7 +272,7 @@ The server prints two lines, `clog API listening on http://127.0.0.1:<port>` and
 
 **Mounting:** `createClogRouter({ clogBin?, token? })` from `src/server/app.ts` returns a Hono router with relative routes, so another Hono app can mount it, e.g. `app.route('/clog', createClogRouter({ token }))`. `createClogRouter` carries no Host/CORS/body-limit guards; pass `token` to require bearer auth; the mounting app owns the rest.
 
-**Development:** `clog serve` runs `dist/`, which goes stale after `src/` edits until you run `npm run build`. `npm run check` runs lint, typecheck and the tests; tests use a scratch config and never touch your real log root.
+**Development:** `clog serve` runs `dist/`, which goes stale after `src/` edits until you run `npm run build`. `npm run check` runs lint, typecheck (`src` and `tests`), the node tests, then the bash CLI harness (`npm run check:cli`, see `tests/cli/README.md`); every test uses a scratch config and never touches your real log root.
 
 ---
 

@@ -81,6 +81,14 @@ function freePort(): Promise<number> {
   });
 }
 
+function onPath(tool: string): string {
+  for (const dir of (process.env['PATH'] ?? '').split(path.delimiter)) {
+    const candidate = path.join(dir, tool);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  throw new Error(`${tool} not found on PATH`);
+}
+
 function nonLoopbackAddress(): string | undefined {
   return Object.values(os.networkInterfaces())
     .flat()
@@ -262,6 +270,28 @@ describe('clog serve', () => {
       result.stdout,
       'Usage: clog serve [--port N]   (default 127.0.0.1:4848; prints the API token on start)\n',
     );
+  });
+
+  it('exits 1 with a message when node is not on PATH', () => {
+    // dirname is needed too: bin/clog resolves its own directory before the node check
+    const bin = path.join(tmp, 'no-node-bin');
+    fs.mkdirSync(bin);
+    for (const tool of ['bash', 'jq', 'cat', 'dirname']) fs.symlinkSync(onPath(tool), path.join(bin, tool));
+    const result = spawnSync(CLOG_BIN, ['serve'], { env: { ...env, PATH: bin }, encoding: 'utf-8' });
+    assert.equal(result.status, 1);
+    assert.equal(result.stderr, "clog: node is required for 'clog serve'\n");
+    assert.equal(result.stdout, '');
+  });
+
+  it('exits 1 with a message when dist/ has not been built', () => {
+    const copy = path.join(tmp, 'no-dist');
+    for (const dir of ['bin', 'lib', 'config']) {
+      fs.cpSync(path.join(REPO_ROOT, dir), path.join(copy, dir), { recursive: true });
+    }
+    const result = spawnSync(path.join(copy, 'bin', 'clog'), ['serve'], { env, encoding: 'utf-8' });
+    assert.equal(result.status, 1);
+    assert.equal(result.stderr, "clog: run 'npm run build' first\n");
+    assert.equal(result.stdout, '');
   });
 
   it('lists serve in --help', () => {

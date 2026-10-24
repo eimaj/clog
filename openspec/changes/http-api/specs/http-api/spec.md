@@ -143,7 +143,7 @@ CLI stderr starting `clog: unknown type`, `clog: invalid --date` or `clog: missi
 - **THEN** the status is 400, `error.code` is `invalid_date` and no file is created outside the read root
 
 ### Requirement: Write timeout
-A `bin/clog` child that runs longer than 10 seconds SHALL be killed and answered with 500 `clog_timeout`.
+A `bin/clog` child that runs longer than 10 seconds SHALL be killed and answered with 500 `clog_timeout`, and the server SHALL kill the CLI's whole process group so a hung grandchild cannot hold the response.
 
 #### Scenario: Stuck child
 - **WHEN** the spawned CLI does not exit within 10 seconds

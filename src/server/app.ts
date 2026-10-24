@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { timingSafeEqual } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -27,6 +27,11 @@ export interface ClogRouterOptions {
    * never need it. An empty string is rejected at construction.
    */
   token?: string;
+  /**
+   * How long a `POST /entries` spawn may run before it is killed and answered
+   * 500 `clog_timeout`. Defaults to 10 seconds; tests lower it.
+   */
+  spawnTimeoutMs?: number;
 }
 
 export type Entry = Record<string, unknown>;
@@ -126,24 +131,81 @@ interface ClogRun {
   stderr: string;
 }
 
-function runClog(clogBin: string, args: string[]): Promise<ClogRun> {
+/** How long a timed-out group gets to honour SIGTERM before SIGKILL. */
+const KILL_GRACE_MS = 200;
+
+function killGroup(pid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(-pid, signal);
+  } catch (error) {
+    // ESRCH: the whole group already exited, which is what we wanted.
+    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+  }
+}
+
+function runClog(clogBin: string, args: string[], timeoutMs: number): Promise<ClogRun> {
   return new Promise((resolve, reject) => {
-    execFile(
-      clogBin,
-      args,
-      { encoding: 'utf-8', timeout: SPAWN_TIMEOUT_MS, maxBuffer: SPAWN_MAX_BUFFER, env: childEnv() },
-      (error, stdout, stderr) => {
-        if (error === null) {
-          resolve({ exitCode: 0, stdout, stderr });
-        } else if (error.killed === true) {
-          reject(new HttpError(500, 'clog_timeout', 'clog: timed out after 10s'));
-        } else if (typeof error.code === 'number') {
-          resolve({ exitCode: error.code, stdout, stderr });
-        } else {
-          reject(new HttpError(500, 'clog_failed', `clog: cannot run ${clogBin}: ${error.message}`));
+    let timedOut = false;
+    let settled = false;
+    let killTimer: NodeJS.Timeout | undefined;
+    const fail = (message: string): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearTimeout(killTimer);
+      reject(new HttpError(500, 'clog_failed', `clog: cannot run ${clogBin}: ${message}`));
+    };
+    // detached (execFile ignores it, so spawn): the child leads its own process
+    // group, so a timeout can kill grandchildren (git, jq) that would otherwise
+    // keep the pipes open and delay 'close' until they exit on their own.
+    // stdin is /dev/null: bin/clog reads none.
+    const child = spawn(clogBin, args, {
+      detached: true,
+      env: childEnv(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const chunks: Record<'stdout' | 'stderr', Buffer[]> = { stdout: [], stderr: [] };
+    const sizes = { stdout: 0, stderr: 0 };
+    for (const name of ['stdout', 'stderr'] as const) {
+      child[name].on('data', (chunk: Buffer) => {
+        sizes[name] += chunk.length;
+        if (sizes[name] > SPAWN_MAX_BUFFER) {
+          if (child.pid !== undefined) killGroup(child.pid, 'SIGKILL');
+          fail(`${name} maxBuffer length exceeded`);
+          return;
         }
-      },
-    );
+        chunks[name].push(chunk);
+      });
+    }
+    child.on('error', (error) => {
+      fail(error.message);
+    });
+    child.on('close', (code, signal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearTimeout(killTimer);
+      if (timedOut) {
+        reject(new HttpError(500, 'clog_timeout', `clog: timed out after ${timeoutMs / 1000}s`));
+      } else if (code === null) {
+        reject(new HttpError(500, 'clog_failed', `clog: cannot run ${clogBin}: terminated by ${signal}`));
+      } else {
+        resolve({
+          exitCode: code,
+          stdout: Buffer.concat(chunks.stdout).toString('utf-8'),
+          stderr: Buffer.concat(chunks.stderr).toString('utf-8'),
+        });
+      }
+    });
+    const timer = setTimeout(() => {
+      timedOut = true;
+      const pid = child.pid;
+      if (pid === undefined) return;
+      killGroup(pid, 'SIGTERM');
+      killTimer = setTimeout(() => {
+        killGroup(pid, 'SIGKILL');
+      }, KILL_GRACE_MS);
+    }, timeoutMs);
   });
 }
 
@@ -375,6 +437,7 @@ export const errorHandler = (err: Error, c: Context): Response => {
 export function createClogRouter(options: ClogRouterOptions = {}): Hono {
   const clogBin = path.resolve(options.clogBin ?? DEFAULT_CLOG_BIN);
   const { token } = options;
+  const spawnTimeoutMs = options.spawnTimeoutMs ?? SPAWN_TIMEOUT_MS;
   if (token === '') throw new Error('createClogRouter: token must not be empty');
   const router = new Hono();
 
@@ -416,7 +479,7 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
     // CLOG_DISABLE=1, so there is no entry to return: disabled wins over no_config.
     assertEnabled();
     const args = [request.type, request.summary, ...request.flags, '--echo'];
-    const run = await serialised(() => runClog(clogBin, args));
+    const run = await serialised(() => runClog(clogBin, args, spawnTimeoutMs));
     // A child that printed its entry line and then failed (e.g. the auto-commit
     // step) did write the entry: report 201 with the first stderr line as a warning.
     let warning: string | undefined;

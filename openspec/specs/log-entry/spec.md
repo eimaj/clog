@@ -24,8 +24,8 @@ Each entry SHALL be a single-line JSON object terminated by a newline, produced 
 Every entry SHALL contain `time` (string `HH:MM:SS`, local wall-clock at write), `type` (one of the nine types) and `summary` (string), in that order, as the first three keys.
 
 #### Scenario: Minimal entry
-- **WHEN** the user runs `clog FOLLOWUP "investigate hooks API"` outside a git repo with no session variable set
-- **THEN** the line is `{"time":"HH:MM:SS","type":"FOLLOWUP","summary":"investigate hooks API"}` with no other keys
+- **WHEN** the user runs `clog FOLLOWUP "investigate hooks API"` outside a git repo with no session variable set, appending to a day file that already exists
+- **THEN** the line is `{"time":"HH:MM:SS","type":"FOLLOWUP","summary":"investigate hooks API"}` with no other keys (on a fresh day file the same entry also carries `"clog_version":"1.0"`)
 
 ### Requirement: Optional fields and key order
 After the required fields the entry SHALL contain, in this order and only when non-empty: `agent`, `repo`, `session`, `model`, `file`, `family`, `kpi`, `clog_version`, `tags`, then `validation` when set by the CLI. The hook `post-action-log.sh` MAY append `commit` after all of these. Empty string values SHALL be omitted, never written as `""` or `null`.
