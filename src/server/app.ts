@@ -27,6 +27,11 @@ export interface ClogRouterOptions {
    * never need it. An empty string is rejected at construction.
    */
   token?: string;
+  /**
+   * How long a `POST /entries` spawn may run before it is killed and answered
+   * 500 `clog_timeout`. Defaults to 10 seconds; tests lower it.
+   */
+  spawnTimeoutMs?: number;
 }
 
 export type Entry = Record<string, unknown>;
@@ -126,17 +131,17 @@ interface ClogRun {
   stderr: string;
 }
 
-function runClog(clogBin: string, args: string[]): Promise<ClogRun> {
+function runClog(clogBin: string, args: string[], timeoutMs: number): Promise<ClogRun> {
   return new Promise((resolve, reject) => {
     execFile(
       clogBin,
       args,
-      { encoding: 'utf-8', timeout: SPAWN_TIMEOUT_MS, maxBuffer: SPAWN_MAX_BUFFER, env: childEnv() },
+      { encoding: 'utf-8', timeout: timeoutMs, maxBuffer: SPAWN_MAX_BUFFER, env: childEnv() },
       (error, stdout, stderr) => {
         if (error === null) {
           resolve({ exitCode: 0, stdout, stderr });
         } else if (error.killed === true) {
-          reject(new HttpError(500, 'clog_timeout', 'clog: timed out after 10s'));
+          reject(new HttpError(500, 'clog_timeout', `clog: timed out after ${timeoutMs / 1000}s`));
         } else if (typeof error.code === 'number') {
           resolve({ exitCode: error.code, stdout, stderr });
         } else {
@@ -375,6 +380,7 @@ export const errorHandler = (err: Error, c: Context): Response => {
 export function createClogRouter(options: ClogRouterOptions = {}): Hono {
   const clogBin = path.resolve(options.clogBin ?? DEFAULT_CLOG_BIN);
   const { token } = options;
+  const spawnTimeoutMs = options.spawnTimeoutMs ?? SPAWN_TIMEOUT_MS;
   if (token === '') throw new Error('createClogRouter: token must not be empty');
   const router = new Hono();
 
@@ -416,7 +422,7 @@ export function createClogRouter(options: ClogRouterOptions = {}): Hono {
     // CLOG_DISABLE=1, so there is no entry to return: disabled wins over no_config.
     assertEnabled();
     const args = [request.type, request.summary, ...request.flags, '--echo'];
-    const run = await serialised(() => runClog(clogBin, args));
+    const run = await serialised(() => runClog(clogBin, args, spawnTimeoutMs));
     // A child that printed its entry line and then failed (e.g. the auto-commit
     // step) did write the entry: report 201 with the first stderr line as a warning.
     let warning: string | undefined;

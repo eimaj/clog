@@ -581,6 +581,25 @@ rmdir "${lock}"`,
       await expectError(res, 503, 'disabled');
     });
 
+    it('kills a child that outlives spawnTimeoutMs and maps it to 500 clog_timeout', async () => {
+      const pidFile = path.join(tmp, 'timeout.pid');
+      const root = path.join(tmp, 'fake-timeout');
+      fs.mkdirSync(path.join(root, 'bin'), { recursive: true });
+      fs.symlinkSync(path.join(REPO_ROOT, 'lib'), path.join(root, 'lib'));
+      const bin = path.join(root, 'bin', 'clog');
+      // exec keeps the recorded pid the one execFile kills (no orphaned sleep)
+      fs.writeFileSync(bin, `#!/usr/bin/env bash\necho $$ > "${pidFile}"\nexec sleep 2\n`, { mode: 0o755 });
+      const res = await send(createApp({ clogBin: bin, spawnTimeoutMs: 200 }), 'POST', '/entries', {
+        type: 'ACTION',
+        summary: 'x',
+      });
+      const err = await expectError(res, 500, 'clog_timeout');
+      assert.equal(err.error.message, 'clog: timed out after 0.2s');
+      const pid = Number(fs.readFileSync(pidFile, 'utf-8').trim());
+      assert.ok(pid > 0);
+      assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+    });
+
     it('maps a missing binary to 500 clog_failed', async () => {
       const res = await send(createApp({ clogBin: path.join(tmp, 'absent') }), 'POST', '/entries', {
         type: 'ACTION',
