@@ -601,6 +601,36 @@ rmdir "${lock}"`,
       assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
     });
 
+    it('kills the whole process group on timeout, so a hung grandchild cannot hold the response', async () => {
+      const pidFile = path.join(tmp, 'group.pids');
+      const root = path.join(tmp, 'fake-group');
+      fs.mkdirSync(path.join(root, 'bin'), { recursive: true });
+      fs.symlinkSync(path.join(REPO_ROOT, 'lib'), path.join(root, 'lib'));
+      const bin = path.join(root, 'bin', 'clog');
+      // No exec: sleep is a grandchild holding the stdout pipe. Ignoring SIGTERM
+      // (inherited by sleep) forces the SIGKILL escalation.
+      fs.writeFileSync(
+        bin,
+        `#!/usr/bin/env bash\ntrap '' TERM\nsleep 30 &\necho "$$ $!" > "${pidFile}"\nwait\n`,
+        { mode: 0o755 },
+      );
+      const spawnTimeoutMs = 1000;
+      const started = Date.now();
+      const res = await send(createApp({ clogBin: bin, spawnTimeoutMs }), 'POST', '/entries', {
+        type: 'ACTION',
+        summary: 'x',
+      });
+      const elapsed = Date.now() - started;
+      await expectError(res, 500, 'clog_timeout');
+      assert.ok(elapsed < spawnTimeoutMs + 1000, `responded after ${elapsed}ms`);
+      const pids = fs.readFileSync(pidFile, 'utf-8').trim().split(' ').map(Number);
+      assert.equal(pids.length, 2);
+      for (const pid of pids) {
+        assert.ok(pid > 0);
+        assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' }, `pid ${pid} still alive`);
+      }
+    });
+
     it('maps a missing binary to 500 clog_failed', async () => {
       const res = await send(createApp({ clogBin: path.join(tmp, 'absent') }), 'POST', '/entries', {
         type: 'ACTION',
