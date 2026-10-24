@@ -46,7 +46,7 @@ After the required fields the entry SHALL contain, in this order and only when n
 - **THEN** the entry has no `tags` key
 
 ### Requirement: Schema version marker
-`clog_version` SHALL be `"1.0"` on the first entry the CLI writes to a file that did not exist, and SHALL be absent on every later entry in that file. Entries written by a hook's inline fallback path SHALL NOT carry it.
+`clog_version` SHALL be `"1.0"` on the first entry the CLI writes to a file that did not exist, and SHALL be absent on every later entry in that file. The `pre-agent-clog.sh` inline fallback SHALL do the same; the `post-action-log.sh` inline fallback SHALL NOT carry it.
 
 #### Scenario: Second entry
 - **WHEN** a second entry is written to an existing file
