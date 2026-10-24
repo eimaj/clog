@@ -588,13 +588,14 @@ rmdir "${lock}"`,
       fs.symlinkSync(path.join(REPO_ROOT, 'lib'), path.join(root, 'lib'));
       const bin = path.join(root, 'bin', 'clog');
       // exec keeps the recorded pid the one execFile kills (no orphaned sleep)
-      fs.writeFileSync(bin, `#!/usr/bin/env bash\necho $$ > "${pidFile}"\nexec sleep 2\n`, { mode: 0o755 });
-      const res = await send(createApp({ clogBin: bin, spawnTimeoutMs: 200 }), 'POST', '/entries', {
+      fs.writeFileSync(bin, `#!/usr/bin/env bash\necho $$ > "${pidFile}"\nexec sleep 5\n`, { mode: 0o755 });
+      // generous enough that a loaded machine still starts bash and records the pid
+      const res = await send(createApp({ clogBin: bin, spawnTimeoutMs: 1000 }), 'POST', '/entries', {
         type: 'ACTION',
         summary: 'x',
       });
       const err = await expectError(res, 500, 'clog_timeout');
-      assert.equal(err.error.message, 'clog: timed out after 0.2s');
+      assert.equal(err.error.message, 'clog: timed out after 1s');
       const pid = Number(fs.readFileSync(pidFile, 'utf-8').trim());
       assert.ok(pid > 0);
       assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
