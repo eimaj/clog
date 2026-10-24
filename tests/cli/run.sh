@@ -488,9 +488,8 @@ c_entry__multiline_summary() {
   expect_json escaped "$LOGF" '.summary|contains("\n")' true
   [[ $(cat "$LOGF") == *'\n'* ]] || fail "raw line lacks a \\n escape"
 }
-# KNOWN GAP: log-entry "Minimal entry" shows no clog_version, but the scenario
-# runs outside a git repo on a fresh file, where bin/clog adds "clog_version":"1.0"
-# (Schema version marker). The real behaviour is asserted below.
+# log-entry "Minimal entry": on a fresh day file the entry also carries
+# "clog_version":"1.0" (Schema version marker); the spec scenario says so.
 c_entry__minimal_entry() {
   runclog FOLLOWUP "investigate hooks API"
   expect first 0 EMPTY EMPTY
