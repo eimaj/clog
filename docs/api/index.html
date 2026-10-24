@@ -103,7 +103,7 @@
   <section class="info">
     <h1>clog <span class="ver">schema 1.0</span></h1>
     <p>Append one JSON line per event to a daily JSONL log. This page documents the command-line surface the way Swagger UI documents an HTTP API: one operation per entry type, shared parameters, responses as exit codes, and the entry, config and environment as schemas.</p>
-    <div class="notice"><strong>The CLI is not an HTTP API.</strong> The "operations" and "responses" below are shell invocations and exit codes; there is no OpenAPI document. <code>clog serve</code> starts a separate local HTTP API that wraps the CLI, documented in <a href="#http-api">HTTP API</a>. Every CLI behaviour on this page was read in <code>bin/clog</code> and <code>lib/</code> or run against a scratch log root at the commit in the top bar, except <code>tags</code> (and <code>CLOG_DEFAULT_TAGS</code>, <code>CLOG_TAGS_FILE</code>): an uncommitted feature that <code>bin/clog</code> at that commit does not implement.</div>
+    <div class="notice"><strong>The CLI is not an HTTP API.</strong> The "operations" and "responses" below are shell invocations and exit codes; there is no OpenAPI document. <code>clog serve</code> starts a separate local HTTP API that wraps the CLI, documented in <a href="#http-api">HTTP API</a>. Every CLI behaviour on this page was read in <code>bin/clog</code> and <code>lib/</code> or run against a scratch log root at the commit in the top bar; the spec it is pinned to is <code>openspec/specs/</code>, exercised by <code>tests/cli/run.sh</code>.</div>
     <h3>Synopsis</h3>
 <pre><code>clog &lt;TYPE&gt; "&lt;summary&gt;" [--agent NAME] [--repo NAME] [--session ID] [--model NAME]
      [--file PATH] [--family FAMILY] [--kpi KPI] [--date YYYY-MM-DD] [--echo]
@@ -238,7 +238,7 @@ clog --help | clog -h        # first argument only</code></pre>
   </table>
   <p class="in">An unknown <code>--flag</code> exits 1 with <code>clog: unknown flag '…'</code>, a third positional with <code>clog: unexpected argument '…'</code>, and a flag given as the last argument, or followed by another recognised flag, with no value with <code>clog: &lt;flag&gt; needs a value</code>; nothing is written in any case.</p>
 
-  <h2 class="tag">Responses <small>exit codes · stdout is always empty on success</small></h2>
+  <h2 class="tag">Responses <small>exit codes · stdout is empty on success unless <code>--echo</code> is given</small></h2>
   <table>
     <tr><th>Code</th><th>When</th><th>stderr</th><th>Written</th></tr>
     <tr><td><span class="code-badge c0">0</span></td><td>Entry appended</td><td>— (stdout: the entry line, only with <code>--echo</code>)</td><td>one line</td></tr>
