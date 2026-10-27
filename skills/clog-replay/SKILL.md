@@ -89,21 +89,21 @@ From the user's answers:
 
    ```bash
    for f in $LOG_DIR/YYYYMMDD*.jsonl; do
-     jq -c -s 'sort_by(.time)[] | select(.summary | test("KEYWORD"; "i"))' "$f"
+     jq -cnR '[inputs | . as $l | try fromjson catch ("clog: skipped unparseable line: " + $l + "\n" | stderr | empty)] | sort_by(.time)[] | select(.summary | test("KEYWORD"; "i"))' "$f"
    done | head -30
    ```
 
    Multi-keyword example (AND):
    ```bash
    for f in $LOG_DIR/202505*.jsonl; do
-     jq -c -s 'sort_by(.time)[] | select((.summary | test("cmp"; "i")) and (.summary | test("playwright"; "i")))' "$f"
+     jq -cnR '[inputs | . as $l | try fromjson catch ("clog: skipped unparseable line: " + $l + "\n" | stderr | empty)] | sort_by(.time)[] | select((.summary | test("cmp"; "i")) and (.summary | test("playwright"; "i")))' "$f"
    done | head -30
    ```
 
    With repo filter:
    ```bash
    for f in $LOG_DIR/202506*.jsonl; do
-     jq -c -s 'sort_by(.time)[] | select((.repo == "tn-mono") and (.summary | test("migration"; "i")))' "$f"
+     jq -cnR '[inputs | . as $l | try fromjson catch ("clog: skipped unparseable line: " + $l + "\n" | stderr | empty)] | sort_by(.time)[] | select((.repo == "tn-mono") and (.summary | test("migration"; "i")))' "$f"
    done | head -30
    ```
 
@@ -174,7 +174,7 @@ Once the user picks an entry:
 3. Fetch ±5 entries by time proximity from the same file:
 
    ```bash
-   jq -c -s 'sort_by(.time)[]' $LOG_DIR/YYYYMMDD.jsonl \
+   jq -cnR '[inputs | . as $l | try fromjson catch ("clog: skipped unparseable line: " + $l + "\n" | stderr | empty)] | sort_by(.time)[]' $LOG_DIR/YYYYMMDD.jsonl \
      | awk -v target="HH:MM:SS" '
          { lines[NR] = $0 }
          $0 ~ target { center = NR }
