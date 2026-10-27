@@ -14,7 +14,7 @@
 ## 3. Skill
 
 - [x] 3.1 Write `skills/clog-sweep-sessions/SKILL.md`: triggers (called by `/pm-end`, `/pa-eod`, or "sweep sessions <ids>"), runs `resolve.sh`, dispatches the existing `clog-sweep` scout prompt once per session with that session's transcript and log files, and requires every backfill line to carry `--session <sid> --date <day> --time <action time>`; verify by dry-running on two real past sessions and checking the emitted commands.
-- [ ] 3.2 Skip actions that already have a matching entry within ±60s on that session (including earlier backfills); verify by running twice on the same session and seeing zero gaps the second time.
+- [x] 3.2 Skip actions that already have a matching entry within ±60s on that session (including earlier backfills); verify by running twice on the same session and seeing zero gaps the second time.
 - [ ] 3.3 Return the per-session JSON (`sid`, `transcript`, `dates`, `gaps`, `backfilled`, `learnings`, `status`) and the punch list; verify the JSON parses with `jq`.
 - [ ] 3.4 Every run logs one clog ACTION summarising sessions swept and entries backfilled; verify in the day's log.
 - [ ] 3.5 Add the skill and `--time` to the README and confirm `clog-sweep/SKILL.md` is unchanged (`git diff --quiet -- skills/clog-sweep`).

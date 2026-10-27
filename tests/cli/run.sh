@@ -1485,6 +1485,83 @@ c_sweep__backfill_cmds_no_sid() {
   expect run 1 EMPTY '~usage'
 }
 
+gaps() { run "$SWEEP_SCRIPTS/gaps.sh" "$@"; }
+# cand <date> <time> [summary]: one candidate record
+cand() { jq -nc --arg d "$1" --arg t "$2" --arg s "${3:-x}" '{date:$d,time:$t,type:"CODE",summary:$s,why:"w"}'; }
+# logline <yyyymmdd> <session> <time>: append a minimal log entry
+logline() { mkdir -p "$LOGDIR"; jq -nc --arg s "$2" --arg t "$3" '{time:$t,type:"ACTION",summary:"seen",session:$s}' >> "$LOGDIR/$1.jsonl"; }
+c_sweep__gaps_window_is_60s_inclusive() {
+  logline 20261026 s1 10:00:00
+  STDIN=$(printf '%s\n' "$(cand 2026-10-26 09:59:00 in_lo)" "$(cand 2026-10-26 10:01:00 in_hi)" \
+    "$(cand 2026-10-26 09:58:59 out_lo)" "$(cand 2026-10-26 10:01:01 out_hi)")
+  gaps s1
+  expect run 0 - EMPTY
+  expect_eq kept "$(jq -r '.summary' <<< "$OUT" | paste -sd, -)" out_lo,out_hi
+}
+c_sweep__gaps_only_same_session_counts() {
+  logline 20261026 other 10:00:00
+  logline 20261026 s1 12:00:00
+  STDIN=$(cand 2026-10-26 10:00:10)
+  gaps s1
+  expect run 0 - EMPTY
+  expect_eq kept "$(jq -r '.summary' <<< "$OUT")" x
+}
+c_sweep__gaps_reads_each_candidate_date() {
+  logline 20261026 s1 23:59:30
+  logline 20261027 s1 00:00:30
+  STDIN=$(printf '%s\n' "$(cand 2026-10-27 00:00:40 b)" "$(cand 2026-10-26 23:59:40 a)" "$(cand 2026-10-27 08:00:00 c)")
+  gaps s1
+  expect run 0 - EMPTY
+  expect_eq kept "$(jq -r '.summary' <<< "$OUT")" c
+}
+c_sweep__gaps_missing_day_file_keeps_all_sorted() {
+  STDIN=$(printf '%s\n' "$(cand 2026-10-27 01:00:00 b)" "$(cand 2026-10-26 23:00:00 a)" "$(cand 2026-10-26 09:00:00 z)")
+  gaps s1
+  expect run 0 - EMPTY
+  expect_eq order "$(jq -r '.summary' <<< "$OUT" | paste -sd, -)" z,a,b
+  expect_eq passthrough "$(head -1 <<< "$OUT" | jq -c '[.type,.why]')" '["CODE","w"]'
+}
+c_sweep__gaps_ignores_garbage_log_lines() {
+  mkdir -p "$LOGDIR"
+  { printf '%s\n' 'not json' '{"session":"s1"}' '{"session":"s1","time":5}' '[1]'; } > "$LOGDIR/20261026.jsonl"
+  logline 20261026 s1 10:00:00
+  STDIN=$(cand 2026-10-26 10:00:30)
+  gaps s1
+  expect run 0 EMPTY EMPTY
+}
+c_sweep__gaps_no_candidates() {
+  gaps s1
+  expect run 0 EMPTY EMPTY
+}
+c_sweep__gaps_bad_candidate() {
+  STDIN=$(printf '%s\n' "$(cand 2026-10-26 10:00:00)" '{"date":"2026-10-26","time":"10:00"}')
+  gaps s1
+  expect run 1 EMPTY '~gaps: invalid date/time'
+}
+c_sweep__gaps_no_sid() {
+  gaps
+  expect run 1 EMPTY '~usage'
+}
+c_sweep__gaps_disabled() {
+  ENVX=(CLOG_DISABLE=1); STDIN=$(cand 2026-10-26 10:00:00)
+  run "$SWEEP_SCRIPTS/gaps.sh" s1
+  expect run 1 EMPTY '~clog is disabled'
+}
+c_sweep__gaps_second_run_after_backfill_is_empty() {
+  mkdir -p "$T/bin"; ln -s "$REPO/bin/clog" "$T/bin/clog"
+  local cands; cands=$(printf '%s\n' "$(cand 2026-10-26 14:05:09 one)" "$(cand 2026-10-27 00:10:00 two)")
+  STDIN=$cands; gaps s1
+  expect first 0 - EMPTY
+  expect_eq first_count "$(wc -l <<< "$OUT" | tr -d ' ')" 2
+  STDIN=$OUT; backfill_cmds s1
+  expect cmds 0 - EMPTY
+  printf '%s\n' "$OUT" > "$T/cmds.sh"
+  ENVX=(PATH="$T/bin:$TPATH"); run bash "$T/cmds.sh"
+  expect apply 0 - -
+  STDIN=$cands; gaps s1
+  expect second 0 EMPTY EMPTY
+}
+
 # ============================================================================
 # runner
 # ============================================================================
