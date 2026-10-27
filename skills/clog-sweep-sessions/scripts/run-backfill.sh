@@ -11,6 +11,11 @@ set -euo pipefail
 backfilled=0 learnings=0 failed=0
 while IFS= read -r line || [[ -n "$line" ]]; do
   [[ -n "$line" ]] || continue
+  if [[ "$line" != "clog "* ]]; then
+    echo "run-backfill: skipped non-clog line" >&2
+    failed=$((failed + 1))
+    continue
+  fi
   if bash -c "$line" < /dev/null > /dev/null; then
     if [[ "$line" == "clog LEARNING "* ]]; then learnings=$((learnings + 1)); else backfilled=$((backfilled + 1)); fi
   else

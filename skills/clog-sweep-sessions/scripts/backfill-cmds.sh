@@ -8,7 +8,7 @@
 # LEARNING (`why` names the pattern that defeated logging). Both carry
 # --session <sid> --date <date> --time <time> so they land on the right session,
 # day and time. Values are shell-quoted, so the output is safe to run with bash.
-# `summary` and `why` come from untrusted transcript text and are cut to 200 characters.
+# `summary` and `why` come from untrusted transcript text and are cut to 200 characters; control characters in summary, why and file become spaces.
 # Exit 1 (nothing printed for the bad record onward) on a missing sid or a record
 # with a bad type, date, time, or empty summary/why.
 set -euo pipefail
@@ -29,7 +29,8 @@ jq -r --arg sid "$1" '
       then bad("invalid time \(.time // "" | tojson)") else . end
   | if (.summary // "" | length) == 0 then bad("empty summary") else . end
   | if (.why // "" | length) == 0 then bad("empty why (the paired LEARNING needs one)") else . end
-  | .summary |= .[0:200] | .why |= .[0:200]
+  | def flat: if type == "string" then gsub("[\u0000-\u001f\u007f]"; " ") else . end;
+    .summary |= (flat | .[0:200]) | .why |= (flat | .[0:200]) | .file |= flat
   | @sh "--agent clog-sweep-sessions --session \($sid) --date \(.date) --time \(.time)" as $at
   | (@sh "clog \(.type) \(.summary)"
       + (if (.file // "") != "" then @sh " --file \(.file)" else "" end)

@@ -1476,6 +1476,24 @@ c_sweep__backfill_cmds_caps_summary_and_why_at_200() {
   expect_eq summary_200 "$(sed -n 1p <<< "$OUT" | grep -c "'a\{200\}'")" 1
   expect_eq why_200 "$(sed -n 2p <<< "$OUT" | grep -c "'b\{200\}'")" 1
 }
+c_sweep__backfill_cmds_newline_cannot_inject_command() {
+  mkdir -p "$T/bin"; printf '#!/bin/sh\nexit 0\n' > "$T/bin/clog"; chmod +x "$T/bin/clog"
+  STDIN=$(jq -nc --arg s $'edit x\ntouch '"$T/marker"$' #\r\001' --arg w $'why\nline' --arg f $'/a\nb' \
+    '{date:"2026-10-26",time:"09:30:00",type:"ACTION",summary:$s,why:$w,file:$f}')
+  backfill_cmds s9
+  expect run 0 - EMPTY
+  expect_eq lines "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" 2
+  STDIN=$OUT; ENVX=(PATH="$T/bin:$TPATH"); run "$SWEEP_SCRIPTS/run-backfill.sh"
+  expect_eq counts "$OUT" '{"backfilled":1,"learnings":1,"failed":0}'
+  [[ ! -e $T/marker ]] || fail "injected command executed"
+}
+c_sweep__run_backfill_skips_non_clog_line() {
+  STDIN=$(printf '%s\n' "touch $T/marker2")
+  run "$SWEEP_SCRIPTS/run-backfill.sh"
+  expect run 0 - '~run-backfill: skipped non-clog line'
+  expect_eq counts "$OUT" '{"backfilled":0,"learnings":0,"failed":1}'
+  [[ ! -e $T/marker2 ]] || fail "non-clog line executed"
+}
 c_sweep__skill_scout_is_read_only_and_guarded() {
   local skill=$REPO/skills/clog-sweep-sessions/SKILL.md
   expect_eq explore "$(grep -c 'subagent_type=Explore' "$skill")" 1
