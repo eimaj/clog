@@ -1485,6 +1485,30 @@ c_sweep__backfill_cmds_no_sid() {
   expect run 1 EMPTY '~usage'
 }
 
+localize() { run "$SWEEP_SCRIPTS/localize.sh" "$@"; }
+c_sweep__localize_utc_near_midnight_lands_on_previous_local_date() {
+  STDIN='{"timestamp":"2026-10-27T02:30:00.123Z","type":"CODE","summary":"s","why":"w"}'
+  ENVX=(TZ=America/New_York); localize
+  expect run 0 - EMPTY
+  expect_eq stamp "$(jq -r '.date+"|"+.time+"|"+.type' <<< "$OUT")" '2026-10-26|22:30:00|CODE'
+}
+c_sweep__localize_utc_zone_keeps_date() {
+  STDIN='{"timestamp":"2026-10-27T02:30:00Z","date":"1999-01-01","time":"00:00:00"}'
+  ENVX=(TZ=UTC); localize
+  expect run 0 - EMPTY
+  expect_eq stamp "$(jq -r '.date+"|"+.time' <<< "$OUT")" '2026-10-27|02:30:00'
+}
+c_sweep__localize_rejects_bad_timestamp() {
+  STDIN=$(printf '%s\n' '{"timestamp":"2026-10-27T02:30:00Z"}' '{"summary":"no ts"}')
+  ENVX=(TZ=UTC); localize
+  expect run 1 - '~localize: missing or invalid timestamp'
+}
+c_sweep__skill_scout_emits_utc_timestamp() {
+  local skill=$REPO/skills/clog-sweep-sessions/SKILL.md
+  expect_eq ts "$(grep -c '"timestamp":"YYYY-MM-DDTHH:MM:SSZ"' "$skill")" 1
+  expect_eq loc "$(grep -c 'scripts/localize.sh' "$skill")" 1
+}
+
 gaps() { run "$SWEEP_SCRIPTS/gaps.sh" "$@"; }
 # cand <date> <time> [summary]: one candidate record
 cand() { jq -nc --arg d "$1" --arg t "$2" --arg s "${3:-x}" '{date:$d,time:$t,type:"CODE",summary:$s,why:"w"}'; }
