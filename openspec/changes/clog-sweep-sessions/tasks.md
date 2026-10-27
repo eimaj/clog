@@ -21,7 +21,7 @@
 
 ## 4. Integration
 
-- [ ] 4.1 `openspec validate clog-sweep-sessions --strict` and `tests/cli/run.sh` pass.
+- [x] 4.1 `openspec validate clog-sweep-sessions --strict` and `tests/cli/run.sh` pass.
 
 ## Workflow follow-up
 
