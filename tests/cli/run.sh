@@ -397,6 +397,15 @@ c_cli__time_garbage() {
   done
   expect_file nothing_written "$T/logs" absent
 }
+c_cli__invalid_value_single_line() {
+  runclog ACTION x --time $'14:05:09\n'
+  expect time 1 EMPTY "=clog: invalid --time '\$'14:05:09\\n'' (expected HH:MM:SS)"
+  [[ $ERR != *$'\n'* ]] || fail "time: stderr spans lines"
+  runclog ACTION x --date $'2026-01-02\n'
+  expect date 1 EMPTY "=clog: invalid --date '\$'2026-01-02\\n'' (expected YYYY-MM-DD)"
+  [[ $ERR != *$'\n'* ]] || fail "date: stderr spans lines"
+  expect_file nothing_written "$T/logs" absent
+}
 c_cli__time_without_value() {
   runclog ACTION x --time
   expect run 1 EMPTY "=clog: --time needs a value"

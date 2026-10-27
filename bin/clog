@@ -164,13 +164,16 @@ if [[ -z "$REPO" ]]; then
   REPO=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
 fi
 
+# Echo a rejected value on one line: control characters shown escaped.
+printable() { if [[ "$1" == *[[:cntrl:]]* ]]; then printf '%q' "$1"; else printf '%s' "$1"; fi; }
+
 if [[ -n "$DATE_OVERRIDE" && ! "$DATE_OVERRIDE" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ ]]; then
-  echo "clog: invalid --date '$DATE_OVERRIDE' (expected YYYY-MM-DD)" >&2
+  echo "clog: invalid --date '$(printable "$DATE_OVERRIDE")' (expected YYYY-MM-DD)" >&2
   exit 1
 fi
 
 if [[ -n "$TIME_OVERRIDE" && ! "$TIME_OVERRIDE" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ ]]; then
-  echo "clog: invalid --time '$TIME_OVERRIDE' (expected HH:MM:SS)" >&2
+  echo "clog: invalid --time '$(printable "$TIME_OVERRIDE")' (expected HH:MM:SS)" >&2
   exit 1
 fi
 
