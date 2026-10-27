@@ -1630,6 +1630,34 @@ c_sweep__punch_rejects_non_result() {
   expect run 1 - '~punch: not a result line'
 }
 
+summary() { run "$SWEEP_SCRIPTS/summary.sh"; }
+c_sweep__summary_counts() {
+  STDIN=$(printf '%s\n' \
+    '{"sid":"a","status":"swept","backfilled":2}' '{"sid":"b","status":"swept","backfilled":3}' \
+    '{"sid":"c","status":"swept","backfilled":0}' '{"sid":"d","status":"no_transcript","backfilled":0}')
+  summary
+  expect run 0 'clog-sweep-sessions: swept 3 of 4 sessions, backfilled 5 entries' EMPTY
+}
+c_sweep__summary_singular() {
+  STDIN='{"sid":"a","status":"swept","backfilled":1}'; summary
+  expect run 0 'clog-sweep-sessions: swept 1 of 1 session, backfilled 1 entry' EMPTY
+}
+c_sweep__summary_logs_one_action() {
+  mkdir -p "$T/bin"; ln -s "$REPO/bin/clog" "$T/bin/clog"
+  STDIN='{"sid":"a","status":"swept","backfilled":2}'; summary
+  expect run 0 - EMPTY
+  ENVX=(PATH="$T/bin:$TPATH"); run clog ACTION "$OUT" --agent clog-sweep-sessions
+  expect clog 0 - -
+  expect_file one_line "$LOGF" lines=1
+  expect_json entry "$LOGF" '.type+"|"+.summary' 'ACTION|clog-sweep-sessions: swept 1 of 1 session, backfilled 2 entries'
+}
+c_sweep__summary_rejects_bad_input() {
+  STDIN=''; summary
+  expect empty 1 - '~summary: no result lines'
+  STDIN='{"x":1}'; summary
+  expect bad 1 - '~summary: not a result line'
+}
+
 # ============================================================================
 # runner
 # ============================================================================

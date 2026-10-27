@@ -29,6 +29,7 @@ All in `scripts/`, bash + jq. Deterministic work lives there; only the scan in s
 | `backfill-cmds.sh <sid>` | Gap records on stdin become `clog` backfill commands plus the paired LEARNING |
 | `result.sh '<resolve line>' [--gaps N] [--backfilled N] [--learnings N] [--date D]…` | The per-session result JSON line |
 | `punch.sh` | Result lines on stdin become the human punch list |
+| `summary.sh` | Result lines on stdin become the one-line text for the run's ACTION |
 
 ## Steps
 
@@ -57,6 +58,11 @@ Run once per session. A session that fails never stops the others.
 7. **Return** to the caller:
    - one result JSON object per session, one per line, in the order the ids were given (`sid`, `transcript`, `dates`, `gaps`, `backfilled`, `learnings`, `status`; `status` is `swept`, `no_transcript` or `unreadable`), so it can report without re-reading logs;
    - the human punch list: `scripts/punch.sh` over those lines.
+
+8. **Log the run, every run, even with zero gaps.** One ACTION on the current session (no `--date`/`--time`), text from `scripts/summary.sh` over the result lines:
+   ```bash
+   clog ACTION "$(scripts/summary.sh <<< "$results")" --agent clog-sweep-sessions
+   ```
 
 ## Notes
 
