@@ -1385,6 +1385,33 @@ c_sweep__resolve_no_args() {
   resolve
   expect run 1 EMPTY '~usage'
 }
+c_sweep__logs_for_one_date() {
+  logs_for 2026-10-26
+  expect run 0 "=$T/logs/claude/20261026.jsonl" EMPTY
+}
+c_sweep__logs_for_two_dates() {
+  logs_for 2026-10-26 2026-10-27
+  expect run 0 - EMPTY
+  expect_eq paths "$OUT" "$T/logs/claude/20261026.jsonl"$'\n'"$T/logs/claude/20261027.jsonl"
+}
+c_sweep__logs_for_invalid_date() {
+  logs_for 2026-10-26 2026-13-01
+  expect run 1 EMPTY "=logs-for: invalid date '2026-13-01'"
+}
+c_sweep__logs_for_env_beats_config() {
+  ENVX=(CLOG_LOG_ROOT="$T/envroot")
+  run "$SWEEP_SCRIPTS/logs-for.sh" 2026-10-26
+  expect run 0 "=$T/envroot/claude/20261026.jsonl" EMPTY
+}
+c_sweep__logs_for_no_args() {
+  logs_for
+  expect run 1 EMPTY '~usage'
+}
+c_sweep__logs_for_via_symlink() {
+  ln -s "$SWEEP_SCRIPTS/logs-for.sh" "$T/lf"
+  run "$T/lf" 2026-10-26
+  expect run 0 "=$T/logs/claude/20261026.jsonl" EMPTY
+}
 
 # ============================================================================
 # runner
