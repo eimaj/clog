@@ -618,6 +618,28 @@ c_entry__logged_at_absent_without_time() {
   expect empty_time 0 EMPTY EMPTY
   expect_json empty_absent "$LOGF" 'has("logged_at")' false 2
 }
+# Runs the real jq commands written in the clog-day and clog-replay skills (every
+# line containing sort_by(.time)) against a day file whose last line is an
+# out-of-order backfill, and checks the times come out sorted.
+c_entry__skill_jq_sorts_backfill() {
+  local f="$LOGDIR/20260102.jsonl" skill line flags prog out n
+  runclog ACTION entry-a --date 2026-01-02 --time 10:00:00
+  runclog ACTION entry-b --date 2026-01-02 --time 11:00:00
+  runclog ACTION entry-backfill --date 2026-01-02 --time 09:00:00
+  expect_json file_order "$f" '.time' 09:00:00 3
+  for skill in clog-day:2 clog-replay:2; do
+    n=0
+    while IFS= read -r line; do
+      flags=${line#*jq }; flags=${flags%%\'*}
+      prog=${line#*\'}; prog=${prog%%\'*}; prog=${prog//KEYWORD/entry}
+      out=$(jq -c ${flags} "$prog" "$f" | jq -r '[.. | objects | select(has("time")) | .time] | join(",")' | paste -sd, -)
+      [[ -z $out ]] && continue
+      n=$((n + 1))
+      expect_eq "${skill%%:*} sorted: ${line:0:50}" "$out" '09:00:00,10:00:00,11:00:00'
+    done < <(grep -F 'sort_by(.time)' "$REPO/skills/${skill%%:*}/SKILL.md")
+    expect_eq "${skill%%:*} commands exercised" "$n" "${skill##*:}"
+  done
+}
 c_entry__empty_values_omitted() {
   runclog ACTION x --agent "" --repo "" --model "" --file "" --family "" --kpi "" --tags ""
   expect run 0 EMPTY EMPTY
