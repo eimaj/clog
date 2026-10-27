@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Time override
-`--time` SHALL match `^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$`. A matching value SHALL become the entry's `time`, with or without `--date`. Any non-matching value SHALL exit 1 with the single stderr line `clog: invalid --time '<value>' (expected HH:MM:SS)` and nothing written. An empty value SHALL be treated as no override.
+`--time` SHALL match `^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$`. A matching value SHALL become the entry's `time`, with or without `--date`. Any non-matching value SHALL exit 1 with the single stderr line `clog: invalid --time '<value>' (expected HH:MM:SS)` and nothing written. In this and the `--date` message, a value containing control characters SHALL be printed in `printf %q` form so the line stays single. An empty value SHALL be treated as no override.
 
 #### Scenario: Backfill with time
 - **WHEN** the user runs `clog ACTION "x" --date 2026-01-02 --time 14:05:09`
