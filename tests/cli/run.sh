@@ -641,21 +641,22 @@ c_entry__logged_at_absent_without_time() {
 # out-of-order backfill, and checks the times come out sorted.
 c_entry__skill_jq_sorts_backfill() {
   local f="$LOGDIR/20260102.jsonl" skill line flags prog out n
-  # One truncated line sits between good ones.
-  runclog ACTION entry-a --date 2026-01-02 --time 10:00:00
-  runclog ACTION entry-b --date 2026-01-02 --time 11:00:00
-  runclog ACTION entry-backfill --date 2026-01-02 --time 09:00:00
+  # Every entry matches every example filter (KEYWORD=entry, cmp+playwright,
+  # repo tn-mono + migration), and one truncated line sits between good ones.
+  runclog ACTION "entry cmp playwright migration a" --repo tn-mono --date 2026-01-02 --time 10:00:00
+  runclog ACTION "entry cmp playwright migration b" --repo tn-mono --date 2026-01-02 --time 11:00:00
+  runclog ACTION "entry cmp playwright migration backfill" --repo tn-mono --date 2026-01-02 --time 09:00:00
   expect_json file_order "$f" '.time' 09:00:00 3
   printf '%s\n' '{"time":"08:00:00","type":"ACTION","summary":"entry trunc' >> "$f"
-  runclog ACTION entry-after --date 2026-01-02 --time 11:30:00
-  for skill in clog-day:2 clog-replay:2; do
+  runclog ACTION "entry cmp playwright migration after" --repo tn-mono --date 2026-01-02 --time 11:30:00
+  for skill in clog-day:2 clog-replay:4; do
     n=0
     while IFS= read -r line; do
       flags=${line#*jq }; flags=${flags%%\'*}
       prog=${line#*\'}; prog=${prog%%\'*}; prog=${prog//KEYWORD/entry}
       out=$(jq -c ${flags} "$prog" "$f" 2>"$T/jqerr" | jq -r '[.. | objects | select(has("time")) | .time] | join(",")' | paste -sd, -)
-      [[ -z $out ]] && continue
       n=$((n + 1))
+      [[ -n $out ]] || fail "${skill%%:*} empty output: ${line:0:50}"
       expect_eq "${skill%%:*} sorted: ${line:0:50}" "$out" '09:00:00,10:00:00,11:00:00,11:30:00'
       [[ $(<"$T/jqerr") == *"skipped unparseable line"* ]] || fail "${skill%%:*} hides the parse error: ${line:0:50}"
     done < <(grep -F 'sort_by(.time)' "$REPO/skills/${skill%%:*}/SKILL.md")
