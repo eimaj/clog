@@ -8,7 +8,7 @@
 
 ## 2. Scripted lookup
 
-- [ ] 2.1 Add `skills/clog-sweep-sessions/scripts/resolve.sh <sid>…`: prints one JSON line per sid with `transcript` (found under `~/.claude/projects/*/<sid>.jsonl`, overridable via `CLOG_CC_PROJECTS`) and `dates` (from the transcript's first and last timestamps) or `status: "no_transcript"`; test with fixture transcripts incl. one spanning midnight and one missing, in `tests/cli/run.sh`.
+- [x] 2.1 Add `skills/clog-sweep-sessions/scripts/resolve.sh <sid>…`: prints one JSON line per sid with `transcript` (found under `~/.claude/projects/*/<sid>.jsonl`, overridable via `CLOG_CC_PROJECTS`) and `dates` (from the transcript's first and last timestamps) or `status: "no_transcript"`; test with fixture transcripts incl. one spanning midnight and one missing, in `tests/cli/run.sh`.
 - [ ] 2.2 Add `scripts/logs-for.sh <date>…`: prints the log file path per date from clog config; test with a scratch `CLOG_CONFIG`.
 
 ## 3. Skill

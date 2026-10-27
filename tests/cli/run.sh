@@ -1319,6 +1319,74 @@ c_hooks__agent_fallback_new_day() {
 }
 
 # ============================================================================
+# clog-sweep-sessions scripts (openspec/changes/clog-sweep-sessions)
+# ============================================================================
+SWEEP_SCRIPTS=$REPO/skills/clog-sweep-sessions/scripts
+# mktranscript <sid> <timestamp>...: write $T/projects/-proj/<sid>.jsonl, one line per timestamp.
+mktranscript() {
+  local sid=$1 ts; shift
+  mkdir -p "$T/projects/-proj"
+  for ts in "$@"; do
+    jq -nc --arg t "$ts" --arg s "$sid" '{type:"user",timestamp:$t,sessionId:$s}'
+  done > "$T/projects/-proj/$sid.jsonl"
+}
+resolve() { ENVX=(CLOG_CC_PROJECTS="$T/projects" ${EXTRA[@]+"${EXTRA[@]}"}); run "$SWEEP_SCRIPTS/resolve.sh" "$@"; }
+logs_for() { run "$SWEEP_SCRIPTS/logs-for.sh" "$@"; }
+
+c_sweep__resolve_one_date() {
+  mktranscript s1 2026-10-26T10:00:00.000Z 2026-10-26T12:30:45.123Z
+  EXTRA=(TZ=UTC); resolve s1
+  expect run 0 - EMPTY
+  expect_eq line "$OUT" "{\"sid\":\"s1\",\"transcript\":\"$T/projects/-proj/s1.jsonl\",\"dates\":[\"2026-10-26\"]}"
+}
+c_sweep__resolve_spans_midnight() {
+  mktranscript s2 2026-10-26T23:00:00.000Z 2026-10-27T01:00:00.000Z
+  EXTRA=(TZ=UTC); resolve s2
+  expect run 0 - EMPTY
+  expect_eq dates "$(jq -c '.dates' <<< "$OUT")" '["2026-10-26","2026-10-27"]'
+}
+c_sweep__resolve_local_dates() {
+  mktranscript s3 2026-10-27T02:00:00.000Z 2026-10-27T03:00:00.000Z
+  EXTRA=(TZ=Etc/GMT+5); resolve s3
+  expect run 0 - EMPTY
+  expect_eq dates "$(jq -c '.dates' <<< "$OUT")" '["2026-10-26"]'
+}
+c_sweep__resolve_missing() {
+  mkdir -p "$T/projects/-proj"
+  resolve nope
+  expect run 0 - EMPTY
+  expect_eq line "$OUT" '{"sid":"nope","status":"no_transcript"}'
+}
+c_sweep__resolve_multiple() {
+  mktranscript a 2026-10-26T10:00:00Z
+  mktranscript c 2026-10-25T23:30:00Z 2026-10-26T00:30:00Z
+  EXTRA=(TZ=UTC); resolve a b c
+  expect run 0 - EMPTY
+  expect_eq lines "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" 3
+  expect_eq sids "$(jq -r '.sid' <<< "$OUT" | paste -sd, -)" a,b,c
+  expect_eq status_b "$(printf '%s\n' "$OUT" | sed -n 2p | jq -r '.status')" no_transcript
+  expect_eq dates_c "$(printf '%s\n' "$OUT" | sed -n 3p | jq -c '.dates')" '["2026-10-25","2026-10-26"]'
+  expect_eq transcript_a "$(printf '%s\n' "$OUT" | sed -n 1p | jq -r '.transcript')" "$T/projects/-proj/a.jsonl"
+}
+c_sweep__resolve_skips_lines_without_timestamp() {
+  mkdir -p "$T/projects/-proj"
+  {
+    printf '%s\n' '{"type":"summary","summary":"no ts"}'
+    printf '%s\n' '{"type":"user","timestamp":"2026-10-26T08:00:00.000Z"}'
+    printf '%s\n' '{"type":"queue-operation"}'
+    printf '%s\n' '{"type":"user","timestamp":"2026-10-27T08:00:00.000Z"}'
+    printf '%s\n' '{"type":"summary","summary":"no ts either"}'
+  } > "$T/projects/-proj/s5.jsonl"
+  EXTRA=(TZ=UTC); resolve s5
+  expect run 0 - EMPTY
+  expect_eq dates "$(jq -c '.dates' <<< "$OUT")" '["2026-10-26","2026-10-27"]'
+}
+c_sweep__resolve_no_args() {
+  resolve
+  expect run 1 EMPTY '~usage'
+}
+
+# ============================================================================
 # runner
 # ============================================================================
 CASES=$(grep -oE '^c_[A-Za-z0-9_]+\(\)' "$SELF" | tr -d '()')
