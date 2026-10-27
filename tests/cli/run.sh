@@ -1520,6 +1520,11 @@ c_sweep__skill_backfilled_excludes_learnings() {
   expect_eq def "$(grep -c -- '--backfilled <non-LEARNING clog commands that exited 0>' "$skill")" 1
   expect_eq no_old "$(grep -c -- '--backfilled <commands executed>' "$skill")" 0
 }
+c_sweep__skill_prompt_forbids_learning_type_and_checks_time() {
+  local skill=$REPO/skills/clog-sweep-sessions/SKILL.md
+  expect_eq no_learning "$(grep -c -- '`type` is never LEARNING' "$skill")" 1
+  expect_eq time_check "$(grep -c -- 'confirm the installed CLI is current: `clog --help` lists `--time`' "$skill")" 1
+}
 c_sweep__backfill_cmds_rejects_bad_records() {
   local bad
   for bad in \

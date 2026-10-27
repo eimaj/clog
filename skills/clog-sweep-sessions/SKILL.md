@@ -37,7 +37,7 @@ All in `scripts/`, bash + jq. Deterministic work lives there; only the scan in s
 
 Run once per session. A session that fails never stops the others.
 
-1. **Resolve.** `scripts/resolve.sh <sid>…`. For `no_transcript` or `unreadable`, record that status and move on. If the caller gave `--date`, sweep only those dates; otherwise every date in `dates`.
+1. **Resolve.** First confirm the installed CLI is current: `clog --help` lists `--time` (clog 1.1.0 or newer). If it does not, stop and report it; `clog` is usually a symlink into a checkout that may sit on a stale branch, and every backfill would fail with `unknown flag '--time'`. Then `scripts/resolve.sh <sid>…`. For `no_transcript` or `unreadable`, record that status and move on. If the caller gave `--date`, sweep only those dates; otherwise every date in `dates`.
 
 2. **Dispatch one scout per session** (in Claude Code: `subagent_type=Explore`, a search scout; Explore still has Bash and mutating MCP tools, so the tool restriction in the prompt below is the only control, and its output is executed without approval). Use this self-contained prompt, substituting `<TRANSCRIPT_PATH>` (that session's `transcript`) and `<LOG_PATHS>` (the files from `scripts/logs-for.sh <date>…` for the dates being swept, one per line). Do not reuse clog-sweep's Mode B prompt: its output format and single-log input differ.
 
@@ -70,7 +70,8 @@ Run once per session. A session that fails never stops the others.
    per miss. `timestamp` is the tool call's own UTC timestamp copied verbatim
    from the transcript; never convert it or guess a timezone. `file` and `kpi`
    are optional (`kpi` is `failure`, or `prompt_gap` when the gap looks like a
-   skill issue; default `failure`).
+   skill issue; default `failure`). `type` is never LEARNING: the caller adds the
+   paired LEARNING itself, and a LEARNING record is rejected with the whole batch.
    {"timestamp":"YYYY-MM-DDTHH:MM:SSZ","type":"CODE","summary":"…","why":"…","file":"/optional/path","kpi":"optional"}
    ````
 
