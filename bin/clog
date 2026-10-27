@@ -191,7 +191,13 @@ if [[ -n "$TAGS_FLAG" ]]; then
   ALL_TAGS="${ALL_TAGS:+$ALL_TAGS,}$TAGS_FLAG"
 fi
 
-ENTRY=$(build_entry "$TYPE" "$SUMMARY" "$AGENT" "$REPO" "$SESSION" "$MODEL" "$FILE_PATH" "$FAMILY" "$KPI" "$CLOG_VERSION" "$ALL_TAGS")
+# logged_at records when a backfilled (--time) entry was actually written.
+LOGGED_AT=""
+if [[ -n "$TIME_OVERRIDE" ]]; then
+  LOGGED_AT=$(date +%Y-%m-%dT%H:%M:%S)
+fi
+
+ENTRY=$(build_entry "$TYPE" "$SUMMARY" "$AGENT" "$REPO" "$SESSION" "$MODEL" "$FILE_PATH" "$FAMILY" "$KPI" "$CLOG_VERSION" "$ALL_TAGS" "$LOGGED_AT")
 
 # --time replaces the wall-clock time (jq keeps the key's first position)
 if [[ -n "$TIME_OVERRIDE" ]]; then

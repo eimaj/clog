@@ -590,6 +590,34 @@ c_entry__key_order_full() {
   expect run 0 EMPTY EMPTY
   expect_json order "$LOGF" 'keys_unsorted|join(",")' 'time,type,summary,agent,repo,session,model,file,family,kpi,clog_version,tags,validation'
 }
+c_entry__key_order_full_with_time() {
+  ENVX=(CLOG_DEFAULT_TAGS=jbook)
+  runclog ACTION x --agent a --repo r --session s --model m --file /f --family nope --kpi effective --date 2026-01-02 --time 14:05:09
+  expect run 0 EMPTY EMPTY
+  expect_json order "$LOGDIR/20260102.jsonl" 'keys_unsorted|join(",")' 'time,type,summary,agent,repo,session,model,file,family,kpi,clog_version,tags,logged_at,validation'
+  expect_json time "$LOGDIR/20260102.jsonl" '.time' 14:05:09
+}
+c_entry__logged_at_is_write_time() {
+  local before after got
+  before=$(date +%Y-%m-%dT%H:%M:%S)
+  runclog ACTION x --date 2026-01-02 --time 14:05:09
+  after=$(date +%Y-%m-%dT%H:%M:%S)
+  expect run 0 EMPTY EMPTY
+  got=$(jq -r '.logged_at' "$LOGDIR/20260102.jsonl")
+  [[ $got =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$ ]] || fail "logged_at shape: $got"
+  [[ ! $got < $before && ! $got > $after ]] || fail "logged_at $got not within $before..$after"
+}
+c_entry__logged_at_absent_without_time() {
+  runclog ACTION x
+  expect plain 0 EMPTY EMPTY
+  expect_json plain_absent "$LOGF" 'has("logged_at")' false
+  runclog ACTION y --date 2026-01-02
+  expect dated 0 EMPTY EMPTY
+  expect_json dated_absent "$LOGDIR/20260102.jsonl" 'has("logged_at")' false
+  runclog ACTION z --time ""
+  expect empty_time 0 EMPTY EMPTY
+  expect_json empty_absent "$LOGF" 'has("logged_at")' false 2
+}
 c_entry__empty_values_omitted() {
   runclog ACTION x --agent "" --repo "" --model "" --file "" --family "" --kpi "" --tags ""
   expect run 0 EMPTY EMPTY

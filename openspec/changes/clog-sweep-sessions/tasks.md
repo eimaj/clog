@@ -3,7 +3,7 @@
 ## 1. CLI time override
 
 - [x] 1.1 Add `--time HH:MM:SS` to `bin/clog` (validation, empty = no override, value-flag rejection rules, help text); add cases to `tests/cli/run.sh` for valid, invalid, short form, missing value, and with/without `--date`.
-- [ ] 1.2 Write `logged_at` (`YYYY-MM-DDTHH:MM:SS`) after `tags` only when `--time` is used; test key order and absence on normal entries.
+- [x] 1.2 Write `logged_at` (`YYYY-MM-DDTHH:MM:SS`) after `tags` only when `--time` is used; test key order and absence on normal entries.
 - [ ] 1.3 Make `clog-day` and `clog-replay` sort a day's entries by `time` before use; verify with a fixture file containing an out-of-order backfill.
 
 ## 2. Scripted lookup
