@@ -82,7 +82,7 @@ Run once per session. A session that fails never stops the others.
 
 5. **Run the emitted commands with `scripts/run-backfill.sh`** (the step 4 output on stdin; never as one bash block, which hides per-command exit codes). No approval pause. Skip when there are no gaps. It prints `{"backfilled":N,"learnings":M,"failed":K}`. The entries land in the action's day file with `time` set to the action time and `logged_at` set to now.
 
-6. **Assemble the per-session result.** `scripts/result.sh '<that sid's resolve line>' --gaps <gap count> --backfilled <non-LEARNING clog commands that exited 0> --learnings <LEARNING clog commands that exited 0> [--date D]…`, taking the two counts from `backfilled` and `learnings` in step 5's output (via `scripts/run-backfill.sh`). (repeat `--date` as the caller gave it). Sessions that were `no_transcript` or `unreadable` still get a result line with that status and zero counts.
+6. **Assemble the per-session result.** `scripts/result.sh '<that sid's resolve line>' --gaps <gap count> --backfilled <non-LEARNING clog commands that exited 0> --learnings <LEARNING clog commands that exited 0> [--date D]…` (repeat `--date` as the caller gave it), taking the two counts from `backfilled` and `learnings` in step 5's output (via `scripts/run-backfill.sh`). Sessions that were `no_transcript` or `unreadable` still get a result line with that status and zero counts.
 
 7. **Return** to the caller:
    - one result JSON object per session, one per line, in the order the ids were given (`sid`, `transcript`, `dates`, `gaps`, `backfilled`, `learnings`, `status`; `status` is `swept`, `no_transcript` or `unreadable`), so it can report without re-reading logs;

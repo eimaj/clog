@@ -1494,6 +1494,11 @@ c_sweep__run_backfill_skips_non_clog_line() {
   expect_eq counts "$OUT" '{"backfilled":0,"learnings":0,"failed":1}'
   [[ ! -e $T/marker2 ]] || fail "non-clog line executed"
 }
+c_sweep__skill_result_step_date_parenthetical_in_place() {
+  local skill=$REPO/skills/clog-sweep-sessions/SKILL.md
+  expect_eq in_place "$(grep -c -- '\[--date D\]…` (repeat `--date` as the caller gave it), taking the two counts' "$skill")" 1
+  expect_eq no_stray "$(grep -c -- '^(repeat `--date`\|)\. (repeat' "$skill")" 0
+}
 c_sweep__skill_scout_is_read_only_and_guarded() {
   local skill=$REPO/skills/clog-sweep-sessions/SKILL.md
   expect_eq explore "$(grep -c 'subagent_type=Explore' "$skill")" 1
