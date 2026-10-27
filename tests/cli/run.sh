@@ -1392,6 +1392,12 @@ c_sweep__resolve_unreadable_transcript_continues() {
   expect_eq line1 "$(printf '%s\n' "$OUT" | sed -n 1p)" "{\"sid\":\"bad\",\"transcript\":\"$T/projects/-proj/bad.jsonl\",\"status\":\"unreadable\"}"
   expect_eq dates_good "$(printf '%s\n' "$OUT" | sed -n 2p | jq -c '.dates')" '["2026-10-26"]'
 }
+c_sweep__resolve_dst_spring_forward_no_skipped_day() {
+  mktranscript dst 2026-03-08T04:30:00Z 2026-03-09T04:30:00Z
+  EXTRA=(TZ=America/New_York); resolve dst
+  expect run 0 - EMPTY
+  expect_eq dates "$(jq -c '.dates' <<< "$OUT")" '["2026-03-07","2026-03-08","2026-03-09"]'
+}
 c_sweep__resolve_no_args() {
   resolve
   expect run 1 EMPTY '~usage'
