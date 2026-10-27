@@ -1509,6 +1509,25 @@ c_sweep__backfill_cmds_rejects_bad_records() {
     expect "bad: $bad" 1 EMPTY '~backfill-cmds:'
   done
 }
+c_sweep__run_backfill_counts_exit_codes() {
+  mkdir -p "$T/bin"
+  printf '#!/bin/sh\nfor a in "$@"; do [ "$a" = FAIL ] && exit 1; done\nexit 0\n' > "$T/bin/clog"; chmod +x "$T/bin/clog"
+  STDIN=$(printf '%s\n' "clog 'CODE' 'one' --session 's'" "clog LEARNING 'w1' --session 's'" \
+    "clog 'CODE' 'FAIL' --session 's'" "clog LEARNING 'FAIL' --session 's'" "clog 'ACTION' 'two' --session 's'")
+  ENVX=(PATH="$T/bin:$TPATH"); run "$SWEEP_SCRIPTS/run-backfill.sh"
+  expect run 0 - EMPTY
+  expect_eq counts "$OUT" '{"backfilled":2,"learnings":1,"failed":2}'
+}
+c_sweep__run_backfill_empty_input() {
+  run "$SWEEP_SCRIPTS/run-backfill.sh"
+  expect run 0 - EMPTY
+  expect_eq counts "$OUT" '{"backfilled":0,"learnings":0,"failed":0}'
+}
+c_sweep__skill_uses_run_backfill() {
+  local skill=$REPO/skills/clog-sweep-sessions/SKILL.md
+  expect_eq script "$(grep -c 'scripts/run-backfill.sh' "$skill")" 2
+  expect_eq no_asis "$(grep -c 'Execute the emitted block as-is' "$skill")" 0
+}
 c_sweep__backfill_cmds_no_sid() {
   backfill_cmds
   expect run 1 EMPTY '~usage'
