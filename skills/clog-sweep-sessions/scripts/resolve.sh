@@ -35,10 +35,13 @@ for sid in "$@"; do
 
   # First and last timestamp as epoch seconds; unparseable lines and lines
   # without a string timestamp are skipped. Fractional seconds are dropped.
-  bounds=$(jq -R -n -r '
+  if ! bounds=$(jq -R -n -r '
     [inputs | fromjson? | objects | .timestamp? | strings
      | sub("\\.[0-9]+"; "") | try fromdateiso8601 catch empty]
-    | if length == 0 then empty else "\(min) \(max)" end' "$transcript")
+    | if length == 0 then empty else "\(min) \(max)" end' "$transcript"); then
+    jq -nc --arg sid "$sid" --arg t "$transcript" '{sid:$sid,transcript:$t,status:"unreadable"}'
+    continue
+  fi
 
   dates=()
   if [[ -n "$bounds" ]]; then

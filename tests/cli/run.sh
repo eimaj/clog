@@ -1381,6 +1381,17 @@ c_sweep__resolve_skips_lines_without_timestamp() {
   expect run 0 - EMPTY
   expect_eq dates "$(jq -c '.dates' <<< "$OUT")" '["2026-10-26","2026-10-27"]'
 }
+c_sweep__resolve_unreadable_transcript_continues() {
+  mktranscript bad 2026-10-26T10:00:00Z
+  mktranscript good 2026-10-26T11:00:00Z
+  chmod 000 "$T/projects/-proj/bad.jsonl"
+  EXTRA=(TZ=UTC); resolve bad good
+  chmod 644 "$T/projects/-proj/bad.jsonl"
+  expect run 0 - -
+  expect_eq lines "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" 2
+  expect_eq line1 "$(printf '%s\n' "$OUT" | sed -n 1p)" "{\"sid\":\"bad\",\"transcript\":\"$T/projects/-proj/bad.jsonl\",\"status\":\"unreadable\"}"
+  expect_eq dates_good "$(printf '%s\n' "$OUT" | sed -n 2p | jq -c '.dates')" '["2026-10-26"]'
+}
 c_sweep__resolve_no_args() {
   resolve
   expect run 1 EMPTY '~usage'
