@@ -8,7 +8,7 @@ Each log entry is a single JSON object on one line in the daily `.jsonl` file at
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `time` | string | yes | `HH:MM:SS` — wall-clock time of the entry |
+| `time` | string | yes | `HH:MM:SS` — wall-clock time of the entry, or the `--time` value on a backfill |
 | `type` | string | yes | One of: `ACTION`, `DECISION`, `CODE`, `PR`, `COMMIT`, `REPO`, `FOLLOWUP`, `LEARNING`, `LESSON` |
 | `summary` | string | yes | Human-readable description of the event |
 | `repo` | string | no | Git repo basename — auto-detected from `git rev-parse --show-toplevel` or explicit `--repo` |
@@ -21,6 +21,7 @@ Each log entry is a single JSON object on one line in the daily `.jsonl` file at
 | `commit` | string | no | Short git SHA — auto-added by `post-action-log.sh` for `COMMIT` entries |
 | `clog_version` | string | no | Schema version (e.g., `"1.0"`) — emitted once per file on first write of the day |
 | `tags` | string[] | no | Machine default tags from `$CLOG_DEFAULT_TAGS` (comma-separated), else `~/.config/clog/tags.local` (or `$CLOG_TAGS_FILE`), never from `config.yaml`; then any `--tags a,b` for this entry. Items trimmed, empty items dropped, duplicates removed keeping first occurrence. Emitted after `clog_version` |
+| `logged_at` | string | no | `YYYY-MM-DDTHH:MM:SS`, local time the entry was actually written. Present only when `--time` overrode `time` (a backfill). Emitted after `tags`, before `validation` |
 | `validation` | string | no | `unknown_family`, `unknown_kpi` or `unknown_family,unknown_kpi` — set when a flag value is not in the config enum list |
 
 ---

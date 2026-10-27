@@ -123,6 +123,9 @@ clog FOLLOWUP "investigate whether Cursor exposes hooks API"
 
 # Repo and session are auto-detected; override when needed
 clog ACTION "deploy to staging" --repo my-repo --agent orchestrator
+
+# Backfill onto another day and time (the entry also gets logged_at = now)
+clog ACTION "deployed hotfix" --date 2026-01-02 --time 14:05:09
 ```
 
 `clog --help` lists every flag. For the type table, `--family` and `--kpi` rubrics, see [config/rules.md](config/rules.md); for exit codes and error messages, [docs/api/index.html](docs/api/index.html).
@@ -210,6 +213,7 @@ Install into Claude Code and invoke by name:
 | Skill          | Output                                                                                                 |
 | -------------- | ------------------------------------------------------------------------------------------------------ |
 | `clog-sweep`   | Two modes: **backfill** (finds misses, auto-applies + paired LEARNINGs) and **audit-only** (gaps report, no backfill) |
+| `clog-sweep-sessions` | Like `clog-sweep` for named session ids on any day (closed panes included): backfills each miss with `--session/--date/--time` and returns one JSON result per session |
 | `clog-day`     | Daily markdown report grouped by type                                                                  |
 | `clog-week`    | Weekly aggregation: velocity, top decisions, learnings by cluster                                      |
 | `clog-lessons` | Reads LEARNING entries, clusters by family+kpi, proposes skill edits as **diffs** (never auto-applies) |

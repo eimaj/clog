@@ -83,26 +83,28 @@ From the user's answers:
    clog DECISION "clog-replay: building jq filter — keyword='<keyword>' repo=<repo|unscoped> date-files=<file-glob>"
    ```
 
-   Always filter on `.summary` prose. Optionally add `.repo` and `.agent` if the user provided them. Use case-insensitive regex:
+   Always filter on `.summary` prose. Optionally add `.repo` and `.agent` if the user provided them. Use case-insensitive regex.
+
+   Entries are in write order, not time order (a backfilled entry sits at the end of its day's file with an earlier `time`), so each day file is sorted by `time` before filtering. Run `jq` once per file (a loop over the glob) so days stay separate:
 
    ```bash
-   jq -c 'select(.summary | test("KEYWORD"; "i"))' \
-     $LOG_DIR/YYYYMMDD*.jsonl \
-     | head -30
+   for f in $LOG_DIR/YYYYMMDD*.jsonl; do
+     jq -cnR '[inputs | . as $l | try fromjson catch ("clog: skipped unparseable line: " + $l + "\n" | stderr | empty)] | sort_by(.time)[] | select(.summary | test("KEYWORD"; "i"))' "$f"
+   done | head -30
    ```
 
    Multi-keyword example (AND):
    ```bash
-   jq -c 'select((.summary | test("cmp"; "i")) and (.summary | test("playwright"; "i")))' \
-     $LOG_DIR/202505*.jsonl \
-     | head -30
+   for f in $LOG_DIR/202505*.jsonl; do
+     jq -cnR '[inputs | . as $l | try fromjson catch ("clog: skipped unparseable line: " + $l + "\n" | stderr | empty)] | sort_by(.time)[] | select((.summary | test("cmp"; "i")) and (.summary | test("playwright"; "i")))' "$f"
+   done | head -30
    ```
 
    With repo filter:
    ```bash
-   jq -c 'select((.repo == "tn-mono") and (.summary | test("migration"; "i")))' \
-     $LOG_DIR/202506*.jsonl \
-     | head -30
+   for f in $LOG_DIR/202506*.jsonl; do
+     jq -cnR '[inputs | . as $l | try fromjson catch ("clog: skipped unparseable line: " + $l + "\n" | stderr | empty)] | sort_by(.time)[] | select((.repo == "tn-mono") and (.summary | test("migration"; "i")))' "$f"
+   done | head -30
    ```
 
 3. **Show the command to the user before running.** Say: "Here's the search command — let me know if you want to adjust anything before I run it." Log before running:
@@ -172,7 +174,7 @@ Once the user picks an entry:
 3. Fetch ±5 entries by time proximity from the same file:
 
    ```bash
-   jq -c '.' $LOG_DIR/YYYYMMDD.jsonl \
+   jq -cnR '[inputs | . as $l | try fromjson catch ("clog: skipped unparseable line: " + $l + "\n" | stderr | empty)] | sort_by(.time)[]' $LOG_DIR/YYYYMMDD.jsonl \
      | awk -v target="HH:MM:SS" '
          { lines[NR] = $0 }
          $0 ~ target { center = NR }

@@ -31,13 +31,15 @@ Output: `<reports_root>/day/YYYY-MM-DD.md`
 
 2. **Read the JSONL file** for that date:
    ```bash
-   jq -r '.' "${CLOG_LOG_ROOT}/${CLOG_LOG_SUBDIR}/$(date -d "$DATE" +%Y%m%d 2>/dev/null || date +%Y%m%d).jsonl" 2>/dev/null
+   jq -cnR '[inputs | . as $l | try fromjson catch ("clog: skipped unparseable line: " + $l + "\n" | stderr | empty)] | sort_by(.time)[]' "${CLOG_LOG_ROOT}/${CLOG_LOG_SUBDIR}/$(date -d "$DATE" +%Y%m%d 2>/dev/null || date +%Y%m%d).jsonl"
    ```
-   If the file doesn't exist, report: "No log entries for `<date>`."
+   If the file doesn't exist, report: "No log entries for `<date>`." A truncated line is skipped with a `clog: skipped unparseable line` message on stderr; the other entries still print, so mention the skipped line in the report.
+
+   Entries are in write order, not time order: a backfilled entry (`--time`) lands at the end of the file with an earlier `time`. Every command below sorts by `time` first; `sort_by` is stable, so equal times keep file order.
 
 3. **Group entries by type** using `jq`:
    ```bash
-   jq -s 'group_by(.type) | map({type: .[0].type, entries: .})' <log_file>
+   jq -cnR '[inputs | . as $l | try fromjson catch ("clog: skipped unparseable line: " + $l + "\n" | stderr | empty)] | sort_by(.time) | group_by(.type) | map({type: .[0].type, entries: .})' <log_file>
    ```
 
 4. **Write the report** to `<reports_root>/day/YYYY-MM-DD.md`. Create parent directories if needed.
