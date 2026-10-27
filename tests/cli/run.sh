@@ -1549,7 +1549,7 @@ c_sweep__localize_utc_zone_keeps_date() {
 c_sweep__localize_rejects_bad_timestamp() {
   STDIN=$(printf '%s\n' '{"timestamp":"2026-10-27T02:30:00Z"}' '{"summary":"no ts"}')
   ENVX=(TZ=UTC); localize
-  expect run 1 - '~localize: missing or invalid timestamp'
+  expect run 1 EMPTY '~localize: missing or invalid timestamp'
 }
 c_sweep__skill_scout_emits_utc_timestamp() {
   local skill=$REPO/skills/clog-sweep-sessions/SKILL.md
