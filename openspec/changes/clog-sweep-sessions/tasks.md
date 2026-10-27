@@ -17,7 +17,7 @@
 - [x] 3.2 Skip actions that already have a matching entry within ±60s on that session (including earlier backfills); verify by running twice on the same session and seeing zero gaps the second time.
 - [x] 3.3 Return the per-session JSON (`sid`, `transcript`, `dates`, `gaps`, `backfilled`, `learnings`, `status`) and the punch list; verify the JSON parses with `jq`.
 - [x] 3.4 Every run logs one clog ACTION summarising sessions swept and entries backfilled; verify in the day's log.
-- [ ] 3.5 Add the skill and `--time` to the README and confirm `clog-sweep/SKILL.md` is unchanged (`git diff --quiet -- skills/clog-sweep`).
+- [x] 3.5 Add the skill and `--time` to the README and confirm `clog-sweep/SKILL.md` is unchanged (`git diff --quiet -- skills/clog-sweep`).
 
 ## 4. Integration
 
