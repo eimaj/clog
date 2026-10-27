@@ -48,7 +48,7 @@ Run once per session. A session that fails never stops the others.
 
    Dispatch the scouts in parallel when there is more than one session.
 
-3. **Filter to real gaps.** Pipe the scout's records through `scripts/localize.sh` (UTC `timestamp` to local `date`/`time`), then `scripts/gaps.sh <sid>`. It drops any action that already has an entry for that session within ±60 s on its day, including entries an earlier run backfilled, so a second run over the same session reports zero gaps and writes nothing. Its output is the gap list; trust it over the scout's own log check.
+3. **Filter to real gaps.** Pipe the scout's records through `scripts/localize.sh` (UTC `timestamp` to local `date`/`time`), then `scripts/gaps.sh <sid>`. It drops any action that already has a same-type, non-LEARNING entry for that session within ±60 s on its day, including entries an earlier run backfilled, so a second run over the same session reports zero gaps and writes nothing. Its output is the gap list; trust it over the scout's own log check.
 
 4. **Build the backfill commands.** Pipe the gap records to `scripts/backfill-cmds.sh <sid>`. Every emitted line carries `--session <sid> --date <day> --time <action time>`; each action is followed by its paired LEARNING. Do not hand-write backfill lines.
 

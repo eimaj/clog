@@ -1512,8 +1512,8 @@ c_sweep__skill_scout_emits_utc_timestamp() {
 gaps() { run "$SWEEP_SCRIPTS/gaps.sh" "$@"; }
 # cand <date> <time> [summary]: one candidate record
 cand() { jq -nc --arg d "$1" --arg t "$2" --arg s "${3:-x}" '{date:$d,time:$t,type:"CODE",summary:$s,why:"w"}'; }
-# logline <yyyymmdd> <session> <time>: append a minimal log entry
-logline() { mkdir -p "$LOGDIR"; jq -nc --arg s "$2" --arg t "$3" '{time:$t,type:"ACTION",summary:"seen",session:$s}' >> "$LOGDIR/$1.jsonl"; }
+# logline <yyyymmdd> <session> <time> [type=CODE, cand's type]: append a minimal log entry
+logline() { mkdir -p "$LOGDIR"; jq -nc --arg s "$2" --arg t "$3" --arg y "${4:-CODE}" '{time:$t,type:$y,summary:"seen",session:$s}' >> "$LOGDIR/$1.jsonl"; }
 c_sweep__gaps_window_is_60s_inclusive() {
   logline 20261026 s1 10:00:00
   STDIN=$(printf '%s\n' "$(cand 2026-10-26 09:59:00 in_lo)" "$(cand 2026-10-26 10:01:00 in_hi)" \
@@ -1529,6 +1529,17 @@ c_sweep__gaps_only_same_session_counts() {
   gaps s1
   expect run 0 - EMPTY
   expect_eq kept "$(jq -r '.summary' <<< "$OUT")" x
+}
+c_sweep__gaps_adjacent_different_type_does_not_cover() {
+  logline 20261026 s1 10:00:40 COMMIT
+  logline 20261026 s1 10:00:10 LEARNING
+  STDIN=$(printf '%s\n' "$(cand 2026-10-26 10:00:00 code_gap)")
+  gaps s1
+  expect run 0 - EMPTY
+  expect_eq kept "$(jq -r '.summary' <<< "$OUT")" code_gap
+  logline 20261026 s1 10:00:20 CODE
+  gaps s1
+  expect run 0 EMPTY EMPTY
 }
 c_sweep__gaps_reads_each_candidate_date() {
   logline 20261026 s1 23:59:30

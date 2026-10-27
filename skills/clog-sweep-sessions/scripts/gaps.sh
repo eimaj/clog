@@ -3,8 +3,9 @@
 #
 # stdin: one JSON object per candidate, at least {"date":"YYYY-MM-DD","time":"HH:MM:SS"}
 # (extra fields such as type, summary, why pass through untouched).
-# stdout: the candidates with no entry for session <sid> within +-60 s of their
-# time in that date's day file (path from logs-for.sh), sorted by date then time.
+# stdout: the candidates with no entry of the same type for session <sid> within
+# +-60 s of their time in that date's day file (path from logs-for.sh), sorted by
+# date then time. LEARNING entries never cover a candidate.
 # Entries this skill backfilled earlier carry the action's time, so they count as
 # matches and a second run reports zero gaps. The window does not cross midnight.
 # Unparseable log lines and entries without session/time are ignored; a missing
@@ -46,10 +47,12 @@ for i in "${!dates[@]}"; do
   if [[ -f "$f" ]]; then
     covered=$(jq -R -n -c --arg sid "$sid" '
       def secs: split(":") | map(tonumber) | .[0] * 3600 + .[1] * 60 + .[2];
-      [inputs | fromjson? | objects | select(.session == $sid) | .time? | strings | try secs catch empty]' "$f")
+      [inputs | fromjson? | objects | select(.session == $sid and (.type? | strings) != "LEARNING")
+       | {type, t: (.time? | strings | try secs catch empty)} | select(.t != null)]' "$f")
   fi
   jq -c --arg d "${dates[$i]}" --argjson cov "$covered" '
     def secs: split(":") | map(tonumber) | .[0] * 3600 + .[1] * 60 + .[2];
-    select(.date == $d) | (.time | secs) as $t | select(any($cov[]; (. - $t) | fabs <= 60) | not)' \
+    select(.date == $d) | (.time | secs) as $t | .type as $ty
+    | select(any($cov[]; .type == $ty and ((.t - $t) | fabs <= 60)) | not)' \
     <<< "$cands"
 done | jq -s -c 'sort_by(.date, .time)[]'
