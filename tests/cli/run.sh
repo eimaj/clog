@@ -1440,6 +1440,51 @@ c_sweep__logs_for_via_symlink() {
   expect run 0 "=$T/logs/claude/20261026.jsonl" EMPTY
 }
 
+backfill_cmds() { run "$SWEEP_SCRIPTS/backfill-cmds.sh" "$@"; }
+c_sweep__backfill_cmds_pairs_action_and_learning() {
+  STDIN='{"date":"2026-10-26","time":"14:05:09","type":"CODE","summary":"add retry to uploader","why":"rapid-fire edit chain","file":"/a/b.go"}'
+  backfill_cmds s9
+  expect run 0 - EMPTY
+  expect_eq lines "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" 2
+  expect_eq action "$(sed -n 1p <<< "$OUT")" "clog 'CODE' 'add retry to uploader' --file '/a/b.go' --agent clog-sweep-sessions --session 's9' --date '2026-10-26' --time '14:05:09'"
+  expect_eq learning "$(sed -n 2p <<< "$OUT")" "clog LEARNING 'rapid-fire edit chain' --family interactive --kpi 'failure' --agent clog-sweep-sessions --session 's9' --date '2026-10-26' --time '14:05:09'"
+}
+c_sweep__backfill_cmds_kpi_override() {
+  STDIN='{"date":"2026-10-26","time":"01:00:00","type":"ACTION","summary":"x y","why":"skill gap","kpi":"prompt_gap"}'
+  backfill_cmds s9
+  expect run 0 - EMPTY
+  expect_eq kpi "$(sed -n 2p <<< "$OUT" | grep -c -- "--kpi 'prompt_gap'")" 1
+}
+c_sweep__backfill_cmds_quotes_hostile_text() {
+  mkdir -p "$T/bin"; ln -s "$REPO/bin/clog" "$T/bin/clog"
+  STDIN=$(jq -nc '{date:"2026-10-26",time:"09:30:00",type:"ACTION",summary:"it'"'"'s $(touch pwned) `x` \"q\"",why:"why; touch pwned2"}')
+  backfill_cmds s9
+  expect run 0 - EMPTY
+  printf '%s\n' "$OUT" > "$T/cmds.sh"
+  ENVX=(PATH="$T/bin:$TPATH"); run bash "$T/cmds.sh"
+  expect run 0 - -
+  expect_json summary "$LOGDIR/20261026.jsonl" '.summary' 'it'"'"'s $(touch pwned) `x` "q"' 1
+  expect_json at "$LOGDIR/20261026.jsonl" '[.session,.time,has("logged_at")]|join("|")' 's9|09:30:00|true' 1
+  expect_json learning_session "$LOGDIR/20261026.jsonl" '.type+"|"+.session+"|"+.time' 'LEARNING|s9|09:30:00' 2
+  [[ ! -e $RUNDIR/pwned && ! -e $RUNDIR/pwned2 ]] || fail "injection executed"
+}
+c_sweep__backfill_cmds_rejects_bad_records() {
+  local bad
+  for bad in \
+    '{"date":"2026-10-26","time":"14:05","type":"CODE","summary":"s","why":"w"}' \
+    '{"date":"20261026","time":"14:05:09","type":"CODE","summary":"s","why":"w"}' \
+    '{"date":"2026-10-26","time":"14:05:09","type":"LEARNING","summary":"s","why":"w"}' \
+    '{"date":"2026-10-26","time":"14:05:09","type":"CODE","summary":"","why":"w"}' \
+    '{"date":"2026-10-26","time":"14:05:09","type":"CODE","summary":"s"}'; do
+    STDIN=$bad; backfill_cmds s9
+    expect "bad: $bad" 1 EMPTY '~backfill-cmds:'
+  done
+}
+c_sweep__backfill_cmds_no_sid() {
+  backfill_cmds
+  expect run 1 EMPTY '~usage'
+}
+
 # ============================================================================
 # runner
 # ============================================================================
