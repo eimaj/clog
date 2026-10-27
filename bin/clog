@@ -2,7 +2,7 @@
 # clog — append a JSONL log entry for AI coding sessions.
 # Usage: clog <TYPE> "<summary>" [--agent NAME] [--repo NAME] [--session ID]
 #              [--model NAME] [--file PATH] [--family FAMILY] [--kpi KPI]
-#              [--date YYYY-MM-DD] [--tags a,b] [--echo]
+#              [--date YYYY-MM-DD] [--time HH:MM:SS] [--tags a,b] [--echo]
 # Types: DECISION | ACTION | CODE | PR | COMMIT | REPO | FOLLOWUP | LEARNING | LESSON
 # See config/rules.md for full type definitions and usage guidance.
 set -euo pipefail
@@ -29,6 +29,7 @@ Flags (must follow the two positionals):
   --family FAMILY      skill/task family
   --kpi KPI            KPI tag (LEARNING entries)
   --date YYYY-MM-DD    backfill: write to that day's file
+  --time HH:MM:SS      backfill: set the entry's time (default: now)
   --tags a,b           extra tags for this entry, after the machine defaults
   --echo               print the written JSON line to stdout
   clog serve [--port N]   start the local HTTP API (default 127.0.0.1:4848; prints a bearer token)
@@ -102,20 +103,21 @@ FILE_PATH=""
 FAMILY=""
 KPI=""
 DATE_OVERRIDE=""
+TIME_OVERRIDE=""
 ECHO=false
 TAGS_FLAG=""
 VALIDATION=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --agent|--repo|--session|--model|--file|--family|--kpi|--date|--tags)
+    --agent|--repo|--session|--model|--file|--family|--kpi|--date|--time|--tags)
       if [[ $# -lt 2 ]]; then
         echo "clog: $1 needs a value" >&2
         exit 1
       fi
       # A recognised flag in value position means the value is missing
       case "$2" in
-        --agent|--repo|--session|--model|--file|--family|--kpi|--date|--tags|--echo)
+        --agent|--repo|--session|--model|--file|--family|--kpi|--date|--time|--tags|--echo)
           echo "clog: $1 needs a value" >&2
           exit 1
           ;;
@@ -131,6 +133,7 @@ while [[ $# -gt 0 ]]; do
     --family)  FAMILY="$2";  shift 2 ;;
     --kpi)     KPI="$2";     shift 2 ;;
     --date)    DATE_OVERRIDE="$2"; shift 2 ;;
+    --time)    TIME_OVERRIDE="$2"; shift 2 ;;
     --tags)    TAGS_FLAG="$2"; shift 2 ;;
     --echo)    ECHO=true; shift ;;
     --*) echo "clog: unknown flag '$1'" >&2; exit 1 ;;
@@ -161,8 +164,16 @@ if [[ -z "$REPO" ]]; then
   REPO=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "")
 fi
 
+# Echo a rejected value on one line: control characters shown escaped.
+printable() { if [[ "$1" == *[[:cntrl:]]* ]]; then printf '%q' "$1"; else printf '%s' "$1"; fi; }
+
 if [[ -n "$DATE_OVERRIDE" && ! "$DATE_OVERRIDE" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ ]]; then
-  echo "clog: invalid --date '$DATE_OVERRIDE' (expected YYYY-MM-DD)" >&2
+  echo "clog: invalid --date '$(printable "$DATE_OVERRIDE")' (expected YYYY-MM-DD)" >&2
+  exit 1
+fi
+
+if [[ -n "$TIME_OVERRIDE" && ! "$TIME_OVERRIDE" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ ]]; then
+  echo "clog: invalid --time '$(printable "$TIME_OVERRIDE")' (expected HH:MM:SS)" >&2
   exit 1
 fi
 
@@ -183,7 +194,18 @@ if [[ -n "$TAGS_FLAG" ]]; then
   ALL_TAGS="${ALL_TAGS:+$ALL_TAGS,}$TAGS_FLAG"
 fi
 
-ENTRY=$(build_entry "$TYPE" "$SUMMARY" "$AGENT" "$REPO" "$SESSION" "$MODEL" "$FILE_PATH" "$FAMILY" "$KPI" "$CLOG_VERSION" "$ALL_TAGS")
+# logged_at records when a backfilled (--time) entry was actually written.
+LOGGED_AT=""
+if [[ -n "$TIME_OVERRIDE" ]]; then
+  LOGGED_AT=$(date +%Y-%m-%dT%H:%M:%S)
+fi
+
+ENTRY=$(build_entry "$TYPE" "$SUMMARY" "$AGENT" "$REPO" "$SESSION" "$MODEL" "$FILE_PATH" "$FAMILY" "$KPI" "$CLOG_VERSION" "$ALL_TAGS" "$LOGGED_AT")
+
+# --time replaces the wall-clock time (jq keeps the key's first position)
+if [[ -n "$TIME_OVERRIDE" ]]; then
+  ENTRY=$(echo "$ENTRY" | jq -c --arg t "$TIME_OVERRIDE" '.time = $t')
+fi
 
 # Append validation field if present
 if [[ -n "$VALIDATION" ]]; then
