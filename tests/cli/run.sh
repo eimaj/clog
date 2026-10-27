@@ -406,6 +406,15 @@ c_cli__invalid_value_single_line() {
   [[ $ERR != *$'\n'* ]] || fail "date: stderr spans lines"
   expect_file nothing_written "$T/logs" absent
 }
+c_cli__time_echo_and_last_wins() {
+  runclog ACTION x --time 14:05:09 --echo
+  expect echo 0 - EMPTY
+  expect_eq echo_is_written_line "$OUT" "$(cat "$LOGF")"
+  expect_json echo_time "$LOGF" '.time' 14:05:09
+  runclog ACTION y --time 14:05:09 --time 15:00:00
+  expect repeated 0 EMPTY EMPTY
+  expect_json last_wins "$LOGF" '.time' 15:00:00 2
+}
 c_cli__time_without_value() {
   runclog ACTION x --time
   expect run 1 EMPTY "=clog: --time needs a value"
