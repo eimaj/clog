@@ -1562,6 +1562,74 @@ c_sweep__gaps_second_run_after_backfill_is_empty() {
   expect second 0 EMPTY EMPTY
 }
 
+result() { run "$SWEEP_SCRIPTS/result.sh" "$@"; }
+c_sweep__result_swept() {
+  result '{"sid":"s1","transcript":"/t/s1.jsonl","dates":["2026-10-26","2026-10-27"]}' --gaps 3 --backfilled 3 --learnings 3
+  expect run 0 - EMPTY
+  expect_eq keys "$(jq -c 'keys_unsorted' <<< "$OUT")" '["sid","transcript","dates","gaps","backfilled","learnings","status"]'
+  expect_eq obj "$(jq -c '[.sid,.transcript,.dates,.gaps,.backfilled,.learnings,.status]' <<< "$OUT")" '["s1","/t/s1.jsonl",["2026-10-26","2026-10-27"],3,3,3,"swept"]'
+}
+c_sweep__result_counts_default_zero() {
+  result '{"sid":"s1","transcript":"/t","dates":["2026-10-26"]}'
+  expect run 0 - EMPTY
+  expect_eq counts "$(jq -c '[.gaps,.backfilled,.learnings]' <<< "$OUT")" '[0,0,0]'
+}
+c_sweep__result_date_filter() {
+  result '{"sid":"s1","transcript":"/t","dates":["2026-10-26","2026-10-27"]}' --date 2026-10-27 --date 2026-10-27
+  expect run 0 - EMPTY
+  expect_eq dates "$(jq -c '.dates' <<< "$OUT")" '["2026-10-27"]'
+}
+c_sweep__result_no_transcript() {
+  result '{"sid":"n","status":"no_transcript"}' --gaps 5
+  expect run 0 - EMPTY
+  expect_eq obj "$(jq -c '[.sid,.transcript,.dates,.gaps,.backfilled,.learnings,.status]' <<< "$OUT")" '["n",null,[],0,0,0,"no_transcript"]'
+}
+c_sweep__result_unreadable() {
+  result '{"sid":"u","transcript":"/t/u.jsonl","status":"unreadable"}'
+  expect run 0 - EMPTY
+  expect_eq obj "$(jq -c '[.transcript,.dates,.status]' <<< "$OUT")" '["/t/u.jsonl",[],"unreadable"]'
+}
+c_sweep__result_roundtrips_resolve_output() {
+  mktranscript s1 2026-10-26T10:00:00Z 2026-10-26T11:00:00Z
+  EXTRA=(TZ=UTC); resolve s1 gone
+  local lines=() l
+  while IFS= read -r l; do lines+=("$l"); done <<< "$OUT"
+  result "${lines[0]}" --gaps 1 --backfilled 1 --learnings 1
+  expect first 0 - EMPTY
+  expect_eq swept "$(jq -r '"\(.status) \(.transcript)"' <<< "$OUT")" "swept $T/projects/-proj/s1.jsonl"
+  result "${lines[1]}"
+  expect second 0 - EMPTY
+  expect_eq missing "$(jq -r '.status' <<< "$OUT")" no_transcript
+}
+c_sweep__result_bad_args() {
+  result
+  expect noargs 1 EMPTY '~usage'
+  result 'not json'
+  expect badjson 1 EMPTY -
+  result '{"status":"swept"}'
+  expect nosid 1 EMPTY '~result: resolve line needs a sid'
+  result '{"sid":"s"}' --gaps x
+  expect badcount 1 EMPTY "=result: invalid count 'x'"
+  result '{"sid":"s"}' --date 2026-13-01
+  expect baddate 1 EMPTY "=result: invalid date '2026-13-01'"
+  result '{"sid":"s"}' --gaps
+  expect novalue 1 EMPTY '~usage'
+}
+
+punch() { run "$SWEEP_SCRIPTS/punch.sh"; }
+c_sweep__punch_list() {
+  STDIN=$(printf '%s\n' \
+    '{"sid":"a","transcript":"/t","dates":["2026-10-26","2026-10-27"],"gaps":2,"backfilled":2,"learnings":2,"status":"swept"}' \
+    '{"sid":"b","transcript":null,"dates":[],"gaps":0,"backfilled":0,"learnings":0,"status":"no_transcript"}')
+  punch
+  expect run 0 - EMPTY
+  expect_eq text "$OUT" "a: swept 2026-10-26,2026-10-27, 2 gaps, 2 backfilled, 2 learnings"$'\n'"b: no_transcript"$'\n'"2 sessions: 1 swept, 2 backfilled"
+}
+c_sweep__punch_rejects_non_result() {
+  STDIN='{"x":1}'; punch
+  expect run 1 - '~punch: not a result line'
+}
+
 # ============================================================================
 # runner
 # ============================================================================

@@ -27,6 +27,8 @@ All in `scripts/`, bash + jq. Deterministic work lives there; only the scan in s
 | `logs-for.sh <date>…` | Day-file path per date; exits 1 when clog is disabled |
 | `gaps.sh <sid>` | Candidate records on stdin minus those already logged for that session within ±60 s |
 | `backfill-cmds.sh <sid>` | Gap records on stdin become `clog` backfill commands plus the paired LEARNING |
+| `result.sh '<resolve line>' [--gaps N] [--backfilled N] [--learnings N] [--date D]…` | The per-session result JSON line |
+| `punch.sh` | Result lines on stdin become the human punch list |
 
 ## Steps
 
@@ -49,6 +51,12 @@ Run once per session. A session that fails never stops the others.
 4. **Build the backfill commands.** Pipe the gap records to `scripts/backfill-cmds.sh <sid>`. Every emitted line carries `--session <sid> --date <day> --time <action time>`; each action is followed by its paired LEARNING. Do not hand-write backfill lines.
 
 5. **Execute the emitted block as-is.** No approval pause. Skip when there are no gaps. The entries land in the action's day file with `time` set to the action time and `logged_at` set to now.
+
+6. **Assemble the per-session result.** `scripts/result.sh '<that sid's resolve line>' --gaps <gap count> --backfilled <commands executed> --learnings <LEARNINGs executed> [--date D]…` (repeat `--date` as the caller gave it). Sessions that were `no_transcript` or `unreadable` still get a result line with that status and zero counts.
+
+7. **Return** to the caller:
+   - one result JSON object per session, one per line, in the order the ids were given (`sid`, `transcript`, `dates`, `gaps`, `backfilled`, `learnings`, `status`; `status` is `swept`, `no_transcript` or `unreadable`), so it can report without re-reading logs;
+   - the human punch list: `scripts/punch.sh` over those lines.
 
 ## Notes
 
