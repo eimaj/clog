@@ -1319,7 +1319,7 @@ c_hooks__agent_fallback_new_day() {
 }
 
 # ============================================================================
-# clog-sweep-sessions scripts (openspec/changes/clog-sweep-sessions)
+# clog-sweep-sessions scripts (openspec/specs/session-sweep)
 # ============================================================================
 SWEEP_SCRIPTS=$REPO/skills/clog-sweep-sessions/scripts
 # mktranscript <sid> <timestamp>...: write $T/projects/-proj/<sid>.jsonl, one line per timestamp.

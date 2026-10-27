@@ -69,7 +69,7 @@ The summary SHALL be stored verbatim as a JSON string. Double quotes, backslashe
 - **THEN** an entry with `summary` `" "` is appended and the exit code is 0
 
 ### Requirement: Optional flags
-The CLI SHALL accept `--agent NAME`, `--repo NAME`, `--session ID`, `--model NAME`, `--file PATH`, `--family FAMILY`, `--kpi KPI`, `--date YYYY-MM-DD` and `--tags a,b`. Each value SHALL be stored verbatim in the field of the same name (except `--date`, which selects the file, and `--tags`, which is merged into the `tags` array). When a flag is repeated, the last occurrence SHALL win.
+The CLI SHALL accept `--agent NAME`, `--repo NAME`, `--session ID`, `--model NAME`, `--file PATH`, `--family FAMILY`, `--kpi KPI`, `--date YYYY-MM-DD`, `--time HH:MM:SS` and `--tags a,b`. Each value SHALL be stored verbatim in the field of the same name (except `--date`, which selects the file, `--time`, which sets `time`, and `--tags`, which is merged into the `tags` array). When a flag is repeated, the last occurrence SHALL win.
 
 #### Scenario: All flags
 - **WHEN** the user runs `clog ACTION "all" --agent a --repo r --session s --model m --file /f --family tooling --kpi effective`
@@ -91,7 +91,7 @@ The CLI SHALL accept `--agent NAME`, `--repo NAME`, `--session ID`, `--model NAM
 - **THEN** the entry's `tags` is `["a","b"]`
 
 ### Requirement: Unrecognised arguments
-After the two positionals, the CLI SHALL reject an unrecognised `--` argument, an extra positional, a recognised value flag given as the final argument, and a recognised value flag followed by another recognised flag name (`--agent`, `--repo`, `--session`, `--model`, `--file`, `--family`, `--kpi`, `--date`, `--tags`, `--echo`) instead of a value, each with exit 1 and a single stderr line, before anything is written.
+After the two positionals, the CLI SHALL reject an unrecognised `--` argument, an extra positional, a recognised value flag given as the final argument, and a recognised value flag followed by another recognised flag name (`--agent`, `--repo`, `--session`, `--model`, `--file`, `--family`, `--kpi`, `--date`, `--time`, `--tags`, `--echo`) instead of a value, each with exit 1 and a single stderr line, before anything is written.
 
 #### Scenario: Unknown flag
 - **WHEN** the user runs `clog ACTION "x" --bogus --repo r`
@@ -112,6 +112,10 @@ After the two positionals, the CLI SHALL reject an unrecognised `--` argument, a
 #### Scenario: Value that merely starts with dashes
 - **WHEN** the user runs `clog ACTION "x" --repo --not-a-flag --echo`
 - **THEN** the entry's `repo` is `--not-a-flag` and the entry is echoed
+
+#### Scenario: Time without a value
+- **WHEN** the user runs `clog ACTION "x" --time`
+- **THEN** stderr is `clog: --time needs a value`, the exit code is 1 and nothing is written
 
 ### Requirement: Repo autodetection
 When `--repo` is omitted, `repo` SHALL be the basename of `git rev-parse --show-toplevel` run from the current directory. Outside a git repository the field SHALL be omitted.
@@ -147,7 +151,7 @@ When the configured `families` list is non-empty and `--family` is not in it, th
 - **THEN** the entry contains `family` and `kpi` but no `validation` field
 
 ### Requirement: Date override
-`--date` SHALL match `^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$`. A matching value SHALL select the file `YYYYMMDD.jsonl` for that date; the entry's `time` SHALL remain the current wall-clock time. Any non-matching value SHALL exit 1 with the single stderr line `clog: invalid --date '<value>' (expected YYYY-MM-DD)` and nothing written. Calendar validity beyond those ranges SHALL NOT be checked. An empty value SHALL be treated as no override.
+`--date` SHALL match `^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$`. A matching value SHALL select the file `YYYYMMDD.jsonl` for that date; the entry's `time` SHALL remain the current wall-clock time unless `--time` is given. Any non-matching value SHALL exit 1 with the single stderr line `clog: invalid --date '<value>' (expected YYYY-MM-DD)` and nothing written. Calendar validity beyond those ranges SHALL NOT be checked. An empty value SHALL be treated as no override.
 
 #### Scenario: Backfill
 - **WHEN** the user runs `clog ACTION "x" --date 2026-01-02`
@@ -241,3 +245,18 @@ A failing `git add` or `git commit` during auto-commit SHALL NOT change the CLI'
 #### Scenario: Git failure
 - **WHEN** auto-commit is enabled and `repo_root` is not a git repository
 - **THEN** the entry is written, the exit code is 0 and nothing is printed
+
+### Requirement: Time override
+`--time` SHALL match `^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$`. A matching value SHALL become the entry's `time`, with or without `--date`. Any non-matching value SHALL exit 1 with the single stderr line `clog: invalid --time '<value>' (expected HH:MM:SS)` and nothing written. In this and the `--date` message, a value containing control characters SHALL be printed in `printf %q` form so the line stays single. An empty value SHALL be treated as no override.
+
+#### Scenario: Backfill with time
+- **WHEN** the user runs `clog ACTION "x" --date 2026-01-02 --time 14:05:09`
+- **THEN** the entry is appended to `20260102.jsonl` with `time` `14:05:09`
+
+#### Scenario: Invalid time
+- **WHEN** the user runs `clog ACTION "x" --time 25:00:00`
+- **THEN** stderr is `clog: invalid --time '25:00:00' (expected HH:MM:SS)`, the exit code is 1 and nothing is written
+
+#### Scenario: Short form rejected
+- **WHEN** the user runs `clog ACTION "x" --time 14:05`
+- **THEN** the exit code is 1 with the invalid-time message
