@@ -1573,6 +1573,25 @@ c_sweep__backfill_cmds_rejects_bad_session_id() {
   backfill_cmds $'s9\nclog ACTION x'
   expect nl_sid 1 EMPTY '~backfill-cmds:'
 }
+# jq test("^..$") lets $ match before a final newline; every anchored field must
+# reject a trailing newline.
+c_sweep__backfill_cmds_rejects_trailing_newline_type() {
+  sweep_reject_runs_nothing type_nl "$(jq -nc '{date:"2026-10-26",time:"09:30:00",type:"CODE\n",summary:"s",why:"w"}')"
+}
+c_sweep__backfill_cmds_rejects_trailing_newline_date() {
+  sweep_reject_runs_nothing date_nl "$(jq -nc '{date:"2026-10-26\n",time:"09:30:00",type:"CODE",summary:"s",why:"w"}')"
+}
+c_sweep__backfill_cmds_rejects_trailing_newline_time() {
+  sweep_reject_runs_nothing time_nl "$(jq -nc '{date:"2026-10-26",time:"09:30:00\n",type:"CODE",summary:"s",why:"w"}')"
+}
+c_sweep__backfill_cmds_rejects_trailing_newline_kpi() {
+  sweep_reject_runs_nothing kpi_trail_nl "$(jq -nc '{date:"2026-10-26",time:"09:30:00",type:"CODE",summary:"s",why:"w",kpi:"failure\n"}')"
+}
+c_sweep__backfill_cmds_rejects_trailing_newline_sid() {
+  STDIN='{"date":"2026-10-26","time":"09:30:00","type":"ACTION","summary":"s","why":"w"}'
+  backfill_cmds $'s9\n'
+  expect sid_trail_nl 1 EMPTY '~backfill-cmds:'
+}
 c_sweep__backfill_cmds_bad_record_blocks_whole_batch() {
   STDIN=$(printf '%s\n' \
     '{"date":"2026-10-26","time":"09:30:00","type":"ACTION","summary":"ok","why":"w"}' \

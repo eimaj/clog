@@ -34,18 +34,18 @@ jq -nr --arg sid "$1" '
   # first reason this record fails the schema, or null
   def reason:
     if type != "object" then "not a JSON object"
-    elif (.type | isstr | not) or (.type | test("^(DECISION|ACTION|CODE|PR|COMMIT|REPO|FOLLOWUP)$") | not)
+    elif (.type | isstr | not) or (.type | test("\\A(DECISION|ACTION|CODE|PR|COMMIT|REPO|FOLLOWUP)\\z") | not)
       then "invalid type \(.type | tojson) (LEARNING is added automatically)"
-    elif (.date | isstr | not) or (.date | test("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$") | not)
+    elif (.date | isstr | not) or (.date | test("\\A[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])\\z") | not)
       then "invalid date \(.date | tojson)"
-    elif (.time | isstr | not) or (.time | test("^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$") | not)
+    elif (.time | isstr | not) or (.time | test("\\A([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\z") | not)
       then "invalid time \(.time | tojson)"
     elif (.summary | isstr | not) then "summary must be a string"
-    elif (.summary | flat | test("^ *$")) then "empty summary"
+    elif (.summary | flat | test("\\A *\\z")) then "empty summary"
     elif (.why | isstr | not) then "why must be a string (the paired LEARNING needs one)"
-    elif (.why | flat | test("^ *$")) then "empty why (the paired LEARNING needs one)"
+    elif (.why | flat | test("\\A *\\z")) then "empty why (the paired LEARNING needs one)"
     elif (.file != null and (.file | isstr | not)) then "file must be a string"
-    elif (.kpi != null and ((.kpi | isstr | not) or (.kpi | test("^(failure|prompt_gap|token_waste|effective|format_issue)$") | not)))
+    elif (.kpi != null and ((.kpi | isstr | not) or (.kpi | test("\\A(failure|prompt_gap|token_waste|effective|format_issue)\\z") | not)))
       then "invalid kpi \(.kpi | tojson)"
     else null end;
   def cmds:
