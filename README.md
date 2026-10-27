@@ -292,7 +292,7 @@ The server prints two lines, `clog API listening on http://127.0.0.1:<port>` and
 
 See [docs/SCHEMA.md](docs/SCHEMA.md) for the full JSONL field reference and example entries, or open [docs/api/index.html](docs/api/index.html) for the browsable CLI and HTTP reference (types, flags, exit codes, config, env, hooks, routes, and a command builder).
 
-The behavioural contract is the set of OpenSpec baselines in [openspec/specs/](openspec/specs/) (`cli`, `config`, `log-entry`, `hooks`) plus the `http-api` change under `openspec/changes/`; `tests/cli/run.sh` and the node tests pin every scenario in them. Propose a behaviour change as an `openspec/changes/<name>/` delta before changing code.
+The behavioural contract is the set of OpenSpec baselines in [openspec/specs/](openspec/specs/) (`cli`, `config`, `log-entry`, `hooks`, `session-sweep`) plus the `cli-echo` and `http-api` changes still under `openspec/changes/`; `tests/cli/run.sh` and the node tests pin every scenario in them. Propose a behaviour change as an `openspec/changes/<name>/` delta before changing code.
 
 ---
 
