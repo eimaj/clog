@@ -1532,6 +1532,54 @@ c_sweep__backfill_cmds_rejects_bad_records() {
     expect "bad: $bad" 1 EMPTY '~backfill-cmds:'
   done
 }
+# Every scout field is untrusted: a record that fails the schema is rejected, no
+# command is emitted for the batch, and the exit is 1. Array values must never
+# reach @sh (it would expand each element, and a newline in one splits the line).
+sweep_reject_case() { # <label> <record-json>
+  STDIN=$2; backfill_cmds s9
+  expect "$1" 1 EMPTY '~backfill-cmds: rejected record 1:'
+}
+sweep_reject_runs_nothing() { # <label> <record-json>
+  mkdir -p "$T/bin"; printf '#!/bin/sh\ntouch "%s/ran"\nexit 0\n' "$T" > "$T/bin/clog"; chmod +x "$T/bin/clog"
+  STDIN=$2; backfill_cmds s9
+  expect "$1" 1 EMPTY '~backfill-cmds: rejected record 1:'
+  STDIN=$OUT; ENVX=(PATH="$T/bin:$TPATH"); run "$SWEEP_SCRIPTS/run-backfill.sh"
+  [[ ! -e $T/ran && ! -e $T/marker ]] || fail "$1: a command ran"
+}
+c_sweep__backfill_cmds_rejects_kpi_with_newline() {
+  sweep_reject_runs_nothing kpi_nl "$(jq -nc --arg k $'failure\nclog ACTION x; touch '"$T/marker"$' #' \
+    '{date:"2026-10-26",time:"09:30:00",type:"ACTION",summary:"s",why:"w",kpi:$k}')"
+}
+c_sweep__backfill_cmds_rejects_array_summary() {
+  sweep_reject_runs_nothing array_summary "$(jq -nc --arg k $'clog ACTION x; touch '"$T/marker" \
+    '{date:"2026-10-26",time:"09:30:00",type:"ACTION",summary:["a",$k],why:"w"}')"
+}
+c_sweep__backfill_cmds_rejects_array_file() {
+  sweep_reject_runs_nothing array_file "$(jq -nc --arg k $'clog ACTION x; touch '"$T/marker" \
+    '{date:"2026-10-26",time:"09:30:00",type:"ACTION",summary:"s",why:"w",file:["/a",$k]}')"
+}
+c_sweep__backfill_cmds_rejects_non_string_why() {
+  sweep_reject_case why_number '{"date":"2026-10-26","time":"09:30:00","type":"ACTION","summary":"s","why":5}'
+  sweep_reject_case why_array '{"date":"2026-10-26","time":"09:30:00","type":"ACTION","summary":"s","why":["w"]}'
+}
+c_sweep__backfill_cmds_rejects_bad_kpi() {
+  sweep_reject_case kpi_unknown '{"date":"2026-10-26","time":"09:30:00","type":"ACTION","summary":"s","why":"w","kpi":"nope"}'
+  sweep_reject_case kpi_array '{"date":"2026-10-26","time":"09:30:00","type":"ACTION","summary":"s","why":"w","kpi":["failure"]}'
+}
+c_sweep__backfill_cmds_rejects_bad_session_id() {
+  STDIN='{"date":"2026-10-26","time":"09:30:00","type":"ACTION","summary":"s","why":"w"}'
+  backfill_cmds 's9; touch x'
+  expect bad_sid 1 EMPTY '~backfill-cmds:'
+  backfill_cmds $'s9\nclog ACTION x'
+  expect nl_sid 1 EMPTY '~backfill-cmds:'
+}
+c_sweep__backfill_cmds_bad_record_blocks_whole_batch() {
+  STDIN=$(printf '%s\n' \
+    '{"date":"2026-10-26","time":"09:30:00","type":"ACTION","summary":"ok","why":"w"}' \
+    '{"date":"2026-10-26","time":"09:30:00","type":"ACTION","summary":"s","why":"w","kpi":"nope"}')
+  backfill_cmds s9
+  expect run 1 EMPTY '~rejected record 2:'
+}
 c_sweep__run_backfill_counts_exit_codes() {
   mkdir -p "$T/bin"
   printf '#!/bin/sh\nfor a in "$@"; do [ "$a" = FAIL ] && exit 1; done\nexit 0\n' > "$T/bin/clog"; chmod +x "$T/bin/clog"
