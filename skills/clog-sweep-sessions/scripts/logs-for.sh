@@ -33,7 +33,7 @@ done
 # `|| exit 1` as in bin/clog: it also keeps `set -e` from firing inside the
 # parsers, whose last `[[ -n .. ]] && export` returns 1 when a key is unset.
 load_config || exit 1
-if [[ -z "${CLOG_LOG_ROOT:-}" ]]; then
+if [[ ${CLOG_DISABLE:-} == 1 || -z "${CLOG_LOG_ROOT:-}" ]]; then
   echo "logs-for: clog is disabled (CLOG_DISABLE=1); no log root" >&2
   exit 1
 fi
