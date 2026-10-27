@@ -26,7 +26,7 @@ All in `scripts/`, bash + jq. Deterministic work lives there; only the scan in s
 | `resolve.sh <sid>…` | One JSON line per sid: `{sid,transcript,dates}`, `{sid,status:"no_transcript"}`, or `{sid,transcript,status:"unreadable"}` |
 | `logs-for.sh <date>…` | Day-file path per date; exits 1 when clog is disabled |
 | `localize.sh` | Scout records on stdin gain local `date`/`time` derived from their UTC `timestamp` |
-| `gaps.sh <sid>` | Candidate records on stdin minus those already logged for that session within ±60 s |
+| `gaps.sh <sid> [--date D]…` | Candidate records on stdin, limited to the `--date`s when given, minus those already logged for that session within ±60 s |
 | `backfill-cmds.sh <sid>` | Gap records on stdin become `clog` backfill commands plus the paired LEARNING |
 | `result.sh '<resolve line>' [--gaps N] [--backfilled N] [--learnings N] [--date D]…` | The per-session result JSON line |
 | `punch.sh` | Result lines on stdin become the human punch list |
@@ -48,7 +48,7 @@ Run once per session. A session that fails never stops the others.
 
    Dispatch the scouts in parallel when there is more than one session.
 
-3. **Filter to real gaps.** Pipe the scout's records through `scripts/localize.sh` (UTC `timestamp` to local `date`/`time`), then `scripts/gaps.sh <sid>`. It drops any action that already has a same-type, non-LEARNING entry for that session within ±60 s on its day, including entries an earlier run backfilled, so a second run over the same session reports zero gaps and writes nothing. Its output is the gap list; trust it over the scout's own log check.
+3. **Filter to real gaps.** Pipe the scout's records through `scripts/localize.sh` (UTC `timestamp` to local `date`/`time`), then `scripts/gaps.sh <sid> [--date D]…` (repeat `--date` for each swept date when the caller gave any; it drops records on other local dates, since the scout reads the whole transcript). It drops any action that already has a same-type, non-LEARNING entry for that session within ±60 s on its day, including entries an earlier run backfilled, so a second run over the same session reports zero gaps and writes nothing. Its output is the gap list; trust it over the scout's own log check.
 
 4. **Build the backfill commands.** Pipe the gap records to `scripts/backfill-cmds.sh <sid>`. Every emitted line carries `--session <sid> --date <day> --time <action time>`; each action is followed by its paired LEARNING. Do not hand-write backfill lines.
 

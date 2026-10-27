@@ -1541,6 +1541,24 @@ c_sweep__gaps_adjacent_different_type_does_not_cover() {
   gaps s1
   expect run 0 EMPTY EMPTY
 }
+c_sweep__gaps_date_filter_drops_other_dates() {
+  STDIN=$(printf '%s\n' "$(cand 2026-10-25 09:00:00 old)" "$(cand 2026-10-26 09:00:00 keep_a)" "$(cand 2026-10-27 09:00:00 keep_b)" "$(cand 2026-10-28 09:00:00 new)")
+  gaps s1 --date 2026-10-26 --date 2026-10-27
+  expect run 0 - EMPTY
+  expect_eq kept "$(jq -r '.summary' <<< "$OUT" | paste -sd, -)" keep_a,keep_b
+  gaps s1 --date 2026-10-01
+  expect run 0 EMPTY EMPTY
+}
+c_sweep__gaps_date_filter_bad_args() {
+  STDIN=$(cand 2026-10-26 09:00:00)
+  gaps s1 --date 20261026
+  expect bad_date 1 EMPTY '~gaps: invalid date'
+  gaps s1 --date
+  expect missing_value 1 EMPTY '~usage'
+}
+c_sweep__skill_filters_to_swept_dates() {
+  expect_eq g "$(grep -c 'scripts/gaps.sh <sid> \[--date' "$REPO/skills/clog-sweep-sessions/SKILL.md")" 1
+}
 c_sweep__gaps_reads_each_candidate_date() {
   logline 20261026 s1 23:59:30
   logline 20261027 s1 00:00:30

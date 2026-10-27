@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# gaps.sh <sid> — drop candidate misses that the log already covers.
+# gaps.sh <sid> [--date YYYY-MM-DD]... — drop candidate misses that the log
+# already covers. With --date (repeatable), candidates on other dates are dropped
+# too (apply it to local dates, after localize.sh).
 #
 # stdin: one JSON object per candidate, at least {"date":"YYYY-MM-DD","time":"HH:MM:SS"}
 # (extra fields such as type, summary, why pass through untouched).
@@ -22,17 +24,24 @@ while [ -L "$SOURCE" ]; do
 done
 SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 
-if [[ $# -ne 1 || -z "$1" ]]; then
-  echo "usage: gaps.sh <session-id>   (candidates on stdin)" >&2
-  exit 1
-fi
-sid=$1
+usage() { echo "usage: gaps.sh <session-id> [--date YYYY-MM-DD]...   (candidates on stdin)" >&2; exit 1; }
+[[ $# -ge 1 && -n "$1" ]] || usage
+sid=$1; shift
+want=()
+while [[ $# -gt 0 ]]; do
+  [[ "$1" == --date && $# -ge 2 ]] || usage
+  [[ "$2" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ ]] \
+    || { printf "gaps: invalid date '%s'\n" "$2" >&2; exit 1; }
+  want+=("$2"); shift 2
+done
 
 # Validate and normalise first, so a bad record fails before any output.
-cands=$(jq -c '
+cands=$(jq -c --args '
   if (((.date // "") | test("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"))
       and ((.time // "") | test("^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$")))
-  then . else error("gaps: invalid date/time in candidate \(tojson)") end') || exit 1
+  then . else error("gaps: invalid date/time in candidate \(tojson)") end
+  | select(($ARGS.positional | length) == 0 or (.date as $d | $ARGS.positional | index($d) != null))' \
+  ${want[@]+"${want[@]}"}) || exit 1
 [[ -n "$cands" ]] || exit 0
 
 dates=() paths=()
