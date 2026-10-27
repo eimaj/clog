@@ -365,6 +365,56 @@ c_cli__date_empty_value() {
   expect run 0 EMPTY EMPTY
   expect_file today "$LOGF" exists
 }
+c_cli__time_with_date() {
+  runclog ACTION x --date 2026-01-02 --time 14:05:09
+  expect run 0 EMPTY EMPTY
+  expect_json time "$LOGDIR/20260102.jsonl" '.time' 14:05:09
+  expect_file today_untouched "$LOGF" absent
+}
+c_cli__time_without_date() {
+  runclog ACTION x --time 00:00:00
+  expect run 0 EMPTY EMPTY
+  expect_json time "$LOGF" '.time' 00:00:00
+  runclog ACTION y --time 23:59:59
+  expect max 0 EMPTY EMPTY
+  expect_json time_max "$LOGF" '.time' 23:59:59 2
+}
+c_cli__time_invalid() {
+  runclog ACTION x --time 25:00:00
+  expect run 1 EMPTY "=clog: invalid --time '25:00:00' (expected HH:MM:SS)"
+  expect_file nothing_written "$T/logs" absent
+}
+c_cli__time_short_form() {
+  runclog ACTION x --time 14:05
+  expect run 1 EMPTY "=clog: invalid --time '14:05' (expected HH:MM:SS)"
+  expect_file nothing_written "$T/logs" absent
+}
+c_cli__time_garbage() {
+  local t
+  for t in nope 24:00:00 12:60:00 12:00:60 1:2:3 " 14:05:09" "14:05:09 x"; do
+    runclog ACTION x --time "$t"
+    expect "$t" 1 EMPTY "=clog: invalid --time '$t' (expected HH:MM:SS)"
+  done
+  expect_file nothing_written "$T/logs" absent
+}
+c_cli__time_without_value() {
+  runclog ACTION x --time
+  expect run 1 EMPTY "=clog: --time needs a value"
+  expect_file nothing_written "$T/logs" absent
+}
+c_cli__time_followed_by_flag() {
+  runclog ACTION x --time --echo
+  expect echo 1 EMPTY "=clog: --time needs a value"
+  runclog ACTION x --repo --time 14:05:09
+  expect other_flag 1 EMPTY "=clog: --repo needs a value"
+  expect_file nothing_written "$T/logs" absent
+}
+c_cli__time_empty_value() {
+  runclog ACTION x --time ""
+  expect run 0 EMPTY EMPTY
+  expect_file today "$LOGF" exists
+  expect_json time_is_now "$LOGF" '.time|test("^[0-9]{2}:[0-9]{2}:[0-9]{2}$")' true
+}
 c_cli__happy_path_silent() {
   runclog ACTION "happy path"
   expect run 0 EMPTY EMPTY
