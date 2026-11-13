@@ -6,13 +6,13 @@
 
 ## 2. Skill
 
-- [ ] 2.1 Rewrite Mode B step 1 in `skills/clog-sweep/SKILL.md`: keep the transcript rule; get `dates` from `../clog-sweep-sessions/scripts/resolve.sh "$CLAUDE_SESSION_ID"`, append today if it is not the last date, pass them to `../clog-sweep-sessions/scripts/logs-for.sh`, keep only paths that exist, and keep the inline-scan fallback.
-- [ ] 2.2 Mode A step 1 reference and both scout prompts take the list of log paths (`Clog logs (one JSONL file per day, named YYYYMMDD.jsonl):`), match each state-changer against the log of the day it happened on, and treat a day with no log as misses; update the "Inputs expected" line and the "How it works" sentence that say "today's log".
+- [x] 2.1 Rewrite Mode B step 1 in `skills/clog-sweep/SKILL.md`: keep the transcript rule; get `dates` from `../clog-sweep-sessions/scripts/resolve.sh "$CLAUDE_SESSION_ID"`, append today if it is not the last date, pass them to `../clog-sweep-sessions/scripts/logs-for.sh`, keep only paths that exist, and keep the inline-scan fallback.
+- [x] 2.2 Mode A step 1 reference and both scout prompts take the list of log paths (`Clog logs (one JSONL file per day, named YYYYMMDD.jsonl):`), match each state-changer against the log of the day it happened on, and treat a day with no log as misses; update the "Inputs expected" line and the "How it works" sentence that say "today's log".
 
 ## 3. Tests
 
-- [ ] 3.1 Add content checks for `skills/clog-sweep/SKILL.md` to `tests/cli/run.sh`: no `$(date +%Y%m%d).jsonl` single-log resolution, no `Today's clog log:` scout line, both prompts carry the multi-log input line, step 1 names `resolve.sh` and `logs-for.sh`.
-- [ ] 3.2 `npm run check` passes.
+- [x] 3.1 Add content checks for `skills/clog-sweep/SKILL.md` to `tests/cli/run.sh`: no `$(date +%Y%m%d).jsonl` single-log resolution, no `Today's clog log:` scout line, both prompts carry the multi-log input line, step 1 names `resolve.sh` and `logs-for.sh`.
+- [x] 3.2 `npm run check` passes (run with `CLOG_DEFAULT_TAGS` unset; a set value fails an unrelated server test).
 
 ## Workflow follow-up
 
