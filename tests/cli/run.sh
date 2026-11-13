@@ -1515,6 +1515,17 @@ c_sweep__skill_scout_prompt_is_self_contained() {
   expect_eq no_modeb "$(grep -c 'Use the Mode B scout prompt' "$skill")" 0
   expect_eq no_fenced_bash "$(grep -c 'Return ONLY a fenced bash block' "$skill")" 0
 }
+# clog-sweep reads every day the current session touched (openspec clog-sweep)
+c_sweep__clog_sweep_resolves_every_session_day() {
+  local skill=$REPO/skills/clog-sweep/SKILL.md
+  expect_eq no_today_only "$(grep -c -- '$(date +%Y%m%d).jsonl' "$skill")" 0
+  expect_eq no_today_line "$(grep -c "Today's clog log:" "$skill")" 0
+  expect_eq resolve "$(grep -c -- 'clog-sweep-sessions/scripts/resolve.sh "$CLAUDE_SESSION_ID"' "$skill")" 1
+  expect_eq logs_for "$(grep -c -- 'clog-sweep-sessions/scripts/logs-for.sh <date>…' "$skill")" 1
+  expect_eq both_prompts "$(grep -c 'Clog logs (one JSONL file per day, named YYYYMMDD.jsonl):' "$skill")" 2
+  expect_eq per_day_match "$(grep -c 'the day it happened on' "$skill")" 2
+  [[ -x $SWEEP_SCRIPTS/resolve.sh && -x $SWEEP_SCRIPTS/logs-for.sh ]] || fail "clog-sweep helper scripts missing or not executable"
+}
 c_sweep__skill_backfilled_excludes_learnings() {
   local skill=$REPO/skills/clog-sweep-sessions/SKILL.md
   expect_eq def "$(grep -c -- '--backfilled <non-LEARNING clog commands that exited 0>' "$skill")" 1
