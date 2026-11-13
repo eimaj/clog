@@ -17,7 +17,7 @@ model: haiku
 - You notice mid-session that state-changing actions were never logged → **backfill mode**
 
 **Do not use when:** logging a single named event the user just described — use [`clog`](../clog/SKILL.md) directly.
-**Inputs expected:** current session transcript and today's JSONL log.
+**Inputs expected:** current session transcript and the JSONL log of every day the session touched.
 
 ## Why this exists
 
@@ -27,7 +27,7 @@ It also drives the meta-improvement loop: each miss yields a `LEARNING` that nam
 
 ## How it works
 
-This skill **delegates the scan to a subagent** so the parent context stays clean. The subagent reads the transcript and today's log directly, diffs them, and returns a tight punch list. The parent sees only the final result, saving ~3–5K tokens per sweep on long sessions.
+This skill **delegates the scan to a subagent** so the parent context stays clean. The subagent reads the transcript and the session's day logs directly, diffs them, and returns a tight punch list. The parent sees only the final result, saving ~3–5K tokens per sweep on long sessions.
 
 ## Prerequisites — long sessions
 
@@ -45,22 +45,26 @@ Use when: "clog gaps", "check my log", "find missing entries", "audit my log", o
 
 1. **Resolve paths** — same as [Mode B Step 1](#steps-1).
 
-2. **Dispatch the scout subagent** (in Claude Code: `subagent_type=general-purpose`) with this prompt, substituting the two paths:
+2. **Dispatch the scout subagent** (in Claude Code: `subagent_type=general-purpose`) with this prompt, substituting the transcript path and the log paths:
 
    ````
-   You are the clog-sweep auditor. Read these two JSONL files and return a gaps
-   report. Do NOT emit clog commands or backfill anything — audit only.
+   You are the clog-sweep auditor. Read the session transcript and the clog
+   logs below and return a gaps report. Do NOT emit clog commands or backfill
+   anything — audit only.
 
    Session transcript: <TRANSCRIPT_PATH>
-   Today's clog log:   <LOG_PATH>
+   Clog logs (one JSONL file per day, named YYYYMMDD.jsonl):
+   <LOG_PATHS>
 
    State-changers to look for: Edit / Write / MultiEdit / NotebookEdit calls,
    mutating MCP calls (createJiraIssue, editJiraIssue, createConfluencePage,
    updateConfluencePage, slack_send_message, etc.), Task/Agent dispatches that
    produced artifacts. Skip git commit/push/gh pr create (auto-logged).
 
-   For each state-changer not matched in the log (±60s window, type + summary
-   keywords), list it as a missing entry with a proposed clog command.
+   For each state-changer not matched in the log of the day it happened on
+   (the local date of its transcript timestamp; ±60s window, type + summary
+   keywords), list it as a missing entry with a proposed clog command. A
+   state-changer on a day with no log above is a missing entry.
 
    Also flag quality issues in existing entries:
    - LEARNING entries missing --kpi
@@ -99,18 +103,20 @@ Use when: "clog it", "backfill clogs", "I missed some clogs", or you notice mid-
 
 1. **Resolve paths.** Compute:
    - **Session transcript** (Claude Code): `$HOME/.claude/projects/$(pwd | sed 's|/|-|g')/${CLAUDE_SESSION_ID}.jsonl`. Other tools encode the path differently — see your tool's docs.
-   - **Today's log**: read `log_root` and `log_subdir` from `~/.config/clog/config.yaml`, then `<log_root>/<log_subdir>/$(date +%Y%m%d).jsonl`.
+   - **Session days**: `dates` from `<SKILL_DIR>/../clog-sweep-sessions/scripts/resolve.sh "$CLAUDE_SESSION_ID"` (the local dates from the transcript's first to last entry), where `<SKILL_DIR>` is this skill's real directory (follow the `~/.claude/skills/clog-sweep` symlink). If today (`date +%Y-%m-%d`) is not the last date, append it.
+   - **Clog logs**: `<SKILL_DIR>/../clog-sweep-sessions/scripts/logs-for.sh <date>…` with every session day, one path per line (`<log_root>/<log_subdir>/YYYYMMDD.jsonl` from clog config). Keep only the paths that exist; a day with no log is skipped. A single-day session resolves exactly today's log.
 
-   If `$CLAUDE_SESSION_ID` is unset or the transcript file is missing, fall back to inline scan (legacy behavior).
+   If `$CLAUDE_SESSION_ID` is unset, the transcript file is missing, or `resolve.sh`/`logs-for.sh` exits non-zero, fall back to inline scan (legacy behavior).
 
-2. **Dispatch the scout subagent** (in Claude Code: `subagent_type=general-purpose`) with this prompt, substituting the two paths:
+2. **Dispatch the scout subagent** (in Claude Code: `subagent_type=general-purpose`) with this prompt, substituting the transcript path and the log paths:
 
    ````
-   You are the clog-sweep scout. Read these two JSONL files and return a punch
-   list of missing clog entries.
+   You are the clog-sweep scout. Read the session transcript and the clog logs
+   below and return a punch list of missing clog entries.
 
    Session transcript: <TRANSCRIPT_PATH>
-   Today's clog log:   <LOG_PATH>
+   Clog logs (one JSONL file per day, named YYYYMMDD.jsonl):
+   <LOG_PATHS>
 
    Rules:
    - State-changers in the transcript: Edit / Write / MultiEdit / NotebookEdit,
@@ -119,9 +125,10 @@ Use when: "clog it", "backfill clogs", "I missed some clogs", or you notice mid-
      slack_schedule_message, addCommentToJiraIssue, etc.), Task/Agent
      dispatches that produced artifacts. Skip git commit/push/gh pr create
      (auto-logged by post-action-log.sh).
-   - For each state-changer, check today's log for a matching entry within
-     ±60s of the tool call using type + summary keywords. If no match within
-     that window, it's a miss.
+   - For each state-changer, check the log of the day it happened on (the
+     local date of its transcript timestamp) for a matching entry within ±60s
+     of the tool call using type + summary keywords. If no match within that
+     window, or that day has no log above, it's a miss.
    - For each miss, pair the backfilled clog call with a LEARNING naming the
      pattern that defeated the discipline (rapid-fire chain, MCP not
      recognized as state-change, proximity bias after a big log, tradeoff
