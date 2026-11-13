@@ -10,6 +10,6 @@ Mode B step 1 of clog-sweep resolves only today's clog log (`<log_root>/<log_sub
 
 ## Impact
 
-- Spec: clog-sweep (MODIFIED requirement: Resolve clog logs).
+- Spec: clog-sweep (new spec; ADDED requirement: Resolve clog logs).
 - File: clog/skills/clog-sweep/SKILL.md (Mode A step 1 reference, Mode B step 1, both scout prompts, the "Today's clog log" input line).
 - Risk: low; a single-day session resolves exactly the same one file as before.

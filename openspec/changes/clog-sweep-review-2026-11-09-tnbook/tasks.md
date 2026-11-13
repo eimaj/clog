@@ -2,7 +2,7 @@
 
 ## 1. Delta
 
-- [ ] 1.1 Change the delta header in `specs/clog-sweep/spec.md` from `## MODIFIED Requirements` to `## ADDED Requirements`; `openspec validate clog-sweep-review-2026-11-09-tnbook --strict` passes with no archive warning.
+- [x] 1.1 Change the delta header in `specs/clog-sweep/spec.md` from `## MODIFIED Requirements` to `## ADDED Requirements`; `openspec validate clog-sweep-review-2026-11-09-tnbook --strict` passes with no archive warning.
 
 ## 2. Skill
 
