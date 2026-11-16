@@ -59,13 +59,13 @@ Use when: "clog gaps", "check my log", "find missing entries", "audit my log", o
    State-changers to look for: Edit / Write / MultiEdit / NotebookEdit calls,
    mutating MCP calls (createJiraIssue, editJiraIssue, createConfluencePage,
    updateConfluencePage, slack_send_message, etc.), Task/Agent dispatches that
-   produced artifacts, and Bash-run mutations no hook logs, e.g. gh pr merge,
-   gh pr close, gh issue create, git merge, git tag, or any gh/git command
+   produced artifacts, and Bash-run mutations no hook logs, e.g. gh pr close,
+   gh issue create, git merge, git tag, or any gh/git command
    that changes remote or repo state. Skip a Bash command only when it is a
-   single git commit, git push or gh pr create (logged by post-action-log.sh);
-   check every part of a chained command (&&, ;). git with an option before
-   the subcommand (git -C <dir> commit|push) is not matched by the hook, so
-   check it against the log.
+   single git commit, git push, gh pr create or gh pr merge (logged by
+   post-action-log.sh); check every part of a chained command (&&, ;). git
+   with an option before the subcommand (git -C <dir> commit|push) is not
+   matched by the hook, so check it against the log.
 
    For each state-changer not matched in the log of the day it happened on
    (the local date of its transcript timestamp; ±60s window, type + summary
@@ -130,12 +130,12 @@ Use when: "clog it", "backfill clogs", "I missed some clogs", or you notice mid-
      createConfluencePage, updateConfluencePage, slack_send_message,
      slack_schedule_message, addCommentToJiraIssue, etc.), Task/Agent
      dispatches that produced artifacts, and Bash-run mutations no hook logs,
-     e.g. gh pr merge, gh pr close, gh issue create, git merge, git tag, or
-     any gh/git command that changes remote or repo state. Skip a Bash command
-     only when it is a single git commit, git push or gh pr create (logged by
-     post-action-log.sh); check every part of a chained command (&&, ;). git
-     with an option before the subcommand (git -C <dir> commit|push) is not
-     matched by the hook, so check it against the log.
+     e.g. gh pr close, gh issue create, git merge, git tag, or any gh/git
+     command that changes remote or repo state. Skip a Bash command only when
+     it is a single git commit, git push, gh pr create or gh pr merge (logged
+     by post-action-log.sh); check every part of a chained command (&&, ;).
+     git with an option before the subcommand (git -C <dir> commit|push) is
+     not matched by the hook, so check it against the log.
    - For each state-changer, check the log of the day it happened on (the
      local date of its transcript timestamp) for a matching entry within ±60s
      of the tool call using type + summary keywords. If no match within that

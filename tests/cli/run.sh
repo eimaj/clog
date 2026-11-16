@@ -1553,7 +1553,8 @@ c_sweep__scouts_flag_unlogged_bash_mutations() {
   local f
   for f in clog-sweep clog-sweep-sessions; do
     local skill=$REPO/skills/$f/SKILL.md
-    expect_eq "$f.merge" "$(grep -c 'gh pr merge' "$skill")" "$([[ $f == clog-sweep ]] && echo 2 || echo 1)"
+    expect_eq "$f.merge_skipped" "$(grep -c 'gh pr create or gh pr merge' "$skill")" "$([[ $f == clog-sweep ]] && echo 2 || echo 1)"
+    expect_eq "$f.merge_not_flagged" "$(grep -c 'e.g. gh pr merge' "$skill")" 0
     expect_eq "$f.skip_single" "$(grep -c 'Skip a Bash command' "$skill")" "$([[ $f == clog-sweep ]] && echo 2 || echo 1)"
     expect_eq "$f.chained" "$(grep -c 'every part of a chained command' "$skill")" "$([[ $f == clog-sweep ]] && echo 2 || echo 1)"
     expect_eq "$f.git_c" "$(grep -c 'git -C <dir> commit|push' "$skill")" "$([[ $f == clog-sweep ]] && echo 2 || echo 1)"

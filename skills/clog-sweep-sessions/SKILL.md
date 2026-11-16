@@ -60,9 +60,9 @@ Run once per session. A session that fails never stops the others.
      createConfluencePage, updateConfluencePage, slack_send_message,
      slack_schedule_message, addCommentToJiraIssue, etc.), Task/Agent dispatches
      that produced artifacts, and Bash-run mutations no hook logs, e.g.
-     gh pr merge, gh pr close, gh issue create, git merge, git tag, or any
-     gh/git command that changes remote or repo state. Skip a Bash command
-     only when it is a single git commit, git push or gh pr create (logged by
+     gh pr close, gh issue create, git merge, git tag, or any gh/git command
+     that changes remote or repo state. Skip a Bash command only when it is a
+     single git commit, git push, gh pr create or gh pr merge (logged by
      post-action-log.sh); check every part of a chained command (&&, ;). git
      with an option before the subcommand (git -C <dir> commit|push) is not
      matched by the hook, so check it against the log.
