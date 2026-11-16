@@ -1526,6 +1526,24 @@ c_sweep__clog_sweep_resolves_every_session_day() {
   expect_eq per_day_match "$(grep -c 'the day it happened on' "$skill")" 2
   [[ -x $SWEEP_SCRIPTS/resolve.sh && -x $SWEEP_SCRIPTS/logs-for.sh ]] || fail "clog-sweep helper scripts missing or not executable"
 }
+# scouts flag Bash mutations no hook logs and skip only what post-action-log.sh logs (openspec session-sweep)
+c_sweep__scouts_flag_unlogged_bash_mutations() {
+  local f
+  for f in clog-sweep clog-sweep-sessions; do
+    local skill=$REPO/skills/$f/SKILL.md
+    expect_eq "$f.merge" "$(grep -c 'gh pr merge' "$skill")" "$([[ $f == clog-sweep ]] && echo 2 || echo 1)"
+    expect_eq "$f.skip_only" "$(grep -c 'Skip only' "$skill")" "$([[ $f == clog-sweep ]] && echo 2 || echo 1)"
+    expect_eq "$f.git_c" "$(grep -c 'git -C <dir> commit|push is not matched by the hook' "$skill")" "$([[ $f == clog-sweep ]] && echo 2 || echo 1)"
+    expect_eq "$f.no_blanket_skip" "$(grep -c 'Skip git commit/push/gh pr create' "$skill")" 0
+  done
+}
+# clog-sweep announces the inline fallback (openspec session-sweep)
+c_sweep__clog_sweep_announces_inline_fallback() {
+  local skill=$REPO/skills/clog-sweep/SKILL.md
+  expect_eq sentence "$(grep -c "inline fallback: only the current session's last day was checked, earlier session days were not" "$skill")" 1
+  expect_eq missing_helper "$(grep -c 'does not exist, or either exits non-zero, fall back to inline scan' "$skill")" 1
+  expect_eq both_modes "$(grep -c 'inline-fallback sentence from' "$skill")" 2
+}
 c_sweep__skill_backfilled_excludes_learnings() {
   local skill=$REPO/skills/clog-sweep-sessions/SKILL.md
   expect_eq def "$(grep -c -- '--backfilled <non-LEARNING clog commands that exited 0>' "$skill")" 1
