@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Logged merges are not reported as gaps
-`clog-sweep` and `clog-sweep-sessions` SHALL skip a single `gh pr merge` command as auto-logged, because `post-action-log.sh` logs it, and SHALL keep checking every part of a chained command.
+`clog-sweep` and `clog-sweep-sessions` SHALL skip a single `gh pr merge` command without `--auto` as auto-logged, because `post-action-log.sh` logs it, SHALL check `gh` with an option before the subcommand (`gh -R <repo> pr merge`) against the log because the hook does not match it, and SHALL keep checking every part of a chained command.
 
 #### Scenario: Merge logged by the hook
 - **WHEN** the transcript holds `gh pr merge 27` and the day's log has the `merged PR #27` entry
