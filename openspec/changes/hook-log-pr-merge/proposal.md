@@ -12,4 +12,4 @@
 
 - Affected specs: hooks, session-sweep
 - Affected code: `hooks/post-action-log.sh`, `skills/clog-sweep/SKILL.md`, `skills/clog-sweep-sessions/SKILL.md`, `tests/cli/run.sh`
-- Depends on change `clog-sweep-review-2026-11-09-2026-11-16-tnbook` (its scout wording is edited here), so this branch is stacked on it.
+- Edits the scout wording that change `clog-sweep-review-2026-11-09-2026-11-16-tnbook` added (merged in #27).
