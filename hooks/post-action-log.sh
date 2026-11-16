@@ -66,6 +66,12 @@ if echo "$CMD" | grep -qE 'git[[:space:]]+commit'; then
 elif echo "$CMD" | grep -qE 'gh[[:space:]]+pr[[:space:]]+create'; then
   TYPE="PR"
   SUMMARY=$(echo "$CMD" | grep -oE -- '--title[[:space:]]+"[^"]+"' | sed 's/--title[[:space:]]*"//;s/"$//' || echo "pr created")
+elif echo "$CMD" | grep -qE 'gh[[:space:]]+pr[[:space:]]+merge'; then
+  TYPE="ACTION"
+  REPO_NAME=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)
+  # A number only counts when it directly follows `merge`
+  PR_NUM=$(echo "$CMD" | grep -oE 'gh[[:space:]]+pr[[:space:]]+merge[[:space:]]+[0-9]+' | head -1 | awk '{print $4}')
+  SUMMARY="merged PR${PR_NUM:+ #$PR_NUM}${REPO_NAME:+ ($REPO_NAME)}"
 elif echo "$CMD" | grep -qE 'git[[:space:]]+push'; then
   TYPE="ACTION"
   BRANCH=$(git -C "$GIT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")

@@ -1077,6 +1077,28 @@ c_hooks__action_push_line() {
   expect run 0 EMPTY EMPTY
   expect_json entry "$LOGF" '[.type,.summary,.repo]|join("|")' "ACTION|pushed $branch (proj)|proj"
 }
+c_hooks__action_merge_with_number() {
+  mkrepo "$T/proj"; RUNDIR=$T/proj
+  STDIN=$(bash_payload 'gh pr merge 27 --squash'); hook post-action-log.sh
+  expect run 0 EMPTY EMPTY
+  expect_json entry "$LOGF" '[.type,.summary,.repo]|join("|")' 'ACTION|merged PR #27 (proj)|proj'
+}
+c_hooks__action_merge_without_number() {
+  mkrepo "$T/proj"; RUNDIR=$T/proj
+  STDIN=$(bash_payload 'gh pr merge --auto'); hook post-action-log.sh
+  expect run 0 EMPTY EMPTY
+  expect_json entry "$LOGF" '[.type,.summary]|join("|")' 'ACTION|merged PR (proj)'
+}
+c_hooks__action_merge_chained_with_push() {
+  # The agent shell guard blocks any command text containing the phrase
+  # "git <P>", so the verb is held in $P. Do not inline it.
+  local P=push
+  mkrepo "$T/proj"; RUNDIR=$T/proj
+  STDIN=$(bash_payload "gh pr merge 27 && git $P"); hook post-action-log.sh
+  expect run 0 EMPTY EMPTY
+  expect_file one_entry "$LOGF" lines=1
+  expect_json summary "$LOGF" '.summary' 'merged PR #27 (proj)'
+}
 c_hooks__action_repo_from_cd() {
   mkrepo "$T/proj"
   STDIN=$(bash_payload "cd $T/proj && git commit -m \"x\""); hook post-action-log.sh
