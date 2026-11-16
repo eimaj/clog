@@ -53,3 +53,32 @@ The skill SHALL return one JSON object per session with `sid`, `transcript`, `da
 #### Scenario: Existing trigger
 - **WHEN** the user says "clog it"
 - **THEN** `clog-sweep` runs on the current session exactly as before
+
+### Requirement: Unlogged merges are state-changers
+`clog-sweep` and `clog-sweep-sessions` SHALL treat `gh pr merge` and any other Bash-run mutation that no hook logs as a state-changing action, and SHALL skip as auto-logged only the actions `post-action-log.sh` actually logs.
+
+#### Scenario: Merge with no log entry
+- **WHEN** the transcript holds a `gh pr merge` call and the day's log has no matching entry within the window
+- **THEN** it is reported as a missing entry with a proposed `clog ACTION` command
+
+#### Scenario: Auto-logged action
+- **WHEN** the transcript holds a `git commit` that `post-action-log.sh` logged
+- **THEN** it is not reported as missing
+
+### Requirement: Helper fallback is announced
+When `clog-sweep` cannot resolve the `clog-sweep-sessions` helper scripts, it SHALL tell the user it fell back to a current-session inline scan and SHALL name that days other than the transcript's last day were not checked.
+
+#### Scenario: Helper skill not installed
+- **WHEN** `clog-sweep` runs and `clog-sweep-sessions/scripts/resolve.sh` does not exist
+- **THEN** the sweep still runs on the current session and its summary line states the fallback and that earlier session days were not checked
+
+### Requirement: Logged merges are not reported as gaps
+`clog-sweep` and `clog-sweep-sessions` SHALL skip a single `gh pr merge` command without `--auto` as auto-logged, because `post-action-log.sh` logs it, SHALL check `gh` with an option before the subcommand (`gh -R <repo> pr merge`) against the log because the hook does not match it, and SHALL keep checking every part of a chained command.
+
+#### Scenario: Merge logged by the hook
+- **WHEN** the transcript holds `gh pr merge 27` and the day's log has the `merged PR #27` entry
+- **THEN** it is not reported as missing
+
+#### Scenario: Merge chained with an unlogged mutation
+- **WHEN** the transcript holds `gh pr merge 27 && git tag v1`
+- **THEN** the `git tag` part is checked against the log
