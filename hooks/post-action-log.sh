@@ -67,10 +67,14 @@ elif echo "$CMD" | grep -qE 'gh[[:space:]]+pr[[:space:]]+create'; then
   TYPE="PR"
   SUMMARY=$(echo "$CMD" | grep -oE -- '--title[[:space:]]+"[^"]+"' | sed 's/--title[[:space:]]*"//;s/"$//' || echo "pr created")
 elif echo "$CMD" | grep -qE 'gh[[:space:]]+pr[[:space:]]+merge'; then
+  # --auto only schedules or cancels a merge; nothing has merged yet
+  [[ $CMD =~ --(disable-)?auto ]] && exit 0
   TYPE="ACTION"
   REPO_NAME=$(basename "$(git -C "$GIT_DIR" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)
   # A number only counts when it directly follows `merge`
-  PR_NUM=$(echo "$CMD" | grep -oE 'gh[[:space:]]+pr[[:space:]]+merge[[:space:]]+[0-9]+' | head -1 | awk '{print $4}')
+  PR_NUM=""
+  pr_re='gh[[:space:]]+pr[[:space:]]+merge[[:space:]]+([0-9]+)'
+  [[ $CMD =~ $pr_re ]] && PR_NUM="${BASH_REMATCH[1]}"
   SUMMARY="merged PR${PR_NUM:+ #$PR_NUM}${REPO_NAME:+ ($REPO_NAME)}"
 elif echo "$CMD" | grep -qE 'git[[:space:]]+push'; then
   TYPE="ACTION"

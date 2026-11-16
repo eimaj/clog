@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: post-action-log.sh triggers
-On PostToolUse for Bash, the hook SHALL read `tool_input.command` and write `COMMIT` entries when the command contains `git commit`, else a `PR` entry when it contains `gh pr create`, else an `ACTION` entry `merged PR #<n> (<repo>)` when it contains `gh pr merge`, else an `ACTION` entry `pushed <branch> (<repo>)` when it contains `git push`. The `PR` summary SHALL be the `--title "…"` value. The merge summary SHALL carry `#<n>` only when a number directly follows `gh pr merge`, and the `(<repo>)` suffix only when the repository resolves.
+On PostToolUse for Bash, the hook SHALL read `tool_input.command` and write `COMMIT` entries when the command contains `git commit`, else a `PR` entry when it contains `gh pr create`, else an `ACTION` entry `merged PR #<n> (<repo>)` when it contains `gh pr merge`, else an `ACTION` entry `pushed <branch> (<repo>)` when it contains `git push`. The `PR` summary SHALL be the `--title "…"` value. The merge summary SHALL carry `#<n>` only when a number directly follows `gh pr merge`, and the `(<repo>)` suffix only when the repository resolves. A `gh pr merge` carrying `--auto` or `--disable-auto` SHALL write nothing.
 
 #### Scenario: Commit with message
 - **WHEN** the hook receives `{"tool_input":{"command":"git commit -m \"feat(x): hook test\""}}`
@@ -16,8 +16,12 @@ On PostToolUse for Bash, the hook SHALL read `tool_input.command` and write `COM
 - **THEN** one `ACTION` entry `merged PR #27 (proj)` is written
 
 #### Scenario: Merge without a number
-- **WHEN** the command is `gh pr merge --auto` in a repository named `proj`
+- **WHEN** the command is `gh pr merge --squash` in a repository named `proj`
 - **THEN** one `ACTION` entry `merged PR (proj)` is written
+
+#### Scenario: Auto-merge
+- **WHEN** the command is `gh pr merge 27 --auto` or carries `--disable-auto`
+- **THEN** nothing is written, because no merge happened
 
 #### Scenario: Merge chained with a push
 - **WHEN** the command is `gh pr merge 27 && git push`

@@ -1085,9 +1085,26 @@ c_hooks__action_merge_with_number() {
 }
 c_hooks__action_merge_without_number() {
   mkrepo "$T/proj"; RUNDIR=$T/proj
-  STDIN=$(bash_payload 'gh pr merge --auto'); hook post-action-log.sh
+  STDIN=$(bash_payload 'gh pr merge --squash'); hook post-action-log.sh
   expect run 0 EMPTY EMPTY
   expect_json entry "$LOGF" '[.type,.summary]|join("|")' 'ACTION|merged PR (proj)'
+}
+c_hooks__action_merge_auto_writes_nothing() {
+  mkrepo "$T/proj"; RUNDIR=$T/proj
+  STDIN=$(bash_payload 'gh pr merge 27 --auto --squash'); hook post-action-log.sh
+  expect run 0 EMPTY EMPTY
+  expect_file nothing_written "$LOGF" absent
+}
+c_hooks__action_merge_number_not_adjacent() {
+  mkrepo "$T/proj"; RUNDIR=$T/proj
+  STDIN=$(bash_payload 'gh pr merge --squash 27 --body "fix 12"'); hook post-action-log.sh
+  expect run 0 EMPTY EMPTY
+  expect_json summary "$LOGF" '.summary' 'merged PR (proj)'
+}
+c_hooks__action_merge_outside_repo_has_no_suffix() {
+  STDIN=$(bash_payload 'gh pr merge 27'); hook post-action-log.sh
+  expect run 0 EMPTY EMPTY
+  expect_json summary "$LOGF" '.summary' 'merged PR #27'
 }
 c_hooks__action_merge_chained_with_push() {
   # The agent shell guard blocks any command text containing the phrase
@@ -1550,6 +1567,8 @@ c_sweep__clog_sweep_resolves_every_session_day() {
 }
 # scouts flag Bash mutations no hook logs and skip only what post-action-log.sh logs (openspec session-sweep)
 c_sweep__scouts_flag_unlogged_bash_mutations() {
+  # Expected counts are scout prompts per skill (clog-sweep: Mode A + Mode B = 2,
+  # clog-sweep-sessions: 1). Each phrase must stay on one line of the SKILL.md.
   local f
   for f in clog-sweep clog-sweep-sessions; do
     local skill=$REPO/skills/$f/SKILL.md
