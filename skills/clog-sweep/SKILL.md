@@ -59,11 +59,13 @@ Use when: "clog gaps", "check my log", "find missing entries", "audit my log", o
    State-changers to look for: Edit / Write / MultiEdit / NotebookEdit calls,
    mutating MCP calls (createJiraIssue, editJiraIssue, createConfluencePage,
    updateConfluencePage, slack_send_message, etc.), Task/Agent dispatches that
-   produced artifacts, and Bash-run mutations no hook logs (gh pr merge,
-   gh pr close, gh issue create, git merge, git tag). Skip only Bash commands
-   containing git commit, git push or gh pr create (logged by
-   post-action-log.sh); git -C <dir> commit|push is not matched by the hook,
-   so check it against the log.
+   produced artifacts, and Bash-run mutations no hook logs, e.g. gh pr merge,
+   gh pr close, gh issue create, git merge, git tag, or any gh/git command
+   that changes remote or repo state. Skip a Bash command only when it is a
+   single git commit, git push or gh pr create (logged by post-action-log.sh);
+   check every part of a chained command (&&, ;). git with an option before
+   the subcommand (git -C <dir> commit|push) is not matched by the hook, so
+   check it against the log.
 
    For each state-changer not matched in the log of the day it happened on
    (the local date of its transcript timestamp; ±60s window, type + summary
@@ -88,7 +90,7 @@ Use when: "clog gaps", "check my log", "find missing entries", "audit my log", o
 
 3. **Write the report** to `<reports_root>/gaps/YYYY-MM-DD.md`.
 
-4. **Print the report path** and gap counts to the user, plus the inline-fallback sentence from [Step 1](#steps-1) when it applied.
+4. **Print the report path** and gap counts to the user, plus the inline-fallback sentence from Mode B Step 1 when it applied.
 
 5. **Offer to switch to backfill mode** for immediate remediation.
 
@@ -110,7 +112,7 @@ Use when: "clog it", "backfill clogs", "I missed some clogs", or you notice mid-
    - **Session days**: `dates` from `<SKILL_DIR>/../clog-sweep-sessions/scripts/resolve.sh "$CLAUDE_SESSION_ID"` (the local dates from the transcript's first to last entry), where `<SKILL_DIR>` is this skill's real directory (follow the `~/.claude/skills/clog-sweep` symlink). If today (`date +%Y-%m-%d`) is not the last date, append it.
    - **Clog logs**: `<SKILL_DIR>/../clog-sweep-sessions/scripts/logs-for.sh <date>…` with every session day, one path per line (`<log_root>/<log_subdir>/YYYYMMDD.jsonl` from clog config). Keep only the paths that exist; a day with no log is skipped. A single-day session resolves exactly today's log.
 
-   If `$CLAUDE_SESSION_ID` is unset, the transcript file is missing, `resolve.sh`/`logs-for.sh` does not exist, or either exits non-zero, fall back to inline scan (legacy behavior) and say so: end the Step 4 summary line (Mode A: the Step 4 printout) with `inline fallback: only the current session's last day was checked, earlier session days were not`.
+   If `$CLAUDE_SESSION_ID` is unset, the transcript file is missing, `resolve.sh`/`logs-for.sh` does not exist, or either exits non-zero, fall back to inline scan (legacy behavior) and say so at once: print `inline fallback: only the current session was scanned, earlier session days were not checked` when you detect it, and repeat it at the end of the Step 4 output (Mode A: the printout; Mode B: the summary line).
 
 2. **Dispatch the scout subagent** (in Claude Code: `subagent_type=general-purpose`) with this prompt, substituting the transcript path and the log paths:
 
@@ -127,11 +129,13 @@ Use when: "clog it", "backfill clogs", "I missed some clogs", or you notice mid-
      mutating MCP calls (createJiraIssue, editJiraIssue, transitionJiraIssue,
      createConfluencePage, updateConfluencePage, slack_send_message,
      slack_schedule_message, addCommentToJiraIssue, etc.), Task/Agent
-     dispatches that produced artifacts, and Bash-run mutations no hook logs
-     (gh pr merge, gh pr close, gh issue create, git merge, git tag). Skip only
-     Bash commands containing git commit, git push or gh pr create (logged by
-     post-action-log.sh); git -C <dir> commit|push is not matched by the hook,
-     so check it against the log.
+     dispatches that produced artifacts, and Bash-run mutations no hook logs,
+     e.g. gh pr merge, gh pr close, gh issue create, git merge, git tag, or
+     any gh/git command that changes remote or repo state. Skip a Bash command
+     only when it is a single git commit, git push or gh pr create (logged by
+     post-action-log.sh); check every part of a chained command (&&, ;). git
+     with an option before the subcommand (git -C <dir> commit|push) is not
+     matched by the hook, so check it against the log.
    - For each state-changer, check the log of the day it happened on (the
      local date of its transcript timestamp) for a matching entry within ±60s
      of the tool call using type + summary keywords. If no match within that
@@ -159,7 +163,7 @@ Use when: "clog it", "backfill clogs", "I missed some clogs", or you notice mid-
 
 3. **Execute the returned bash block as-is.** Auto-apply — do not pause for approval. The bash block is the entire artifact; running it backfills the misses and logs the paired LEARNINGs in one pass.
 
-4. **Summarize** to the user in one line: `N backfilled, dominant pattern: <one short phrase>`, followed by the inline-fallback sentence from Step 1 when it applied.
+4. **Summarize** to the user in one line: `N backfilled, dominant pattern: <one short phrase>`, followed by the inline-fallback sentence from Mode B Step 1 when it applied.
 
 ---
 
