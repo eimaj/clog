@@ -2,12 +2,12 @@
 
 ## 1. Scout prompts
 
-- [x] 1.1 In `skills/clog-sweep/SKILL.md` Mode A and Mode B scout prompts, add "Bash-run mutations no hook logs (`gh pr merge`, `gh pr close`, `gh issue create`, `git merge`, `git tag`)" to the state-changer list and replace the skip line with: skip only Bash commands containing `git commit`, `git push` or `gh pr create` (logged by `post-action-log.sh`); `git -C <dir> commit|push` is not matched by the hook, so check it against the log.
+- [x] 1.1 In `skills/clog-sweep/SKILL.md` Mode A and Mode B scout prompts, add "Bash-run mutations no hook logs (`gh pr merge`, `gh pr close`, `gh issue create`, `git merge`, `git tag`)" to the state-changer list and and "any gh/git command that changes remote or repo state", and replace the skip line with: skip a Bash command only when it is a single `git commit`, `git push` or `gh pr create` (logged by `post-action-log.sh`); check every part of a chained command; `git -C <dir> commit|push` is not matched by the hook, so check it against the log.
 - [x] 1.2 Make the same two edits in the scout prompt of `skills/clog-sweep-sessions/SKILL.md`.
 
 ## 2. Fallback announcement
 
-- [x] 2.1 In `skills/clog-sweep/SKILL.md` Mode B step 1, state the fallback conditions (`$CLAUDE_SESSION_ID` unset, transcript missing, helper unresolvable or non-zero exit) and require the sweep to say it fell back; append `inline fallback: only the current session's last day was checked, earlier session days were not` to the Mode B step 4 summary line and to the Mode A step 4 printout.
+- [x] 2.1 In `skills/clog-sweep/SKILL.md` Mode B step 1, state the fallback conditions (`$CLAUDE_SESSION_ID` unset, transcript missing, helper unresolvable or non-zero exit) and require the sweep to say it fell back; print `inline fallback: only the current session was scanned, earlier session days were not checked` at detection and append it to the Mode B step 4 summary line and to the Mode A step 4 printout.
 
 ## 3. Tests
 
