@@ -59,7 +59,13 @@ Run once per session. A session that fails never stops the others.
      calls (createJiraIssue, editJiraIssue, transitionJiraIssue,
      createConfluencePage, updateConfluencePage, slack_send_message,
      slack_schedule_message, addCommentToJiraIssue, etc.), Task/Agent dispatches
-     that produced artifacts. Skip git commit/push/gh pr create (auto-logged).
+     that produced artifacts, and Bash-run mutations no hook logs, e.g.
+     gh pr merge, gh pr close, gh issue create, git merge, git tag, or any
+     gh/git command that changes remote or repo state. Skip a Bash command
+     only when it is a single git commit, git push or gh pr create (logged by
+     post-action-log.sh); check every part of a chained command (&&, ;). git
+     with an option before the subcommand (git -C <dir> commit|push) is not
+     matched by the hook, so check it against the log.
    - Report each state-changer with no log entry of the same type within ±60 s
      of the tool call. The caller re-checks, so err toward reporting.
    - `why` names the pattern that defeated logging: rapid-fire chain, MCP not
