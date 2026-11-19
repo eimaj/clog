@@ -4,6 +4,13 @@ Structured JSONL session logging for AI coding tools. Drop it into Claude Code, 
 
 > 🧰 Part of a four-repo toolkit. `clog` is the substrate the others log into — see [eimaj/toolkit](https://github.com/eimaj/toolkit) for how it composes with [dev-prompter](https://github.com/eimaj/dev-prompter), [orchestrate](https://github.com/eimaj/orchestrate), and [project-manager](https://github.com/eimaj/project-manager). Standalone use needs none of them.
 
+> [!IMPORTANT]
+> **This is a personal tool, written using AI.**
+> The code, tests and docs in this repo were written with the help of an AI coding assistant ([Claude Code](https://claude.com/claude-code)).
+>
+> The software is provided "as is", without warranty of any kind (see [LICENSE](LICENSE)).
+> There is no support and no promise of stability. Read the code before you rely on it, and use it at your own risk.
+
 ---
 
 ## 🕵️ What it does
