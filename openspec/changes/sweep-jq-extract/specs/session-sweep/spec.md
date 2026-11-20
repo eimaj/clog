@@ -19,7 +19,7 @@
 - **THEN** extract prints nothing
 
 ### Requirement: Bash mutations follow the hook rules
-`extract.sh` SHALL split a Bash command on `&&`, `||`, `;`, `|` and newlines and check every part. It SHALL skip a call only when the whole command is one `git commit`, `git push`, `gh pr create`, or `gh pr merge` without `--auto`, because `post-action-log.sh` logs those. A part with an option before the subcommand (`git -C <dir> commit|push`, `gh -R <repo> pr merge`) SHALL be reported.
+`extract.sh` SHALL split a Bash command on `&&`, `||`, `;`, `|` and newlines and check every part. It SHALL skip a call only when its single mutating part is a `git commit`, `git push`, `gh pr create`, or `gh pr merge` without `--auto`, because `post-action-log.sh` logs those; a part with `--dry-run` changes nothing and is ignored. A part with an option before the subcommand (`git -C <dir> commit|push`, `gh -R <repo> pr merge`) SHALL be reported.
 
 #### Scenario: Single commit
 - **WHEN** the Bash command is `git commit -m "x"`
@@ -39,3 +39,14 @@ Before building backfill commands, the sweeping agent SHALL review the gap list 
 #### Scenario: Read-only false positive
 - **WHEN** a gap record's Bash command only listed worktrees
 - **THEN** the record is dropped and nothing is backfilled for it
+
+### Requirement: clog-sweep uses the shared pipeline
+`clog-sweep` SHALL find the current session's gaps with the same `extract.sh | localize.sh | gaps.sh` pipeline and gap review, and SHALL NOT dispatch a scout subagent. Audit mode SHALL propose commands from `backfill-cmds.sh` without running them; backfill mode SHALL run them through `run-backfill.sh`.
+
+#### Scenario: Long session
+- **WHEN** "clog it" runs in a session whose transcript is larger than any Read limit
+- **THEN** every candidate is still checked and no `/compact` is needed first
+
+#### Scenario: Audit only
+- **WHEN** the user says "clog gaps"
+- **THEN** the missing entries are listed with proposed commands and nothing is written to the log

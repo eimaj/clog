@@ -17,3 +17,7 @@
 ## Workflow follow-up
 
 - Archive this change after merge (not in this PR).
+
+## 4. clog-sweep
+
+- [x] 4.1 Replace both scout prompts in `skills/clog-sweep/SKILL.md` with the shared pipeline and review, and update its content checks in `tests/cli/run.sh`.

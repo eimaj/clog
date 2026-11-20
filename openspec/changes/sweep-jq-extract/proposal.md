@@ -7,9 +7,9 @@ The `clog-sweep-sessions` scan step dispatches one Explore scout per session and
 - New `scripts/extract.sh <transcript>` turns a transcript into candidate records with jq: Edit/Write/MultiEdit/NotebookEdit calls as `CODE`, Agent/Task dispatches and mutating MCP calls as `ACTION`, and Bash calls that mutate repo or remote state as `ACTION`, applying the existing hook-logged skip rules (single `git commit`, `git push`, `gh pr create`, `gh pr merge` without `--auto`; every part of a chain checked; `git -C`/`gh -R` never skipped).
 - `SKILL.md` step 2 becomes `extract.sh | localize.sh | gaps.sh`; no scout is dispatched.
 - A new review step: the sweeping agent reads the short gap list, drops read-only false positives, and rewrites `summary`/`why` in plain language before backfill. It may not add records or change their type, date or time.
-- Out of scope: `clog-sweep` (current session) keeps its Mode A/B scouts.
+- `clog-sweep` (current session) drops its two general-purpose scout prompts and uses the same pipeline and review on its own transcript: Mode A turns the reviewed list into proposed commands with `backfill-cmds.sh` and runs nothing; Mode B runs them through `run-backfill.sh`. It still sweeps only the current session.
 
 ## Impact
 
 - Affected specs: session-sweep
-- Affected code: `skills/clog-sweep-sessions/scripts/extract.sh` (new), `skills/clog-sweep-sessions/SKILL.md`, `tests/cli/run.sh`
+- Affected code: `skills/clog-sweep-sessions/scripts/extract.sh` (new), `skills/clog-sweep-sessions/SKILL.md`, `skills/clog-sweep/SKILL.md`, `tests/cli/run.sh`
