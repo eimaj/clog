@@ -1441,6 +1441,74 @@ c_sweep__resolve_no_args() {
   resolve
   expect run 1 EMPTY '~usage'
 }
+
+# toolcall <timestamp> <tool> <input-json>: one assistant tool_use transcript line
+toolcall() { jq -nc --arg t "$1" --arg n "$2" --argjson i "$3" '{type:"assistant",timestamp:$t,message:{content:[{type:"tool_use",name:$n,input:$i}]}}'; }
+bashcall() { toolcall "$1" Bash "$(jq -nc --arg c "$2" '{command:$c}')"; }
+extract() { run "$SWEEP_SCRIPTS/extract.sh" "$T/tx.jsonl"; }
+c_sweep__extract_edit_is_code() {
+  toolcall 2026-11-19T15:21:39.270Z Edit '{"file_path":"/r/a/b.go"}' > "$T/tx.jsonl"
+  extract
+  expect run 0 - EMPTY
+  expect_eq record "$OUT" '{"timestamp":"2026-11-19T15:21:39Z","type":"CODE","summary":"Edit a/b.go","why":"edit with no clog entry nearby","file":"/r/a/b.go"}'
+}
+c_sweep__extract_agent_and_mutating_mcp() {
+  { toolcall 2026-11-19T10:00:00Z Agent '{"description":"trace cache TTL"}'
+    toolcall 2026-11-19T10:00:05Z mcp__claude_ai_Linear__save_issue '{"id":"ADS-1"}'; } > "$T/tx.jsonl"
+  extract
+  expect run 0 - EMPTY
+  expect_eq types "$(jq -r .type <<< "$OUT" | tr '\n' ' ')" 'ACTION ACTION '
+  expect_eq agent "$(sed -n 1p <<< "$OUT" | jq -r .summary)" 'Dispatched subagent: trace cache TTL'
+  expect_eq mcp "$(sed -n 2p <<< "$OUT" | jq -r .summary)" 'MCP Linear__save_issue ADS-1'
+}
+c_sweep__extract_ignores_read_only_calls() {
+  { toolcall 2026-11-19T10:00:00Z Read '{"file_path":"/r/x"}'
+    toolcall 2026-11-19T10:00:01Z mcp__claude_ai_Linear__list_issues '{"assignee":"me"}'
+    bashcall 2026-11-19T10:00:02Z 'git status && git log --oneline -3'
+    bashcall 2026-11-19T10:00:03Z 'git -C /r worktree prune --dry-run -v'; } > "$T/tx.jsonl"
+  extract
+  expect run 0 EMPTY EMPTY
+}
+c_sweep__extract_skips_single_hook_logged_command() {
+  { bashcall 2026-11-19T10:00:00Z 'git commit -m "x"'
+    bashcall 2026-11-19T10:00:01Z 'cd /r && git commit -m "y"'
+    bashcall 2026-11-19T10:00:02Z 'gh pr create --title "t" --body b'
+    bashcall 2026-11-19T10:00:03Z 'gh pr merge 27 --squash'; } > "$T/tx.jsonl"
+  extract
+  expect run 0 EMPTY EMPTY
+}
+c_sweep__extract_reports_option_before_subcommand() {
+  { bashcall 2026-11-19T10:00:00Z 'git -C /r commit -m "x"'
+    bashcall 2026-11-19T10:00:01Z 'gh -R o/r pr merge 27'; } > "$T/tx.jsonl"
+  extract
+  expect run 0 - EMPTY
+  expect_eq count "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" 2
+}
+c_sweep__extract_checks_every_chain_part() {
+  bashcall 2026-11-19T10:00:00Z 'gh pr merge 27 && git tag v1' > "$T/tx.jsonl"
+  extract
+  expect run 0 - EMPTY
+  expect_eq summary "$(jq -r .summary <<< "$OUT")" 'Bash: gh pr merge 27 && git tag v1'
+}
+c_sweep__extract_auto_merge_not_skipped() {
+  bashcall 2026-11-19T10:00:00Z 'gh pr merge 27 --auto' > "$T/tx.jsonl"
+  extract
+  expect_eq type "$(jq -r .type <<< "$OUT")" 'ACTION'
+}
+c_sweep__extract_skips_junk_and_non_assistant() {
+  { echo 'not json {'
+    jq -nc '{type:"user",timestamp:"2026-11-19T10:00:00Z",message:{content:[{type:"tool_use",name:"Edit",input:{file_path:"/x"}}]}}'
+    toolcall 2026-11-19T10:00:01Z Write '{"file_path":"/r/y.md"}'; } > "$T/tx.jsonl"
+  extract
+  expect run 0 - EMPTY
+  expect_eq one "$(jq -r .file <<< "$OUT")" '/r/y.md'
+}
+c_sweep__extract_bad_args() {
+  run "$SWEEP_SCRIPTS/extract.sh"
+  expect none 1 EMPTY '~usage'
+  run "$SWEEP_SCRIPTS/extract.sh" "$T/missing.jsonl"
+  expect missing 1 EMPTY '~extract: cannot read'
+}
 c_sweep__logs_for_one_date() {
   logs_for 2026-10-26
   expect run 0 "=$T/logs/claude/20261026.jsonl" EMPTY
