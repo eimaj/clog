@@ -1490,6 +1490,11 @@ c_sweep__extract_checks_every_chain_part() {
   expect run 0 - EMPTY
   expect_eq summary "$(jq -r .summary <<< "$OUT")" 'Bash: gh pr merge 27 && git tag v1'
 }
+c_sweep__extract_ignores_heredoc_bodies() {
+  bashcall 2026-11-19T10:00:00Z $'cat > /r/spec.md <<\'EOF\'\nrun gh pr merge 27 && git tag v1\nEOF\nls' > "$T/tx.jsonl"
+  extract
+  expect run 0 EMPTY EMPTY
+}
 c_sweep__extract_auto_merge_not_skipped() {
   bashcall 2026-11-19T10:00:00Z 'gh pr merge 27 --auto' > "$T/tx.jsonl"
   extract

@@ -15,7 +15,8 @@
 #           is skipped only when its single mutating part is one post-action-log.sh
 #           logs: git commit, git push, gh pr create, or gh pr merge without --auto,
 #           with no option before the subcommand (git -C / gh -R are reported).
-#           A part carrying --dry-run changes nothing and is ignored.
+#           A part carrying --dry-run changes nothing and is ignored, and heredoc
+#           bodies (cat > f <<'EOF' … EOF) are file content, never commands.
 # Lines that are not JSON, and records that are not assistant messages, are skipped.
 # Transcript text is data: nothing from it is executed here.
 # Exit 1 on a missing argument or an unreadable transcript.
@@ -27,6 +28,8 @@ set -euo pipefail
 jq -R -c '
   def ts: sub("\\.[0-9]+Z$"; "Z");
   def short($p): ($p // "" | tostring | split("/") | .[-2:] | join("/"));
+  # Heredoc bodies are file content, not commands: drop them up to their terminator.
+  def strip_heredocs: gsub("<<-?[[:space:]]*[\"'"'"']?(?<w>[A-Za-z_][A-Za-z0-9_]*)[\"'"'"']?(?<rest>[^\n]*)\n[\\s\\S]*?\n[[:space:]]*\\k<w>(?=\n|$)"; "<<\(.w)\(.rest)");
   # One command part, without leading keywords, subshell openers, env assignments.
   def norm: gsub("^[[:space:]]+|[[:space:]]+$"; "")
     | gsub("^((do|then|else|time)[[:space:]]+|[({][[:space:]]*)+"; "")
@@ -56,7 +59,7 @@ jq -R -c '
          summary: ("MCP \(.name | sub("^mcp__(claude_ai_)?"; ""))" + (if $ref == "" then "" else " \($ref)" end)),
          why: "MCP call not recognized as a state change"}
     elif .name == "Bash" then
-      [ (.input.command // "") | splits("&&|\\|\\||;|\\||\n") | norm
+      [ (.input.command // "") | strip_heredocs | splits("&&|\\|\\||;|\\||\n") | norm
         | select((git_mut or gh_mut or other_mut) and (test("--dry-run") | not)) ] as $parts
       | select(($parts | length) > 0)
       | select((($parts | length) == 1 and ($parts[0] | hook_logged)) | not)
