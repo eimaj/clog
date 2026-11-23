@@ -40,7 +40,10 @@ jq -R -c '
   # Logged by post-action-log.sh when it is the only mutating part.
   def hook_logged: test("^(git[[:space:]]+(commit|push)|gh[[:space:]]+pr[[:space:]]+(create|merge))([[:space:]]|$)")
     and (test("--(disable-)?auto([[:space:]]|$)") | not);
-  def mcp_mut: (split("__") | .[-1]) | test("^(save|create|update|upsert|send|schedule|transition|add|delete|remove|edit|mark|merge|post|publish|archive|set|submit|resolve|share|unshare|trash|move|batch|execute|forward|respond|complete|close|assign|mute|link|unlink|enable|disable|cancel|retry|trigger|run)"; "i");
+  # executeRead and execute_code only read; executeWrite and execute_code_write mutate.
+  def mcp_mut: (split("__") | .[-1])
+    | test("^(save|create|update|upsert|send|schedule|transition|add|delete|remove|edit|mark|merge|post|publish|archive|set|submit|resolve|share|unshare|trash|move|batch|execute|forward|respond|complete|close|assign|mute|link|unlink|enable|disable|cancel|retry|trigger|run)"; "i")
+      and (test("^execute_?(read|code$)"; "i") | not);
 
   fromjson? | objects | select(.type == "assistant" and (.timestamp | type) == "string")
   | (.timestamp | ts) as $t

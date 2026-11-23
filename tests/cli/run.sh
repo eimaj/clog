@@ -1469,6 +1469,15 @@ c_sweep__extract_ignores_read_only_calls() {
   extract
   expect run 0 EMPTY EMPTY
 }
+c_sweep__extract_execute_read_tools_are_not_mutations() {
+  { toolcall 2026-11-19T10:00:00Z mcp__claude_ai_DataDog__execute_code '{"code":"x"}'
+    toolcall 2026-11-19T10:00:01Z mcp__claude_ai_Atlassian_MCP__executeRead '{"name":"x"}'
+    toolcall 2026-11-19T10:00:02Z mcp__claude_ai_DataDog__execute_code_write '{"code":"x"}'
+    toolcall 2026-11-19T10:00:03Z mcp__claude_ai_Atlassian_MCP__executeWrite '{"name":"y"}'; } > "$T/tx.jsonl"
+  extract
+  expect run 0 - EMPTY
+  expect_eq summaries "$(jq -r .summary <<< "$OUT" | tr '\n' '|')" 'MCP DataDog__execute_code_write|MCP Atlassian_MCP__executeWrite y|'
+}
 c_sweep__extract_skips_single_hook_logged_command() {
   { bashcall 2026-11-19T10:00:00Z 'git commit -m "x"'
     bashcall 2026-11-19T10:00:01Z 'cd /r && git commit -m "y"'
