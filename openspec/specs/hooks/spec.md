@@ -157,7 +157,7 @@ The hook SHALL touch a single marker file `$TMPDIR/clog-reminder-warned`, shared
 - **THEN** nothing is printed and nothing is written
 
 ### Requirement: post-edit-log-check.sh
-On PostToolUse for Edit, Write, MultiEdit and NotebookEdit, the hook SHALL count edits since the log file's mtime last changed, per session (`CLAUDE_SESSION_ID`, else `CODEX_SESSION_ID`, else `CURSOR_SESSION_ID`, else `default`), and SHALL print `LEDGER: <N> edits since last clog entry. Log a CODE entry before continuing.` to stderr on every invocation where the count is at or above `CLOG_EDIT_THRESHOLD` (default 3; `0` disables). It SHALL write nothing to the log.
+On PostToolUse for Edit, Write, MultiEdit and NotebookEdit, the hook SHALL count edits since the log file's mtime last changed, per session (`CLAUDE_CODE_SESSION_ID`, else `CLAUDE_SESSION_ID`, else `CODEX_SESSION_ID`, else `CURSOR_SESSION_ID`, else `default`), and SHALL print `LEDGER: <N> edits since last clog entry. Log a CODE entry before continuing.` to stderr on every invocation where the count is at or above `CLOG_EDIT_THRESHOLD` (default 3; `0` disables). It SHALL write nothing to the log.
 
 #### Scenario: Third and fourth edits
 - **WHEN** four edit events arrive with no new log entry between them

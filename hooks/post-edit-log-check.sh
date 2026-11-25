@@ -26,7 +26,7 @@ THRESHOLD="${CLOG_EDIT_THRESHOLD:-3}"
 [[ "$THRESHOLD" == "0" ]] && exit 0
 
 LOG_FILE="${CLOG_LOG_ROOT}/${CLOG_LOG_SUBDIR}/$(date +%Y%m%d).jsonl"
-SESSION="${CLAUDE_SESSION_ID:-${CODEX_SESSION_ID:-${CURSOR_SESSION_ID:-default}}}"
+SESSION="${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-${CODEX_SESSION_ID:-${CURSOR_SESSION_ID:-default}}}}"
 MARKER="${TMPDIR:-/tmp}/clog-edit-counter-${SESSION}"
 
 # Current log file mtime (0 if file does not exist)
