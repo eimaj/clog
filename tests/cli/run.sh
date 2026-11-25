@@ -1511,6 +1511,14 @@ c_sweep__extract_checks_every_chain_part() {
   expect run 0 - EMPTY
   expect_eq summary "$(jq -r .summary <<< "$OUT")" 'Bash: gh pr merge 27 && git tag v1'
 }
+c_sweep__extract_redacts_credentials() {
+  { bashcall 2026-11-19T10:00:00Z "git -C /r push 'https://u:p;w@github.com/o/r.git' HEAD"
+    bashcall 2026-11-19T10:00:01Z 'gh api -H "AUTHORIZATION: Bearer abc.def" -X POST repos/o/r/issues'
+    bashcall 2026-11-19T10:00:02Z 'gh api -X DELETE repos/o/r -f t=ghp_abc -f u=github_pat_11AB_cd'; } > "$T/tx.jsonl"
+  extract
+  expect run 0 - EMPTY
+  expect_eq summaries "$(jq -r .summary <<< "$OUT" | tr '\n' '|')" "Bash: git -C /r push 'https://***@github.com/o/r.git' HEAD|"'Bash: gh api -H "AUTHORIZATION: Bearer ***" -X POST repos/o/r/issues|Bash: gh api -X DELETE repos/o/r -f t=*** -f u=***|'
+}
 c_sweep__extract_ignores_heredoc_bodies() {
   bashcall 2026-11-19T10:00:00Z $'cat > /r/spec.md <<\'EOF\'\nrun gh pr merge 27 && git tag v1\nEOF\nls' > "$T/tx.jsonl"
   extract

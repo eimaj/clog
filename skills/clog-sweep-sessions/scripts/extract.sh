@@ -44,6 +44,11 @@ jq -R -c '
   def mcp_mut: (split("__") | .[-1])
     | test("^(save|create|update|upsert|send|schedule|transition|add|delete|remove|edit|mark|merge|post|publish|archive|set|submit|resolve|share|unshare|trash|move|batch|execute|forward|respond|complete|close|assign|mute|link|unlink|enable|disable|cancel|retry|trigger|run)"; "i")
       and (test("^execute_?(read|code$)"; "i") | not);
+  # Command text lands in the log: mask URL credentials, Authorization values, GitHub tokens.
+  # Runs on the whole command, before splitting or truncation can cut a credential from its marker.
+  def redact: gsub("://[^/@[:space:]]+@"; "://***@")
+    | gsub("(?<h>authorization:[[:space:]]*([a-z]+[[:space:]]+)?)[^\"'"'"'[:space:]]+"; "\(.h)***"; "i")
+    | gsub("(gh[pousr]_|github_pat_)[A-Za-z0-9_]+"; "***");
 
   fromjson? | objects | select(.type == "assistant" and (.timestamp | type) == "string")
   | (.timestamp | ts) as $t
@@ -62,7 +67,7 @@ jq -R -c '
          summary: ("MCP \(.name | sub("^mcp__(claude_ai_)?"; ""))" + (if $ref == "" then "" else " \($ref)" end)),
          why: "MCP call not recognized as a state change"}
     elif .name == "Bash" then
-      [ (.input.command // "") | strip_heredocs | splits("&&|\\|\\||;|\\||\n") | norm
+      [ (.input.command // "") | redact | strip_heredocs | splits("&&|\\|\\||;|\\||\n") | norm
         | select((git_mut or gh_mut or other_mut) and (test("--dry-run") | not)) ] as $parts
       | select(($parts | length) > 0)
       | select((($parts | length) == 1 and ($parts[0] | hook_logged)) | not)
