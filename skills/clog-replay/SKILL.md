@@ -28,7 +28,6 @@ model: sonnet
 - A fenced `## Replay Prompt` block in Persona + Context + Task structure, ready to paste into Claude Code
 - Optionally: the name of the target skill to invoke it against
 
-> **Last Reviewed:** 2026-06-11
 > **Refresh Rule:** Re-review if log schema gains new required fields, or if the config keys `log_root`/`log_subdir` in `~/.config/clog/config.yaml` are renamed.
 
 ---
