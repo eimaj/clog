@@ -24,12 +24,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      # post-log-reminder.sh reads mtimes with `stat -f %m || stat -c %Y`; GNU stat
-      # treats `-f` as file-system mode, so the cases that stat an existing log or
-      # marker are excluded on Linux. They still run and print; only they may fail.
-      - name: npm run check:cli
-        run: |
-          npm run check:cli | tee cli.out || true
-          excluded='^FAIL hooks/reminder_(stale_log|within_window|marker_expiry|fresh_log):'
-          if grep -E '^FAIL' cli.out | grep -Ev "$excluded"; then exit 1; fi
-          grep -qE '^[0-9]+ passed, [0-9]+ failed$' cli.out
+      - run: npm run check:cli
