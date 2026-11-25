@@ -29,10 +29,9 @@ model: haiku
 - Entry type filter (optional — defaults to all types)
 
 **Outputs:**
-- A formatted markdown report at `${AI_NOTES_DIR:-$HOME/Code/_notes}/reports/clog-search/YYYY-MM-DD-<keyword-slug>.local.md`
+- A formatted markdown report at `$REPORTS_DIR/YYYY-MM-DD-<keyword-slug>.local.md` (`<reports_root>/clog-search/`)
 - A clog ACTION entry recording the search
 
-> Last Reviewed: 2026-06-11
 > Refresh Rule: re-review if log schema gains new fields, or if config keys `log_root`/`log_subdir` in `~/.config/clog/config.yaml` are renamed.
 
 ## Steps
@@ -45,6 +44,8 @@ _cfg="${CLOG_CONFIG:-$HOME/.config/clog/config.yaml}"
 _root=$(grep '^log_root:' "$_cfg" 2>/dev/null | sed 's/log_root:[[:space:]]*//' | tr -d '"' | sed "s|\${HOME}|$HOME|;s|^~|$HOME|")
 _sub=$(grep '^log_subdir:' "$_cfg" 2>/dev/null | sed 's/log_subdir:[[:space:]]*//' | tr -d '"')
 LOG_DIR="${_root:-$HOME/Code/logs}/${_sub:-claude}"
+_rep=$(grep '^reports_root:' "$_cfg" 2>/dev/null | sed 's/reports_root:[[:space:]]*//' | tr -d '"' | sed "s|\${HOME}|$HOME|;s|^~|$HOME|")
+REPORTS_DIR="${CLOG_REPORTS_ROOT:-${_rep:-${_root:-$HOME/Code/logs}/reports}}/clog-search"
 ```
 
 Clog immediately upon skill invocation, before asking the user anything:
@@ -219,12 +220,12 @@ Report format (used for both inline and subagent output):
 
 2. Ensure the report directory exists and write the file. Clog BEFORE writing:
 ```bash
-clog ACTION "clog-search: writing report to ${AI_NOTES_DIR:-$HOME/Code/_notes}/reports/clog-search/<slug>.local.md — N entries, keyword='<keyword>'"
-# Example: "clog-search: writing report to ${AI_NOTES_DIR:-$HOME/Code/_notes}/reports/clog-search/2026-06-04-everflow.local.md — 14 entries, keyword='everflow'"
+clog ACTION "clog-search: writing report to $REPORTS_DIR/<slug>.local.md — N entries, keyword='<keyword>'"
+# Example: "clog-search: writing report to $REPORTS_DIR/2026-06-04-everflow.local.md — 14 entries, keyword='everflow'"
 ```
 
 ```bash
-mkdir -p ${AI_NOTES_DIR:-$HOME/Code/_notes}/reports/clog-search
+mkdir -p "$REPORTS_DIR"
 ```
 
 3. Print the path and open it:
