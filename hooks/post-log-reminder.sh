@@ -30,7 +30,7 @@ NOW=$(date +%s)
 
 # Check marker — avoid spamming warnings within the threshold window
 if [[ -f "$MARKER" ]]; then
-  MARKER_AGE=$(( NOW - $(stat -f %m "$MARKER" 2>/dev/null || stat -c %Y "$MARKER" 2>/dev/null || echo "$NOW") ))
+  MARKER_AGE=$(( NOW - $(stat -c %Y "$MARKER" 2>/dev/null || stat -f %m "$MARKER" 2>/dev/null || echo "$NOW") ))
   if [[ $MARKER_AGE -lt $THRESHOLD ]]; then
     exit 0
   fi
@@ -65,7 +65,7 @@ if [[ ! -f "$LOG_FILE" ]]; then
   exit 0
 fi
 
-LOG_MTIME=$(stat -f %m "$LOG_FILE" 2>/dev/null || stat -c %Y "$LOG_FILE" 2>/dev/null || echo "$NOW")
+LOG_MTIME=$(stat -c %Y "$LOG_FILE" 2>/dev/null || stat -f %m "$LOG_FILE" 2>/dev/null || echo "$NOW")
 ELAPSED=$(( NOW - LOG_MTIME ))
 
 if [[ $ELAPSED -gt $THRESHOLD ]]; then
