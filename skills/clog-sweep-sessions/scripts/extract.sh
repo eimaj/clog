@@ -46,7 +46,7 @@ jq -R -c '
       and (test("^execute_?(read|code$)"; "i") | not);
   # Command text lands in the log: mask URL credentials, Authorization values, GitHub tokens.
   def redact: gsub("://[^/@[:space:]]+@"; "://***@")
-    | gsub("(?<h>[Aa]uthorization:[[:space:]]*([A-Za-z]+[[:space:]]+)?)[^\"'"'"'[:space:]]+"; "\(.h)***")
+    | gsub("(?<h>authorization:[[:space:]]*([a-z]+[[:space:]]+)?)[^\"'"'"'[:space:]]+"; "\(.h)***"; "i")
     | gsub("(gh[pousr]_|github_pat_)[A-Za-z0-9_]+"; "***");
 
   fromjson? | objects | select(.type == "assistant" and (.timestamp | type) == "string")
