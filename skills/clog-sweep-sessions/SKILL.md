@@ -1,6 +1,6 @@
 ---
 name: clog-sweep-sessions
-description: Sweep named Claude Code sessions (by session id, closed or running, any day) for unlogged state-changes and backfill them on the right session, day and time. Use when /pm-end or /pa-eod needs every session of a project checked, or when the user says "sweep sessions <ids>", "clog sweep these sessions", or "backfill clogs for session <id>". For the current session only, use clog-sweep.
+description: Sweep named Claude Code sessions (by session id, closed or running, any day) for unlogged state-changes and backfill them on the right session, day and time. Use when /pm-end or /pa-eod needs every session of a project checked, or when the user says "sweep sessions" followed by the session ids, "clog sweep these sessions", or "backfill clogs for session" followed by a session id. For the current session only, use clog-sweep.
 model: haiku
 ---
 
