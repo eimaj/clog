@@ -44,6 +44,10 @@ jq -R -c '
   def mcp_mut: (split("__") | .[-1])
     | test("^(save|create|update|upsert|send|schedule|transition|add|delete|remove|edit|mark|merge|post|publish|archive|set|submit|resolve|share|unshare|trash|move|batch|execute|forward|respond|complete|close|assign|mute|link|unlink|enable|disable|cancel|retry|trigger|run)"; "i")
       and (test("^execute_?(read|code$)"; "i") | not);
+  # Command text lands in the log: mask URL credentials, Authorization values, GitHub tokens.
+  def redact: gsub("://[^/@[:space:]]+@"; "://***@")
+    | gsub("(?<h>[Aa]uthorization:[[:space:]]*([A-Za-z]+[[:space:]]+)?)[^\"'"'"'[:space:]]+"; "\(.h)***")
+    | gsub("(gh[pousr]_|github_pat_)[A-Za-z0-9_]+"; "***");
 
   fromjson? | objects | select(.type == "assistant" and (.timestamp | type) == "string")
   | (.timestamp | ts) as $t
@@ -67,7 +71,7 @@ jq -R -c '
       | select(($parts | length) > 0)
       | select((($parts | length) == 1 and ($parts[0] | hook_logged)) | not)
       | {timestamp: $t, type: "ACTION",
-         summary: ("Bash: " + ($parts | join(" && ") | gsub("[[:space:]]+"; " ") | .[0:160])),
+         summary: ("Bash: " + ($parts | join(" && ") | gsub("[[:space:]]+"; " ") | redact | .[0:160])),
          why: "Bash mutation the post-action-log hook does not log (chain, git -C, gh -R, or no hook)"}
     else empty end
 ' "$1"
