@@ -1,6 +1,6 @@
 ---
 name: clog-sweep-sessions
-description: Sweep named Claude Code sessions (by session id, closed or running, any day) for unlogged state-changes and backfill them on the right session, day and time. Use when /pm-end or /pa-eod needs every session of a project checked, or when the user says "sweep sessions <ids>", "clog sweep these sessions", or "backfill clogs for session <id>". For the current session only, use clog-sweep.
+description: Sweep named Claude Code sessions (by session id, closed or running, any day) for unlogged state-changes and backfill them on the right session, day and time. Use when /pm-end or /pa-eod needs every session of a project checked, or when the user says "sweep sessions" followed by the session ids, "clog sweep these sessions", or "backfill clogs for session" followed by a session id. For the current session only, use clog-sweep.
 model: haiku
 ---
 
@@ -38,7 +38,7 @@ All in `scripts/`, bash + jq. Deterministic work lives there; only the gap revie
 
 Run once per session. A session that fails never stops the others.
 
-1. **Resolve.** First confirm the installed CLI is current: `clog --help` lists `--time` (clog 1.1.0 or newer). If it does not, stop and report it; `clog` is usually a symlink into a checkout that may sit on a stale branch, and every backfill would fail with `unknown flag '--time'`. Then `scripts/resolve.sh <sid>…`. For `no_transcript` or `unreadable`, record that status and move on. If the caller gave `--date`, sweep only those dates; otherwise every date in `dates`.
+1. **Resolve.** First confirm the installed CLI is current: `clog --help` lists `--time`. If it does not, stop and report it; `clog` is usually a symlink into a checkout that may sit on a stale branch, and every backfill would fail with `unknown flag '--time'`. Then `scripts/resolve.sh <sid>…`. For `no_transcript` or `unreadable`, record that status and move on. If the caller gave `--date`, sweep only those dates; otherwise every date in `dates`.
 
 2. **Extract and filter to real gaps.** Dispatch no subagent: transcripts run to hundreds of thousands of tokens with lines longer than any Read limit, and jq streams them whole. Per session:
 

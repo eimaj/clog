@@ -35,9 +35,9 @@ esac
 # Expand ~ so paths are absolute
 FILE_PATH="${FILE_PATH/#\~/$HOME}"
 
-# Session: JSON payload > env var (clog also reads CLAUDE_SESSION_ID itself, but be explicit)
+# Session: JSON payload > env var (clog also reads the session env itself, but be explicit)
 SESSION=$(echo "$INPUT" | jq -r '.session_id // ""')
-SESSION="${SESSION:-${CLAUDE_SESSION_ID:-${CODEX_SESSION_ID:-${CURSOR_SESSION_ID:-}}}}"
+SESSION="${SESSION:-${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-${CODEX_SESSION_ID:-${CURSOR_SESSION_ID:-}}}}}"
 
 # Model: env var set by Claude Code
 MODEL="${CLAUDE_MODEL:-}"
