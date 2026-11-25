@@ -32,7 +32,7 @@ MARKER="${TMPDIR:-/tmp}/clog-edit-counter-${SESSION}"
 # Current log file mtime (0 if file does not exist)
 LOG_MTIME=0
 if [[ -f "$LOG_FILE" ]]; then
-  LOG_MTIME=$(stat -f %m "$LOG_FILE" 2>/dev/null || stat -c %Y "$LOG_FILE" 2>/dev/null || echo 0)
+  LOG_MTIME=$(stat -c %Y "$LOG_FILE" 2>/dev/null || stat -f %m "$LOG_FILE" 2>/dev/null || echo 0)
 fi
 
 # Marker stores "<observed_log_mtime> <count>" so we can detect when a clog

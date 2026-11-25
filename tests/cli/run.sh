@@ -1265,6 +1265,18 @@ c_hooks__edit_check_threshold_zero() {
     expect "edit$i" 0 EMPTY EMPTY
   done
 }
+c_hooks__edit_check_resets_on_new_entry() {
+  local i
+  ENVX=(CLAUDE_SESSION_ID=s1)
+  seed_log
+  for i in 1 2 3; do
+    STDIN=$(payload_for post-edit-log-check.sh); hook post-edit-log-check.sh
+  done
+  expect third_edit_warns 0 EMPTY '=LEDGER: 3 edits since last clog entry. Log a CODE entry before continuing.'
+  age_file "$LOGF" 60
+  STDIN=$(payload_for post-edit-log-check.sh); hook post-edit-log-check.sh
+  expect new_entry_resets 0 EMPTY EMPTY
+}
 
 # post-write-clog.sh
 c_hooks__write_event() {
