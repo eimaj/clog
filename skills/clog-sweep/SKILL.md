@@ -31,7 +31,7 @@ The scan is deterministic and runs in this session; no subagent is dispatched. `
 
 ```bash
 S=<SKILL_DIR>/../clog-sweep-sessions/scripts
-$S/extract.sh <TRANSCRIPT_PATH> | $S/localize.sh | $S/gaps.sh "$CLAUDE_SESSION_ID" --date <day>…
+$S/extract.sh <TRANSCRIPT_PATH> | $S/localize.sh | $S/gaps.sh "$CLAUDE_CODE_SESSION_ID" --date <day>…
 ```
 
 `extract.sh` lists every state-changing tool call in the transcript: Edit/Write/MultiEdit/NotebookEdit as `CODE`; Agent/Task dispatches, MCP calls whose tool name starts with a mutating verb, and Bash calls that change repo or remote state as `ACTION`. It checks every part of a chained command, skips a Bash call only when its single mutating part is one `post-action-log.sh` logs (`git commit`, `git push`, `gh pr create`, `gh pr merge` without `--auto`), and reports `git -C <dir> commit|push` and `gh -R <repo> …` because the hook does not match them. `localize.sh` turns each call's UTC timestamp into the local date and time, so each call is matched against the log of the day it happened on. `gaps.sh` drops any call that already has a same-type, non-LEARNING entry for this session within ±60 s on that day. What is left is the gap list.
@@ -48,9 +48,9 @@ Use when: "clog gaps", "check my log", "find missing entries", "audit my log", o
 
 1. **Resolve paths** — same as [Mode B Step 1](#steps-1).
 
-2. **Find and review the gaps** with the pipeline in [How it works](#how-it-works). Turn the reviewed list into proposed commands with `$S/backfill-cmds.sh "$CLAUDE_SESSION_ID"`, and do not run them: audit only.
+2. **Find and review the gaps** with the pipeline in [How it works](#how-it-works). Turn the reviewed list into proposed commands with `$S/backfill-cmds.sh "$CLAUDE_CODE_SESSION_ID"`, and do not run them: audit only.
 
-3. **Check the quality of this session's existing entries.** List them with `jq -c 'select(.session == env.CLAUDE_SESSION_ID)' <log>` for each session day, and flag:
+3. **Check the quality of this session's existing entries.** List them with `jq -c 'select(.session == env.CLAUDE_CODE_SESSION_ID)' <log>` for each session day, and flag:
    - LEARNING entries missing `kpi`
    - summaries under 20 characters or with vague patterns ("did stuff", "updated", "progress" alone)
    - DECISION entries with no tradeoff language; ACTION entries that look like DECISIONs
@@ -85,15 +85,15 @@ Use when: "clog it", "backfill clogs", "I missed some clogs", or you notice mid-
 > Once confirmed, continue with Step 3 as normal.
 
 1. **Resolve paths.** Compute:
-   - **Session transcript** (Claude Code): `$HOME/.claude/projects/$(pwd | sed 's|/|-|g')/${CLAUDE_SESSION_ID}.jsonl`. Other tools encode the path differently — see your tool's docs.
-   - **Session days**: `dates` from `<SKILL_DIR>/../clog-sweep-sessions/scripts/resolve.sh "$CLAUDE_SESSION_ID"` (the local dates from the transcript's first to last entry), where `<SKILL_DIR>` is this skill's real directory (follow the `~/.claude/skills/clog-sweep` symlink). If today (`date +%Y-%m-%d`) is not the last date, append it.
+   - **Session transcript** (Claude Code): `$HOME/.claude/projects/$(pwd | sed 's|/|-|g')/${CLAUDE_CODE_SESSION_ID}.jsonl`. Other tools encode the path differently — see your tool's docs.
+   - **Session days**: `dates` from `<SKILL_DIR>/../clog-sweep-sessions/scripts/resolve.sh "$CLAUDE_CODE_SESSION_ID"` (the local dates from the transcript's first to last entry), where `<SKILL_DIR>` is this skill's real directory (follow the `~/.claude/skills/clog-sweep` symlink). If today (`date +%Y-%m-%d`) is not the last date, append it.
    - **Clog logs**: `<SKILL_DIR>/../clog-sweep-sessions/scripts/logs-for.sh <date>…` with every session day, one path per line (`<log_root>/<log_subdir>/YYYYMMDD.jsonl` from clog config). Keep only the paths that exist; a day with no log is skipped. A single-day session resolves exactly today's log.
 
-   If `$CLAUDE_SESSION_ID` is unset, the transcript file is missing, `resolve.sh`/`logs-for.sh`/`extract.sh` does not exist, or any of them exits non-zero, fall back to an inline scan of this conversation's own tool calls against today's log and say so at once: print `inline fallback: only the current session was scanned, earlier session days were not checked` when you detect it, and repeat it at the end of the Step 4 output (Mode A: the printout; Mode B: the summary line).
+   If `$CLAUDE_CODE_SESSION_ID` is unset, the transcript file is missing, `resolve.sh`/`logs-for.sh`/`extract.sh` does not exist, or any of them exits non-zero, fall back to an inline scan of this conversation's own tool calls against today's log and say so at once: print `inline fallback: only the current session was scanned, earlier session days were not checked` when you detect it, and repeat it at the end of the Step 4 output (Mode A: the printout; Mode B: the summary line).
 
 2. **Find and review the gaps** with the pipeline in [How it works](#how-it-works), passing `--date` for every session day.
 
-3. **Backfill.** `$S/backfill-cmds.sh "$CLAUDE_SESSION_ID"` over the reviewed list, piped to `$S/run-backfill.sh`. Auto-apply (except in approval mode): no pause. Each miss is written to the day it happened on with the action's time, followed by its paired LEARNING; never hand-write backfill lines, and never run them as one bash block. Skip when there are no gaps.
+3. **Backfill.** `$S/backfill-cmds.sh "$CLAUDE_CODE_SESSION_ID"` over the reviewed list, piped to `$S/run-backfill.sh`. Auto-apply (except in approval mode): no pause. Each miss is written to the day it happened on with the action's time, followed by its paired LEARNING; never hand-write backfill lines, and never run them as one bash block. Skip when there are no gaps.
 
 4. **Summarize** to the user in one line: `N backfilled, dominant pattern: <one short phrase>`, taking N from `run-backfill.sh`'s `backfilled` count, followed by the inline-fallback sentence from Mode B Step 1 when it applied.
 
