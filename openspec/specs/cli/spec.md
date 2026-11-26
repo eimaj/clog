@@ -170,11 +170,16 @@ When the configured `families` list is non-empty and `--family` is not in it, th
 - **THEN** the entry is appended to `20260230.jsonl` and the exit code is 0
 
 ### Requirement: Success output
-On success the CLI SHALL print nothing to stdout or stderr and SHALL exit 0.
+On success the CLI SHALL print nothing to stderr and SHALL exit 0. Stdout SHALL be empty unless `--echo` is given, in which case it SHALL contain exactly the appended line.
+(Previously: on success the CLI printed nothing to stdout or stderr and exited 0.)
 
 #### Scenario: Happy path
 - **WHEN** the user runs `clog ACTION "happy path"`
 - **THEN** stdout and stderr are empty, the exit code is 0 and one line was appended
+
+#### Scenario: Happy path with echo
+- **WHEN** the user runs `clog ACTION "happy path" --echo`
+- **THEN** stdout is the appended line, stderr is empty and the exit code is 0
 
 ### Requirement: Disable switch
 When `CLOG_DISABLE` is exactly `1`, the CLI SHALL exit 0 without writing or printing anything, for any arguments, whether or not a config file exists. Other values of `CLOG_DISABLE` SHALL have no effect.
@@ -260,3 +265,43 @@ A failing `git add` or `git commit` during auto-commit SHALL NOT change the CLI'
 #### Scenario: Short form rejected
 - **WHEN** the user runs `clog ACTION "x" --time 14:05`
 - **THEN** the exit code is 1 with the invalid-time message
+
+### Requirement: Echo flag
+The CLI SHALL accept `--echo` (no value) after the two positionals. When given and the entry is appended, the CLI SHALL print the exact JSON line it appended to stdout, followed by a newline, and exit 0. When nothing is written (`CLOG_DISABLE=1`, or any validation failure) the CLI SHALL print nothing to stdout.
+
+#### Scenario: Echo on success
+- **WHEN** the user runs `clog ACTION "deploy" --repo r --echo`
+- **THEN** stdout is the single line that was appended to the day's file and the exit code is 0
+
+#### Scenario: Echo while disabled
+- **WHEN** `CLOG_DISABLE=1` and the user runs `clog ACTION "x" --echo`
+- **THEN** stdout is empty, nothing is written and the exit code is 0
+
+#### Scenario: Echo on a rejected entry
+- **WHEN** the user runs `clog ACTION "x" --date notadate --echo`
+- **THEN** stdout is empty, stderr carries the invalid-date message and the exit code is 1
+
+### Requirement: Serve subcommand
+When the first argument is `serve`, the CLI SHALL hand the remaining arguments to the compiled HTTP server and SHALL do so before loading the config. The server is documented in the `http-api` spec.
+
+#### Scenario: Serve without a config
+- **WHEN** `CLOG_CONFIG` points at a missing file and the user runs `clog serve --port 0`
+- **THEN** the server starts and prints its listening line and then its token line `clog API token: <token>`
+
+#### Scenario: Serve help
+- **WHEN** the user runs `clog serve --help`
+- **THEN** stdout is `Usage: clog serve [--port N]   (default 127.0.0.1:4848; prints the API token on start)` and the exit code is 0
+
+### Requirement: Serve preconditions
+`clog serve` SHALL print `clog: node is required for 'clog serve'` and exit 1 when `node` is not on PATH. It SHALL print `clog: run 'npm run build' first` and exit 1 when `dist/server/serve.js` does not exist.
+
+#### Scenario: Not built
+- **WHEN** `dist/` does not exist and the user runs `clog serve`
+- **THEN** stderr is `clog: run 'npm run build' first` and the exit code is 1
+
+### Requirement: Serve usage line
+The usage text SHALL include the line `  clog serve [--port N]   start the local HTTP API (default 127.0.0.1:4848; prints a bearer token)`.
+
+#### Scenario: Help lists serve
+- **WHEN** the user runs `clog --help`
+- **THEN** stdout contains `clog serve [--port N]` and the exit code is 0
